@@ -131,7 +131,7 @@ namespace Orion
 			return result;
 		}
 
-		public static OptimizeResult Optimize(CompilerState state)
+		public static Result Optimize(CompilerState state)
 		{
 			Result result = new Result();
 
@@ -141,9 +141,9 @@ namespace Orion
 			List<SourceFunctionSymbol> functions = main.InOrderSyms().OfType<SourceFunctionSymbol>().ToList();
 
 			//Tac optimizations
-			int opts = Optimizer.Optimize(functions);
+			Optimizer.Optimize(functions, result);
 
-			return new OptimizeResult(opts, result);
+			return result;
 		}
 
 		public static Result ReadyForBackend(CompilerState state)

@@ -4,9 +4,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using static Orion.DataGraph;
+using static Orion.Opt.DataGraph;
 
-namespace Orion
+namespace Orion.Opt
 {
 	public class DataGraph : IEnumerable<KeyValuePair<DataSymbol, DataUse>>
 	{

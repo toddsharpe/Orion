@@ -1,0 +1,6 @@
+Backend Codegen
+"unstructured control flow to structured control flow"
+Options: goto based or CFG based. Python doesnt have goto (found some patches but nothing for latest python)
+* https://medium.com/leaningtech/solving-the-structured-control-flow-problem-once-and-for-all-5123117b1ee2
+* Relooper https://github.com/emscripten-core/emscripten/blob/main/docs/paper.pdf
+* Beyond Relooper https://dl.acm.org/doi/abs/10.1145/3547621

@@ -1,40 +1,36 @@
-﻿using Orion.Symbols;
+﻿using Orion.Opt;
+using Orion.Symbols;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using static Orion.DataGraph;
 using TypeCode = Orion.Symbols.TypeCode;
 
 namespace Orion.IR
 {
 	internal class Optimizer
 	{
-		internal static int Optimize(List<SourceFunctionSymbol> functions)
+		internal static void Optimize(List<SourceFunctionSymbol> functions, Result result)
 		{
-			int total = 0;
 			foreach (SourceFunctionSymbol func in functions)
 			{
-				Console.WriteLine("## SSA Optimizer ##");
-				total += SingleStaticAssignment(func);
+				result.Messages.Add(new Message("## SSA Optimizer ##", InputRegion.None, MessageType.Info));
+				SingleStaticAssignment(func, result);
 
-				Console.WriteLine("## Literal Eval ##");
-				total += LiteralEval(func);
+				result.Messages.Add(new Message("## Literal Eval ##", InputRegion.None, MessageType.Info));
+				LiteralEval(func, result);
 
-				Console.WriteLine("## Dead Block Elimination ##");
-				total += DeadBlockRemoval(func);
+				//result.Messages.Add(new Message("## Dead Block Elimination ##");
+				//DeadBlockRemoval(func);
 
-				Console.WriteLine("## Dead Code Elimination ##");
-				total += DeadCodeRemoval(func);
+				//result.Messages.Add(new Message("## Dead Code Elimination ##");
+				//DeadCodeRemoval(func);
 			}
-			Console.WriteLine();
-			return total;
 		}
 
 		//Doesnt do SSA cross blocks
-		private static int SingleStaticAssignment(SourceFunctionSymbol func)
+		private static void SingleStaticAssignment(SourceFunctionSymbol func, Result result)
 		{
-			int count = 0;
 			ControlFlowGraph cfg = ControlFlowGraph.Create(func.Tacs);
 			//Display.Print(cfg);
 
@@ -52,10 +48,10 @@ namespace Orion.IR
 					if (operands.Count == 0)
 						continue;
 
-					Console.WriteLine($"Tac: {node.Value}");
+					result.Messages.Add(new Message($"Tac: {node.Value}", InputRegion.None, MessageType.Info));
 					foreach (KeyValuePair<DataSymbol, DataSymbol> writer in operands)
 					{
-						Console.WriteLine($"\t{writer.Key} => {writer.Value}");
+						result.Messages.Add(new Message($"\t{writer.Key} => {writer.Value}", InputRegion.None, MessageType.Info));
 					}
 
 					switch (node.Value)
@@ -63,10 +59,9 @@ namespace Orion.IR
 						case AssignTac assign:
 						{
 							AssignTac newAssign = assign with { Operand1 = operands[assign.Operand1] };
-							Console.WriteLine($"\tResult: {newAssign}");
+							result.Messages.Add(new Message($"\tResult: {newAssign}", InputRegion.None, MessageType.Info));
 							LinkedListNode<Tac> added = block.Tacs.AddAfter(node, newAssign);
 							block.Tacs.Remove(node);
-							count++;
 						}
 						break;
 
@@ -84,10 +79,9 @@ namespace Orion.IR
 								(false, true) => bin with { Operand2 = operands[bin.Operand2] },
 								_ => throw new Exception("Shouldnt be possible")
 							};
-							Console.WriteLine($"\tResult: {newBin}");
+							result.Messages.Add(new Message($"\tResult: {newBin}", InputRegion.None, MessageType.Info));
 							LinkedListNode<Tac> added = block.Tacs.AddAfter(node, newBin);
 							block.Tacs.Remove(node);
-							count++;
 						}
 						break;
 
@@ -100,30 +94,27 @@ namespace Orion.IR
 						{
 							Trace.Assert(call.Arguments.Where(operands.ContainsKey).Any());
 							CallTac newCall = call with { Arguments = call.Arguments.ReplaceAll(operands).ToList() };
-							Console.WriteLine($"\tResult: {newCall}");
+							result.Messages.Add(new Message($"\tResult: {newCall}", InputRegion.None, MessageType.Info));
 							LinkedListNode<Tac> added = block.Tacs.AddAfter(node, newCall);
 							block.Tacs.Remove(node);
-							count++;
 						}
 						break;
 
 						case ConditionalTac cond:
 						{
 							ConditionalTac newCond = cond with { Condition = operands[cond.Condition] };
-							Console.WriteLine($"\tResult: {newCond}");
+							result.Messages.Add(new Message($"\tResult: {newCond}", InputRegion.None, MessageType.Info));
 							LinkedListNode<Tac> added = block.Tacs.AddAfter(node, newCond);
 							block.Tacs.Remove(node);
-							count++;
 						}
 						break;
 
 						case ReturnTac ret:
 						{
 							ReturnTac newRet = ret with { Symbol = operands[ret.Symbol] };
-							Console.WriteLine($"\tResult: {newRet}");
+							result.Messages.Add(new Message($"\tResult: {newRet}", InputRegion.None, MessageType.Info));
 							LinkedListNode<Tac> added = block.Tacs.AddAfter(node, newRet);
 							block.Tacs.Remove(node);
-							count++;
 						}
 						break;
 
@@ -138,21 +129,17 @@ namespace Orion.IR
 			foreach (ControlFlowGraph.Block block in cfg)
 				foreach (Tac tac in block.Tacs)
 					func.Tacs.AddLast(tac);
-
-
-			return count;
 		}
 
-		private static int LiteralEval(SourceFunctionSymbol func)
+		private static void LiteralEval(SourceFunctionSymbol func, Result result)
 		{
-			int count = 0;
 			foreach (LinkedListNode<Tac> current in func.Tacs.EnumerateNodes())
 			{
 				switch (current.Value)
 				{
 					case BinaryTac bin when bin.Operand1 is LiteralSymbol lit1 && bin.Operand2 is LiteralSymbol lit2 && lit1.Type is PrimitiveTypeSymbol builtin:
 					{
-						Console.WriteLine($"Candidate: {bin}");
+						result.Messages.Add(new Message($"Candidate: {bin}", InputRegion.None, MessageType.Info));
 						Trace.Assert(lit1.Type == lit2.Type);
 						object value = (builtin.Code, bin.Op) switch
 						{
@@ -171,15 +158,14 @@ namespace Orion.IR
 
 						//Replace with result
 						AssignTac replace = new AssignTac(bin.Result, literal);
-						Console.WriteLine($"\tResult: {replace}");
+						result.Messages.Add(new Message($"\tResult: {replace}", InputRegion.None, MessageType.Info));
 						current.Value = replace;
-						count++;
 					}
 					break;
 
 					case UnaryTac unary when unary.Operand1 is LiteralSymbol lit && lit.Type is PrimitiveTypeSymbol builtin:
 					{
-						Console.WriteLine($"Candidate: {unary}");
+						result.Messages.Add(new Message($"Candidate: {unary}", InputRegion.None, MessageType.Info));
 						object value = (builtin.Code, unary.Op) switch
 						{
 							(TypeCode.i32, UnaryTacOp.Negate) => (int)lit.Value * -1,
@@ -195,20 +181,16 @@ namespace Orion.IR
 
 						//Replace with result
 						AssignTac replace = new AssignTac(unary.Result, literal);
-						Console.WriteLine($"\tResult: {replace}");
+						result.Messages.Add(new Message($"\tResult: {replace}", InputRegion.None, MessageType.Info));
 						current.Value = replace;
-						count++;
 					}
 					break;
 				}
 			}
-
-			return count;
 		}
 
-		private static int DeadBlockRemoval(SourceFunctionSymbol func)
+		private static void DeadBlockRemoval(SourceFunctionSymbol func, Result result)
 		{
-			int count = 0;
 			LiteralSymbol trueSymbol = func.Table.Get(true);
 			LiteralSymbol falseSymbol = func.Table.Get(false);
 
@@ -237,10 +219,9 @@ namespace Orion.IR
 
 			ControlFlowGraph cfg = ControlFlowGraph.Create(func.Tacs);
 			cfg.Display();
-			count = cfg.EnumerateNodes().Count();
 			cfg.Condense();
 
-			Console.WriteLine(func.Name);
+			result.Messages.Add(new Message(func.Name, InputRegion.None, MessageType.Info));
 			cfg.Display();
 
 			ControlFlowGraph.Node head = cfg.FindFunctionStart();
@@ -252,35 +233,29 @@ namespace Orion.IR
 			{
 				foreach (Tac tac in block.Tacs)
 					func.Tacs.AddLast(tac);
-				count--;
 			}
 
-			return count;
 		}
 
-		private static int DeadCodeRemoval(SourceFunctionSymbol func)
+		private static void DeadCodeRemoval(SourceFunctionSymbol func, Result result)
 		{
-			int count = 0;
-			DataGraph graph = Create(func);
+			DataGraph graph = DataGraph.Create(func);
 
 			//Eliminate tacs that write to a symbol thats never read from
-			foreach (KeyValuePair<DataSymbol, DataUse> item in graph)
+			foreach (KeyValuePair<DataSymbol, DataGraph.DataUse> item in graph)
 			{
 				if (func.Parameters.Contains(item.Key))
 					continue;
-				
+
 				if (item.Value.Readers.Count != 0)
 					continue;
 
-				foreach (var writer in item.Value.Writers)
+				foreach (LinkedListNode<Tac> writer in item.Value.Writers)
 				{
-					Console.WriteLine($"Removing: {writer.Value}");
+					result.Messages.Add(new Message($"Removing: {writer.Value}", InputRegion.None, MessageType.Info));
 					func.Tacs.Remove(writer);
-					count++;
 				}
 			}
-
-			return count;
 		}
 	}
 }

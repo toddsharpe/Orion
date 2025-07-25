@@ -125,13 +125,12 @@ namespace Orion.Commands
 			journal.Write(frontend.State.Root);
 
 			/*
-			 * Optimize.
-			 * Disabled for now.
+			 * Light optimization pass.
 			 */
-
-			//Light optimization pass
-			//OptimizeResult optResult = Compiler.Optimize(frontend.State);
-			//Program.PhaseEnd("Optimize", optResult.Result, file, settings.Verbose);
+			journal.WritePhase("Optimization");
+			Result optResult = Compiler.Optimize(frontend.State);
+			Program.PhaseEnd("Optimize", optResult, file, settings.Verbose);
+			journal.Write(optResult);
 
 			//Final tacs
 			if (settings.Verbose)
