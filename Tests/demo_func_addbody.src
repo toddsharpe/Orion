@@ -1,0 +1,30 @@
+Func Hi1(str name)
+{
+	return Build_Func(name, "void", "", 
+		"WriteLine(\"hi1\");");
+}
+
+Func Hi2(str name)
+{
+	return Build_Func(name, "void", "i32 a", 
+		"WriteLine(\"hi2\");");
+}
+
+i32 main()
+{
+	//Add writes
+	#call Build_AddBody("
+	{
+		WriteLine(\"hi_body1\");
+		WriteLine(\"hi_body2\");
+	}");
+
+	Func c = #call Hi1("my_func");
+	#call Build_AddBody("my_func();");
+	WriteLine("Function Name (Runtime): " + Func_Name(c));
+
+	#call Hi2("my_func2");
+	#call Build_AddBody("my_func2(5);");
+
+	return 0;
+}

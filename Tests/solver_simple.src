@@ -1,0 +1,45 @@
+#build Func Count(str inst_name)
+{
+	return Build_Func(inst_name, "void", "#out i32 last",
+	"
+		#state i32 prev = 0;
+		last = prev;
+		prev = prev + 1;
+	");
+}
+
+#build Func Even(str inst_name)
+{
+	return Build_Func(inst_name, "void", "#in i32 last, #out bool is_even",
+	"
+		is_even = last % 2 == 0;
+	");
+}
+
+i32 one()
+{
+	return 1;
+}
+
+i32 two()
+{
+	return 2;
+}
+
+i32 main()
+{
+	#call
+	{
+		Func[] funcs = Func[Count("my_count"), Even("my_even")];
+		Solver solver = Solver_Make(funcs);
+		Solver_Solve(solver);
+
+		str thunk = Solver_Main(solver);
+		str state = Solver_ViewState(solver);
+
+		Build_AddBody(Solver_Struct(solver));
+		Build_AddBody("for (i32 i = 0; i < 5; i++) {" + thunk + state + "}");
+	}
+
+	return 0;
+}

@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Orion": {
+      "commandName": "Project",
+      "commandLineArgs": "compile Tests\\demo_0.src -o Tests\\build\\demo_0.cpp -v -l cpp -j",
+      "workingDirectory": "..\\..\\"
+    }
+  }
+}

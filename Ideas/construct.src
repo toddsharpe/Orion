@@ -1,0 +1,33 @@
+#template void Even(#in i32 last, #out bool is_even)
+{
+	is_even = last % 2 == 0;
+}
+
+#template void Count(#param i32 inc = 1, #out i32 last)
+{
+	#state i32 prev = 0;
+	last = prev;
+	prev = prev + inc;
+}
+
+i32 main()
+{
+	#call
+	{
+		Func[] funcs = Func[
+			#construct Even("my_even"),
+			#construct Count("my_count", 2)
+		];
+
+		Solver solver = Solver_Make(funcs);
+		Solver_Solve(solver);
+
+		str thunk = Solver_Main(solver);
+		str state = Solver_ViewState(solver);
+
+		Build_AddBody(Solver_Struct(solver));
+		Build_AddBody("for (i32 i = 0; i < 5; i++) {" + thunk + state + "}");
+	}
+
+	return 0;
+}

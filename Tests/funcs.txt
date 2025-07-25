@@ -1,0 +1,5 @@
+Dynamic function: my_count
+Runtime lookup: my_count
+value: 1
+value: 2
+value: 3

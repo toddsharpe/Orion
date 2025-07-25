@@ -1,0 +1,51 @@
+#build str gen()
+{
+    return "Hello World: Build";
+}
+
+str gen_()
+{
+    return "Hello World: RT";
+}
+
+i32 value()
+{
+    return 1;
+}
+
+#build void array_test()
+{
+    i32[] ints = i32[value(), value(), value()];
+    WriteInts(ints);
+}
+
+i32 main()
+{
+    str s = gen_();
+    WriteLine(s);
+
+    #call
+    {
+        //Write build time
+        str current = Time_Now();
+        WriteLine(current);
+    }
+
+    WriteLine(#call gen_());
+
+    #call
+    {
+        str b1 = gen();
+        for (i32 i = 0; i < 5; i++)
+        {
+            WriteLine(b1);
+        }
+    }
+
+    #call array_test();
+
+    i32[] ints = i32[value(), value(), value()];
+    WriteInts(ints);
+
+    return 0;
+}

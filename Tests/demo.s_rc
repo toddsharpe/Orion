@@ -1,0 +1,56 @@
+str greeting(str name)
+{
+	#call WriteLine("DEBUG: " + name);
+	return "Hello " + name;
+}
+
+i32 my_sum(i32 num)
+{
+	return (num + 1) / 2 * num;
+}
+
+Func Count(str inst_name)
+{
+	return Build_Func(inst_name, "void", "#in bool init, #out i32 last",
+	"
+		#state i32 prev = 0;
+		if (init)
+		{
+			prev = 0;
+		}
+		else
+		{
+			i32 add = 1;
+			prev = prev + add;
+		}
+		last = prev;
+	");
+}
+
+i32 main(i32 argc)
+{
+	str output = #call greeting("Orion");
+	WriteLine(output);
+
+	str buildTime = #call Time_Now();
+	#call WriteLine("Built at: " + buildTime);
+
+	i32 sum = #call my_sum(5);
+	WriteLine("Sum: " + #call i32_str(sum));
+
+	Func c = #call Count("my_count");
+	WriteLine("Dynamic function: " + #call Func_Name(c));
+
+	bool init = true;
+	i32 value = 0;
+	#call Build_AddBody("my_count(init, value);");
+	WriteLine("value: " + i32_str(value));
+	init = false;
+
+	#call Build_AddBody("my_count(init, value);");
+	#call Build_AddBody("my_count(init, value);");
+	#call Build_AddBody("my_count(init, value);");
+	WriteLine("value: " + i32_str(value));
+
+	return 0;
+}

@@ -1,0 +1,34 @@
+i32 count(i32 num)
+{
+	i32 sum = 0;
+	for (i32 i = 0; i <= num; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}
+
+str greeting(str name)
+{
+	return "Hello " + name;
+}
+
+i32 main()
+{
+	str output = #call greeting("Orion");
+	#call Build_AddBody("WriteLine(output);");
+
+	#call
+	{
+		WriteLine(greeting("Build"));
+		
+		i32 sum = count(5);
+		str display = i32_str(sum);
+		WriteLine(display);
+	}
+
+	i32 sum_rt = count(5);
+	WriteLine(i32_str(sum_rt));
+
+	return 0;
+}

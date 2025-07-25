@@ -1,0 +1,14 @@
+void print(i32[] array)
+{
+    for (i32 i = 0; i < array.Length; i++)
+    {
+        i32 item = array[i];
+        WriteLine(i32_str(array[i]));
+    }
+}
+
+i32 main()
+{
+    print(i32[1, 2, 3, 4]);
+    return 0;
+}

@@ -1,0 +1,45 @@
+i32 get_num()
+{
+	return 10;
+}
+
+i32 calc_sum(i32 start)
+{
+	i32 sum = start;
+	i32 n = get_num();
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}
+
+i32 calc_mult(i32 start)
+{
+	i32 sum = start;
+	i32 n = get_num();
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum * i;
+	}
+	return sum;
+}
+
+void test()
+{
+	i32 sum = calc_sum(0);
+	i32 mult = calc_mult(1);
+
+	str sumStr = "Sum: " + i32_str(sum);
+	str multStr = "Mult: " + i32_str(mult);
+	WriteLine(sumStr);
+	WriteLine(multStr);
+}
+
+i32 main()
+{
+	#call test();
+	test();
+
+	return 0;
+}
