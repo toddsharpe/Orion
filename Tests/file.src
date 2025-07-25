@@ -1,0 +1,27 @@
+void BuildDate()
+{
+	WriteLine(Time_Now());
+	return;
+}
+
+str ReadFile(str file)
+{
+	str body = "";
+	File f = File_Open(file);
+	while (File_HasLine(f))
+	{
+		str l = File_ReadLine(f);
+		body = body + l;
+	}
+	return body;
+}
+
+i32 main()
+{
+	#call BuildDate();
+	
+	str b = #call ReadFile("Configs\\test.txt");
+	WriteLine(b);
+
+	return 0;
+}

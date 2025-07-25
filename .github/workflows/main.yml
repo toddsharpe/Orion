@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  Orion_build:
+    runs-on: windows-2022
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v4
+
+    # Required for CL on command line.
+    - name: Set up Visual Studio shell
+      uses: egor-tensin/vs-shell@v2
+      with:
+        arch: x64
+
+    # Required for dotnet csi
+    - name: Get CSI
+      run: dotnet tool install --global dotnet-csi
+
+    # Default runner has Python 3.9
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13' 
+
+    - name: Build Orion
+      run: dotnet build .\Src\
+
+    - name: Run Tests
+      run: dotnet test .\Src\
+
+    - name: Run Example Tests
+      run: dotnet csi Tests\run.csx

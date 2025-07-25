@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DotMarkdown" Version="0.3.0" />
+    <PackageReference Include="MermaidDotNet" Version="0.7.10" />
+    <PackageReference Include="Mono.Reflection" Version="2.0.0" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.50.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Orion.Lang\Orion.Lang.fsproj" />
+  </ItemGroup>
+
+</Project>

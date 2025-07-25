@@ -1,0 +1,32 @@
+bool RetFalse()
+{
+	return false;
+}
+
+bool RetTrue()
+{
+	return true;
+}
+
+i32 main()
+{
+	if (#call RetFalse())
+	{
+		WriteLine("True!");
+	}
+	else
+	{
+		WriteLine("False!");
+	}
+
+	if (#call RetTrue())
+	{
+		WriteLine("True1!");
+	}
+	else
+	{
+		WriteLine("False1!");
+	}
+
+	return 0;
+}

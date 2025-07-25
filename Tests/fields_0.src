@@ -1,0 +1,13 @@
+struct Record
+{
+    str Name;
+    i32 Value;
+}
+
+i32 main()
+{
+    Record r = Record{ Name = "MyValue", Value = 1 };
+    WriteLine(r.Name);
+
+    return 0;
+}

@@ -1,0 +1,16 @@
+i32 main()
+{
+	str x = "test";
+	bool b = true;
+	if (b)
+	{
+		x = "test1";
+	}
+	else
+	{
+		x = "test2";
+		x = "test3";
+	}
+	WriteLine(x);
+	return 0;
+}

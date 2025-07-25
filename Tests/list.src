@@ -1,0 +1,20 @@
+i32 sum(i32[] a)
+{
+	i32 s = 0;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		s = s + a[i];
+	}
+	return s;
+}
+
+i32 main()
+{
+	i32 c = #call sum(i32[1, 2, 3, 4]);
+	WriteLine("Precalc: " + i32_str(c));
+
+	i32 s = sum(i32[1, 2, 3, 4]);
+	WriteLine("Sum: " + i32_str(s));
+	
+	return 0;
+}

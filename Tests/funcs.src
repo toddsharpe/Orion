@@ -1,0 +1,42 @@
+Func Count(str inst_name)
+{
+	return Build_Func(inst_name, "void", "#in bool init, #out i32 last",
+	"
+		#state i32 prev = 0;
+		if (init)
+		{
+			prev = 0;
+		}
+		else
+		{
+			prev = prev + 1;
+		}
+		last = prev;
+	");
+}
+
+void test(Func c)
+{
+	WriteLine("Dynamic function: " + Func_Name(c));
+}
+
+i32 main()
+{
+	bool init = false;
+	i32 value = 0;
+
+	Func c = #call Count("my_count");
+	test(c);
+	WriteLine("Runtime lookup: " + Func_Name(c));
+
+	#call Build_AddBody("my_count(init, value);");
+	WriteLine("value: " + i32_str(value));
+
+	#call Build_AddBody("my_count(init, value);");
+	WriteLine("value: " + i32_str(value));
+
+	#call Build_AddBody("my_count(init, value);");
+	WriteLine("value: " + i32_str(value));
+
+	return 0;
+}

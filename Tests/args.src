@@ -1,0 +1,12 @@
+i32 Inc(i32 v)
+{
+	v = 2;
+	return v + 1;
+}
+
+i32 main()
+{
+	i32 v = Inc(1);
+	WriteLine(i32_str(v));
+	return 0;
+}
