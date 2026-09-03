@@ -7,6 +7,16 @@ compiler and splices what it produces into the program as constants.
 
 Try it live, compiler and all, in the browser: <https://toddsharpe.github.io/Orion/>
 
+## Install
+
+Each release ships the self-contained linux-x64 compiler bundled with `Runtimes/`. One link always
+fetches the newest; a versioned copy sits beside it for anything that pins a release:
+
+```
+mkdir orion && curl -sL https://github.com/toddsharpe/Orion/releases/latest/download/orion-linux-x64.tar.gz | tar -xz -C orion
+orion/bin/Orion compile hello.src --lang cpp -o hello.cpp     # then build against orion/Runtimes/Cpp
+```
+
 ## Build
 
 ```

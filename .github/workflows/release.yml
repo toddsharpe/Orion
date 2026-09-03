@@ -41,8 +41,11 @@ jobs:
         bundle/bin/Orion compile Demo/Apps/rocket.src -o smoke/rocket.cpp -l cpp
         g++ -std=c++20 -fsyntax-only -I bundle/Runtimes/Cpp -I smoke smoke/rocket.cpp
 
+    # The unversioned copy is what releases/latest/download/orion-linux-x64.tar.gz serves, so one link always fetches the newest.
     - name: Pack
-      run: tar -czf "orion-$GITHUB_REF_NAME-linux-x64.tar.gz" -C bundle .
+      run: |
+        tar -czf "orion-$GITHUB_REF_NAME-linux-x64.tar.gz" -C bundle .
+        cp "orion-$GITHUB_REF_NAME-linux-x64.tar.gz" orion-linux-x64.tar.gz
 
     # package.yml releases the vsix on the same tag; create tolerates whichever job got there first.
     - name: Publish release
