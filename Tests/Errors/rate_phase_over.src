@@ -1,0 +1,19 @@
+// A phase is where in the period the slot falls, so one past the period never comes round.
+#using "Lib/types.src"
+
+void Tick(#param str name, #input time now @ "cycle_time")
+{
+	WriteLine(to_str(cast<i64>(now)));
+}
+
+#build i32 main()
+{
+	Function[] funcs = [
+		#create Tick(name = "slow") ${ period = 100000000:time, phase = 200000000:time }
+	]:Function;
+
+	Solver solver = Solver::New(funcs);
+	Solver::Export(solver, 10000000:time);
+
+	return 0;
+}

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Orion.Web — Compiler Explorer</title>
+	<!--
+	  base href is "/" for local `dotnet run`. The GitHub Pages workflow rewrites it to the
+	  repo subpath (e.g. "/Orion/"). All app URLs below are RELATIVE so both work.
+	-->
+	<base href="/" />
+	<link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+	<div id="boot" class="boot">
+		<div class="boot-inner">
+			<div class="brand">Orion<span class="accent">.Web</span></div>
+			<div class="boot-bar"><div class="boot-bar-fill"></div></div>
+			<div class="boot-msg">Loading .NET runtime…</div>
+		</div>
+	</div>
+
+	<div class="explorer">
+		<header class="toolbar">
+			<button id="toggle-files" class="icon-btn" title="Toggle explorer" aria-label="Toggle explorer"
+					aria-expanded="true" aria-controls="file-explorer">&#9776;</button>
+			<span class="brand">Orion<span class="accent">.Web</span></span>
+			<span class="subtitle">Compiler Explorer</span>
+			<span class="spacer"></span>
+			<!-- Grouped so the dropdown itself says which targets can execute here: only the
+				 JavaScript backend runs in-browser (Run tab), the others are transpile-only.
+				 C++ is marked selected to keep it the default despite the runnable group coming first. -->
+			<label class="lang-label">Target
+				<select id="lang-select">
+					<optgroup label="Runs in browser">
+						<option value="JavaScript">JavaScript &#9654;</option>
+					</optgroup>
+					<optgroup label="Transpile only">
+						<option value="Cpp" selected>C++</option>
+						<option value="Python">Python</option>
+						<option value="CSharp">C#</option>
+					</optgroup>
+				</select>
+			</label>
+			<button id="compile-btn" disabled>Compile ▶</button>
+			<!-- Narrow screens only: which of the two panes has the screen. See css/app.css's 820px query. -->
+			<div id="pane-switch" class="pane-switch" role="group" aria-label="Visible pane">
+				<button type="button" data-pane="edit" class="active" aria-pressed="true">Code</button>
+				<button type="button" data-pane="out" aria-pressed="false">Output</button>
+			</div>
+			<button id="share-btn" class="icon-btn" title="Copy a shareable link to this program" aria-label="Share">🔗</button>
+			<button id="download-btn" class="icon-btn" title="Download the active document (.src)" aria-label="Download">⬇</button>
+			<button id="upload-btn" class="icon-btn" title="Open a .src file" aria-label="Open file">⬆</button>
+			<input id="upload-input" type="file" accept=".src,text/plain" hidden />
+			<button id="help-btn" class="icon-btn" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
+			<span id="status" class="status"></span>
+			<button id="reset-btn" class="icon-btn" title="Clear the saved session and reload">Reset</button>
+		</header>
+
+		<main class="panes">
+			<aside id="file-explorer" class="sidebar">
+				<div class="sidebar-title">Samples</div>
+				<div id="file-tree" class="file-tree" role="tree" aria-label="Sample files"></div>
+			</aside>
+
+			<!-- Dims the page behind the samples drawer on narrow screens; tapping it closes the drawer. -->
+			<div id="file-scrim" class="file-scrim"></div>
+
+			<section class="pane pane-left">
+				<nav class="tabbar editor-tabbar">
+					<div id="editor-tabs" class="doc-tabs" role="tablist"></div>
+					<button id="add-tab" class="add-tab" title="New document" aria-label="New document">+</button>
+				</nav>
+				<div id="editor" class="editor-body"></div>
+			</section>
+
+			<div id="h-gutter" class="h-gutter" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
+
+			<section class="pane pane-right">
+				<div class="right-code">
+					<nav class="tabbar" role="tablist">
+						<button class="tab active" data-tab="code" role="tab">C++</button>
+						<button class="tab" data-tab="output" role="tab">Pipeline</button>
+						<button class="tab" data-tab="graph" role="tab">Graph</button>
+						<!-- The pipeline explorer: every phase's state, tree on the left, detail on the right. -->
+						<button class="tab" data-tab="analysis" role="tab">Analysis</button>
+						<!-- Always rendered, disabled until a JavaScript compile succeeds: a visibly
+							 locked tab advertises that programs can be run here, where hiding it did not. -->
+						<button class="tab" data-tab="run" role="tab" disabled>Run ▶</button>
+					</nav>
+					<div class="tabbody">
+						<div id="pane-code" class="tabpane active"></div>
+						<div id="pane-output" class="tabpane">
+							<div id="phase-bar" class="phase-bar" title="Phase timings"></div>
+							<div id="phase-total" class="phase-total"></div>
+							<pre id="output-text"></pre>
+						</div>
+						<div id="pane-graph" class="tabpane"></div>
+						<div id="pane-analysis" class="tabpane">
+							<div id="analysis-tree" class="analysis-tree" role="tree" aria-label="Compiler phases"></div>
+							<div id="analysis-detail" class="analysis-detail"></div>
+						</div>
+						<div id="pane-run" class="tabpane"><pre id="run-output"></pre></div>
+					</div>
+				</div>
+				<div id="v-gutter" class="v-gutter" role="separator" aria-orientation="horizontal" title="Drag to resize"></div>
+				<div class="right-build">
+					<div class="build-title">Build Output</div>
+					<pre id="build-output"></pre>
+				</div>
+			</section>
+		</main>
+	</div>
+
+	<!-- Boot the runtime manually so we only wire the editor once interop is callable. -->
+	<script src="_framework/blazor.webassembly.js" autostart="false"></script>
+	<script src="js/explorer.js"></script>
+	<script>
+		Blazor.start()
+			.then(function () {
+				document.getElementById('compile-btn').disabled = false;
+				var boot = document.getElementById('boot');
+				if (boot) boot.classList.add('hidden');
+				return window.orionExplorer.init();
+			})
+			.catch(function (err) {
+				console.error(err);
+				var status = document.getElementById('status');
+				if (status) status.textContent = 'Boot error: ' + err;
+				var boot = document.getElementById('boot');
+				if (boot) boot.querySelector('.boot-msg').textContent = 'Boot error: ' + err;
+			});
+	</script>
+</body>
+
+</html>

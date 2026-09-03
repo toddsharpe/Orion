@@ -1,0 +1,10 @@
+// Dead-store elimination (B10): `unused` is computed but never read, so its store
+// is removed. Live values flow through unchanged, so the output is unaffected.
+i32 main()
+{
+	i32 unused = 40 + 2;
+	i32 used = 10;
+	i32 more = used + 5;
+	WriteLine(to_str(more));
+	return 0;
+}

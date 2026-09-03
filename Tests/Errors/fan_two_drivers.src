@@ -1,0 +1,31 @@
+// A field of a struct net is a net, so driving it again is the same clash as any other double drive.
+struct Sample
+{
+	i32 Temp;
+}
+
+void Sensor(#param str name, #output Sample sample @ "Gps")
+{
+	sample.Temp = 1;
+}
+
+void Other(#param str name, #output i32 temp @ "Gps.Temp")
+{
+	temp = 2;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Sensor(name = "gps"),
+			#create Other(name = "other")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

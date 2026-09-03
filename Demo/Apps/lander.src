@@ -1,0 +1,206 @@
+//An autonomous lunar lander as a cyclic executive of #param blocks, driven by Demo/Platforms/Windows.cpp.
+//    Plant --alt/vel--> Guidance --rate--> Controller --thrust--> (Plant)
+//      ^-----------------------  thrust  -----------------------------|
+//                   |
+//                   +--> Metres --alt_m--> Supervisor --gear/beacon/safed--> (nets)
+//  - Plant       : integrates the physics (2 outs: altitude + velocity)
+//  - Guidance    : COAST -> BRAKE -> HOVER -> LAND, latched, giving a target rate
+//  - Controller  : PID on vertical rate -> clamped thrust command
+//  - Metres      : the altitude as whole metres, which is what a trigger can compare
+//  - Supervisor  : the config-driven StateMachine block, sequencing gear and beacon
+//  - Telemetry   : pure sink; streams the net values each cycle
+//Two state machines: `Guidance` latches a descent phase by hand, `Supervisor` is generated from a config.
+#using "Lib/Math.src"
+#using "Lib/types.src"
+#using "Lib/Common.src"
+#using "Lib/StateMachine.src"
+#using "Lib/units.src"
+#using "Services.src"
+
+// Descent phases, latched by the guidance state machine.
+enum Phase
+{
+	Coast,
+	Brake,
+	Hover,
+	Land
+}
+
+// Physics integrator: one step from the last thrust onto two nets. Not `Plant`: Lib/PID.src has its own.
+void Descent(
+	#param str name,
+	#param str thrust_src,
+	#state  f64<m> height = 100.0:f64<m>,
+	#state  f64<m/s> rate = 0.0:f64<m/s>,          // positive = up
+	#prev   f64<m/s^2> thrust @ thrust_src,
+	#output f64<m> altitude @ $"{name}_alt",
+	#output f64<m/s> velocity @ $"{name}_vel"
+)
+{
+	const f64<m/s^2> g = 1.62:f64<m/s^2>;   // lunar surface gravity
+	const f64<s> dt = 0.5:f64<s>;           // integration step
+
+	// m/s^2 times s is m/s, and m/s times s is m: the two steps type-check as the physics they are.
+	const f64<m/s^2> accel = thrust - g;
+	rate = rate + accel * dt;
+	height = height + rate * dt;
+
+	// Never sink through the pad.
+	if (height < 0.0:f64<m>)
+	{
+		height = 0.0:f64<m>;
+		rate = 0.0:f64<m/s>;
+	}
+
+	altitude = height;
+	velocity = rate;
+}
+
+// Flight-phase machine: latches the phase in #state, then maps it to the PID's target descent rate.
+void Guidance(
+	#param str name,
+	#param str source,
+	#state  Phase phase = Phase::Coast,
+	#input  f64<m> altitude @ source,
+	#output f64<m/s> rate @ $"{name}_out"
+)
+{
+	// Advance the phase as altitude falls through each gate.
+	switch (phase)
+	{
+		case Phase::Coast:
+		{
+			if (altitude <= 60.0:f64<m>)
+			{
+				phase = Phase::Brake;
+			}
+		}
+		case Phase::Brake:
+		{
+			if (altitude <= 15.0:f64<m>)
+			{
+				phase = Phase::Hover;
+			}
+		}
+		case Phase::Hover:
+		{
+			if (altitude <= 1.0:f64<m>)
+			{
+				phase = Phase::Land;
+			}
+		}
+		default:
+		{
+			phase = Phase::Land;
+		}
+	}
+
+	// Target rate per phase; COAST asks for a fall the clamped engine cannot chase, so the lander free-falls.
+	f64<m/s> target = 0.0:f64<m/s>;
+	switch (phase)
+	{
+		case Phase::Coast:
+		{
+			target = -20.0:f64<m/s>;
+		}
+		case Phase::Brake:
+		{
+			target = -6.0:f64<m/s>;
+		}
+		case Phase::Hover:
+		{
+			target = -2.0:f64<m/s>;
+		}
+		default:
+		{
+			target = 0.0:f64<m/s>;
+		}
+	}
+
+	rate = target;
+}
+
+// PID on vertical rate: drives velocity to the target, emitting a gravity-trimmed, saturated thrust.
+void Controller(
+	#param str name,
+	#param str setpoint,
+	#param str measurement,
+	#param f64 kp,
+	#param f64 ki,
+	#param f64 kd,
+	#state  f64<m/s> integral = 0.0:f64<m/s>,
+	#state  f64<m/s> prev = 0.0:f64<m/s>,
+	#input  f64<m/s> sp @ setpoint,
+	#input  f64<m/s> meas @ measurement,
+	#output f64<m/s^2> thrust @ $"{name}_out"
+)
+{
+	const f64<m/s^2> g = 1.62:f64<m/s^2>;         // feed-forward: a zero-error command holds a hover
+	const f64<m/s^2> maxThrust = 5.0:f64<m/s^2>;  // engine ceiling
+
+	const f64<m/s> error = sp - meas;
+	integral = integral + error;
+
+	// Anti-windup: bound the integral so the coast-phase saturation can't blow it up.
+	integral = clamp<f64<m/s>>(integral, -20.0:f64<m/s>, 20.0:f64<m/s>);
+
+	const f64<m/s> deriv = error - prev;
+
+	// The gains are per second, which is what turns a rate error into an acceleration; the cast says so.
+	f64<m/s^2> command = cast<f64<m/s^2>>(kp * error + ki * integral + kd * deriv) + g;
+	command = clamp<f64<m/s^2>>(command, 0.0:f64<m/s^2>, maxThrust);
+
+	thrust = command;
+	prev = error;
+}
+
+// Telemetry sink: each field of the list adds an #input wired to that net and a WriteLine to print it.
+void Telemetry(#param str name, #param Span<Device> fields)
+{
+	#run
+	{
+		for (i32 i = 0; i < fields.Length; i++)
+		{
+			Device field = fields[i];
+			const Port p = Port::In(field.type, field.name);
+			#insert { WriteLine(${field.name} + " = " + to_str(${p})); }
+		}
+	}
+}
+
+// The altitude as whole metres: the supervisor compares its input against a threshold written as text.
+void Metres(#param str name, #param str source, #input f64<m> altitude @ source, #output i32 whole @ $"{name}_m")
+{
+	whole = cast<i32>(altitude);
+}
+
+#build i32 main()
+{
+	const Device[] fields = [
+		Device{ name = "plant_alt", type = Type::Of<f64>() },
+		Device{ name = "plant_vel", type = Type::Of<f64>() },
+		Device{ name = "guid_out",  type = Type::Of<f64>() },
+		Device{ name = "ctrl_out",  type = Type::Of<f64>() }
+	]:Device;
+
+	// Wired by net name and specialized by #param; listing order is execution order within a cycle.
+	Function[] blocks =
+	[
+		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
+		#create CycleStart(name = "cycle", dt_ns = Hz_100),
+		#create Descent(name = "plant", thrust_src = "ctrl_out"),
+		#create Guidance(name = "guid", source = "plant_alt"),
+		#create Controller(name = "ctrl", setpoint = "guid_out", measurement = "plant_vel",
+			kp = 0.8, ki = 0.05, kd = 0.2),
+		#create Metres(name = "alt", source = "plant_alt"),
+		#create StateMachine(name = "seq", spec = "Configs/lander_sm.src"),
+		#create Telemetry(name = "tlm", fields = fields)
+	]:Function;
+
+	Solver solver = Solver::New(blocks);
+
+	// Export rather than Solve: the state becomes a global, so a platform links against functions alone.
+	Solver::Export(solver, Hz_10);
+
+	return 0;
+}

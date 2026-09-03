@@ -1,0 +1,17 @@
+squares.len=6
+squares.sum=55
+evens.len=5
+evens.sum=20
+scaled.len=4
+scaled.sum=100
+nested.len=3
+nested.sum=30
+blocks.len=9
+blocks.sum=117
+labels.len=3
+label=ch1
+label=ch2
+label=ch3
+u16.len=2
+u16=adc_0
+u16=adc_1

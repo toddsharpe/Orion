@@ -1,0 +1,42 @@
+// A hoisted `const` is lifted to a module global, and every reference must be renamed -- including one inside a `cast`.
+
+#build List<i32> Build_Sizes()
+{
+	List<i32> xs = List::New<i32>();
+	for (i32 i = 1; i <= 3; i++)
+	{
+		xs.Add(i * 10);
+	}
+	return xs;
+}
+
+// The table is the same on every call, so it is written once wherever the target puts such a thing.
+f64 scaled(i32 at)
+{
+	const i32[] sizes = #run Build_Sizes();
+
+	// Read plainly, and read through a cast: both name the same lifted table.
+	if (sizes[at] == 0)
+	{
+		return 0.0;
+	}
+
+	return cast<f64>(sizes[at]) * 1.5;
+}
+
+// A second function lifting a table of its own, so the two names cannot be one cell.
+i32 doubled(i32 at)
+{
+	const i32[3] weights = [2, 4, 6]:i32;
+	return cast<i32>(cast<f64>(weights[at]) * 2.0);
+}
+
+i32 main()
+{
+	for (i32 i = 0; i < 3; i++)
+	{
+		WriteLine("at " + to_str(i) + " = " + to_str(scaled(i)) + ", " + to_str(doubled(i)));
+	}
+
+	return 0;
+}

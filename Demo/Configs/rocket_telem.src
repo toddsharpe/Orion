@@ -1,0 +1,56 @@
+//What a flight reports, read by `#src`: a net nothing drives is a solver error, so this cannot drift.
+#using "Lib/types.src"
+
+//Every float below is f32, which the three backends agree on bit for bit; Pad.LngScale is left out because it is an f64 through cos, where they do not.
+#build List<Device> devices()
+{
+	return [
+		// What the machine concluded.
+		Device{ name = "Baro.Calibrated",    type = Type::Of<bool>() },
+		Device{ name = "Imu.GyroCalibrated", type = Type::Of<bool>() },
+		Device{ name = "GpsReady.Ready",     type = Type::Of<bool>() },
+		Device{ name = "Launch.Detected",    type = Type::Of<bool>() },
+		Device{ name = "Coast.Detected",     type = Type::Of<bool>() },
+		Device{ name = "Apogee.Detected",    type = Type::Of<bool>() },
+		Device{ name = "Landed.Detected",    type = Type::Of<bool>() },
+
+		// The gate itself, all fourteen: one detector is live at a time, and on the pad no flight calc is.
+		Device{ name = "gpsready_enabled",   type = Type::Of<bool>() },
+		Device{ name = "barobias_enabled",   type = Type::Of<bool>() },
+		Device{ name = "gyrobias_enabled",   type = Type::Of<bool>() },
+		Device{ name = "pad_enabled",        type = Type::Of<bool>() },
+		Device{ name = "alt_enabled",        type = Type::Of<bool>() },
+		Device{ name = "range_enabled",      type = Type::Of<bool>() },
+		Device{ name = "orient_enabled",     type = Type::Of<bool>() },
+		Device{ name = "heading_enabled",    type = Type::Of<bool>() },
+		Device{ name = "spin_enabled",       type = Type::Of<bool>() },
+		Device{ name = "launch_enabled",     type = Type::Of<bool>() },
+		Device{ name = "coast_enabled",      type = Type::Of<bool>() },
+		Device{ name = "apogee_enabled",     type = Type::Of<bool>() },
+		Device{ name = "landed_enabled",     type = Type::Of<bool>() },
+		Device{ name = "site_enabled",       type = Type::Of<bool>() },
+
+		// What the run settled on, calibration first.
+		Device{ name = "Baro.BiasPressure",  type = Type::Of<f32>() },
+		Device{ name = "Imu.GyroBiasX",      type = Type::Of<f32>() },
+		Device{ name = "Imu.GyroBiasY",      type = Type::Of<f32>() },
+		Device{ name = "Imu.GyroBiasZ",      type = Type::Of<f32>() },
+
+		// The integrators, which is where a single ulp of disagreement would compound into the open.
+		Device{ name = "Alt.Altitude",       type = Type::Of<f32>() },
+		Device{ name = "Alt.Velocity",       type = Type::Of<f32>() },
+		Device{ name = "Orient.Q0",          type = Type::Of<f32>() },
+		Device{ name = "Orient.Q1",          type = Type::Of<f32>() },
+		Device{ name = "Orient.Q2",          type = Type::Of<f32>() },
+		Device{ name = "Orient.Q3",          type = Type::Of<f32>() },
+		Device{ name = "Spin.RateDps",       type = Type::Of<f32>() },
+		Device{ name = "Heading.Degrees",    type = Type::Of<f32>() },
+		Device{ name = "Range.HorizDist",    type = Type::Of<f32>() },
+
+		// Where it started and where it stopped.
+		Device{ name = "Pad.Lat",            type = Type::Of<f64>() },
+		Device{ name = "Pad.Lng",            type = Type::Of<f64>() },
+		Device{ name = "Landed.Lat",         type = Type::Of<f64>() },
+		Device{ name = "Landed.Lng",         type = Type::Of<f64>() }
+	]:List<Device>;
+}

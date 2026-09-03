@@ -1,0 +1,8 @@
+sum=21
+pts1.X=3
+make(7,9).Y=9
+box hi.Y=20
+lo=5,11
+pts0.X=100 pts2.Y=105
+hi.Y=23
+boxes0.Hi.X=3

@@ -1,0 +1,101 @@
+// A net may be written with dots -- `Baro.Pressure` names one signal inside a hierarchy, which is how
+// a flight computer's blackboard is organised and how a telemetry schema wants to read.
+//
+// No target can declare a field with a dot in it, so the two names are kept apart: a net is DECLARED
+// under an identifier (`Baro_Pressure`) and LABELLED with the name it was wired under. The label is
+// what the RTTI descriptor carries and what Solver::ViewState prints; the identifier is what C++,
+// Python and JavaScript emit. Nothing in between has to know.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+void Baro(
+	#param str name,
+	#state i32 t = 0,
+	#output f32 pressure @ "Baro.Pressure",
+	#output bool updated @ "Baro.Updated"
+)
+{
+	f32[] samples = [101325.0:f32, 101300.0:f32, 101250.0:f32]:f32;
+	pressure = samples[t % samples.Length];
+	updated = true;
+	t = t + 1;
+}
+
+// Reads two dotted nets and drives a third; the wiring is by the name as written.
+void Bias(
+	#param str name,
+	#input f32 pressure @ "Baro.Pressure",
+	#input bool updated @ "Baro.Updated",
+	#state f32 held,
+	#output f32 bias @ "Baro.BiasPressure"
+)
+{
+	if (updated)
+	{
+		held = pressure;
+	}
+	bias = held;
+}
+
+// Data-driven sink: every port is declared from a manifest of dotted names, and neither the manifest
+// nor this body spells the identifier the backend ends up using.
+void Telemetry(#param str name, #param Span<Device> fields)
+{
+	#run
+	{
+		for (i32 i = 0; i < fields.Length; i++)
+		{
+			Device field = fields[i];
+			const Port p = Port::In(field.type, field.name);
+			#insert { WriteLine("  " + ${field.name} + " = " + to_str(${p})); }
+		}
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		const Device[] fields = [
+			Device{ name = "Baro.Pressure", type = Type::Of<f32>() },
+			Device{ name = "Baro.BiasPressure", type = Type::Of<f32>() }
+		]:Device;
+
+		Function[] blocks = [
+			#create Baro(name = "baro"),
+			#create Bias(name = "bias"),
+			#create Telemetry(name = "tlm", fields = fields)
+		]:Function;
+
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert {
+			for (i32 c = 0; c < 3; c++)
+			{
+				WriteLine("-- cycle " + to_str(c) + " --");
+				solver_cycle(state);
+			}
+		}
+	}
+
+	// The program's own description carries the net as wired, dots and all -- the field the backend
+	// declared is not the name the netlist knows it by. A type is reached through a port, and
+	// solver_cycle's one `#state` port is the state struct itself.
+	WriteLine("-- schema --");
+	RtFunction cycle = Function::Get("solver_cycle");
+	RtPort port = cycle.State[0];
+	for (i32 i = 0; i < port.Type.Fields.Length; i++)
+	{
+		RtField f = port.Type.Fields[i];
+		WriteLine("  " + f.Name + " : " + f.Type.Name);
+	}
+
+	return 0;
+}

@@ -1,0 +1,65 @@
+// An `#output` states where its net starts, so cycle 0 reads that instead of zero.
+
+enum Mode
+{
+	Cold,
+	Warm
+}
+
+// The barometric reference: zero here divides a pressure ratio by nothing, so it starts at sea level.
+void Reference(
+	#param str name,
+	#param f32 measured,
+	#state i32 tick = 0,
+	#output f32 reference = 101325.0:f32 @ "Baro.Ref",
+	#output Mode mode = Mode::Warm @ "Baro.Mode"
+)
+{
+	// Silent for two cycles, so the initial value is what stands rather than a value this block wrote.
+	tick = tick + 1;
+	if (tick >= 3)
+	{
+		reference = measured;
+		mode = Mode::Cold;
+	}
+}
+
+// Listed FIRST, so it reads the cell before its driver runs, which is what `#prev` states.
+void Watch(
+	#param str name,
+	#prev f32 reference @ "Baro.Ref",
+	#prev Mode mode @ "Baro.Mode"
+)
+{
+	WriteLine("ref " + to_str(reference) + " mode " + to_str(mode));
+}
+
+i32 main()
+{
+	#run
+	{
+		// A block started by hand seeds the same cells, so a `#test` and the netlist agree on cycle 0.
+		Instance cold = Function::Start(#create Reference(name = "probe", measured = 90000.0:f32));
+		#assert(Instance::Get<f32>(cold, "reference") == 101325.0:f32, "a started block holds its output initializer");
+		#assert(Instance::Get<Mode>(cold, "mode") == Mode::Warm, "and an enum one, by member rather than ordinal");
+		#assert(Instance::Get<i32>(cold, "tick") == 0, "while a #state port with no initializer is still zero");
+
+		Function[] funcs = [
+			#create Watch(name = "watch"),
+			#create Reference(name = "ref", measured = 90000.0:f32)
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 4; i++)
+			{
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

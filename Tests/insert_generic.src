@@ -1,0 +1,77 @@
+//A generic called from code the BUILD wrote. Expansion is a whole-program pass over the source, and it
+//is long finished by the time a `#run` splices anything -- so the templates outlive it, and an
+//instantiation a `#insert` is the first to name is made when the body holding it is assembled.
+//
+//Three cases, because they fail differently:
+//  - `clamp<i32>` is named nowhere else, so this is the only thing that could ever instantiate it;
+//  - `clamp<f64>` already exists (PID.src uses it), and has to resolve to that one rather than a second;
+//  - `quad<i32>` instantiates `twice<i32>` in turn, so making one has to be able to make another.
+
+// The helpers this needs from Math.src, spelled here so the test stands alone.
+T clamp<T>(const T x, const T lo, const T hi)
+{
+	if (x < lo)
+	{
+		return lo;
+	}
+	else if (x > hi)
+	{
+		return hi;
+	}
+	else
+	{
+		return x;
+	}
+}
+
+
+T twice<T>(const T x)
+{
+	return x + x;
+}
+
+//Generic calling generic: instantiating this one is not enough on its own.
+T quad<T>(const T x)
+{
+	return twice<T>(twice<T>(x));
+}
+
+void Block(
+	#param str name,
+	#param i32 n,
+	#param f64 raw,
+	#output i32 scaled @ "scaled",
+	#output f64 held @ "held"
+)
+{
+	#run
+	{
+		#insert { scaled = clamp<i32>(quad<i32>(${n}), 0, 100); }
+		#insert { held = clamp<f64>(${raw}, 0.0, 1.0); }
+	}
+}
+
+i32 main()
+{
+	//Spliced at the call site rather than into a block: the other path build-written code is bound by.
+	#run
+	{
+		#insert { WriteLine("direct = " + to_str(quad<i32>(3))); }
+	}
+
+	#run
+	{
+		Function[] blocks = [#create Block(name = "b", n = 7, raw = 2.5)]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert
+		{
+			${Solver::Struct(solver)};
+			solver_cycle(state);
+			${Solver::ViewState(solver)};
+		}
+	}
+
+	return 0;
+}

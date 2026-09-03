@@ -1,0 +1,57 @@
+#using "Lib/types.src"
+
+//A write to an output, or -- as the LAST entry -- a timeout, which writes TIMEOUT and names a command.
+struct Event
+{
+	i32 cycle;
+	str output;
+	str value;
+}
+
+//No net may be called this, which is what makes it usable as the marker.
+const str TIMEOUT = "$timeout";
+
+struct State
+{
+	str name;
+
+	//Which set of blocks this state dispatches, named in `StateMachine.phases`; several states may share one.
+	str phase;
+
+	Map<str, str> commands; //CommandName -> State
+	List<Event> events;
+}
+
+//One comparison against one input; a trigger holds a list of these and fires when ALL of them hold.
+struct Condition
+{
+	str input;
+	str op;
+	str threshold;
+}
+
+//What raises a command: an empty condition list fires unconditionally, and list order is priority.
+struct Trigger
+{
+	str name;
+	List<Condition> conditions;
+	str command;
+}
+
+//Holds Devices, which carry a Type, so the machine definition is build-time only.
+#build struct StateMachine
+{
+	List<Device> inputs;
+
+	//Which of `inputs` name a net some LATER block drives, so the machine decides on last cycle's answer.
+	List<str> prev;
+
+	List<Device> outputs;
+	List<State> states;
+	List<Trigger> triggers;
+
+	//PhaseName -> the instances it dispatches, as a SET: each reads a `{block}_enabled` net and exits early.
+	Map<str, List<str>> phases;
+
+	bool trace;
+}

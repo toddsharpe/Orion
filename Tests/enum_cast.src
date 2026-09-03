@@ -1,0 +1,47 @@
+//An enum converts to and from the numeric types, and `to_str` gives the member's name.
+//Both at build time and at runtime, and the same in all three targets.
+
+enum Phase
+{
+	Idle,
+	Busy,
+	Done
+}
+
+//Round-tripped through a width, which is what a packed layout does to one.
+Phase Widen(Phase p)
+{
+	const u8 ordinal = cast<u8>(p);
+	return cast<Phase>(ordinal);
+}
+
+//Stringified where the enum is only known as a parameter type, not as a literal.
+str Name(Phase p)
+{
+	return to_str(p);
+}
+
+i32 main()
+{
+	//Build time: the same conversions, folded into the program as a literal.
+	const str folded = #run { return to_str(Phase::Busy) + "=" + to_str(cast<i32>(Phase::Busy)); };
+	WriteLine("build " + folded);
+
+	Phase p = Phase::Done;
+	WriteLine("name " + Name(p));
+	WriteLine("ordinal " + to_str(cast<i32>(p)));
+	WriteLine("round trip " + Name(Widen(p)));
+
+	//A widening cast reaches the f64 side too, so an enum can feed arithmetic.
+	const f64 scaled = cast<f64>(p) * 1.5;
+	WriteLine("scaled " + to_str(scaled));
+
+	//Every member, so the generated stringify is exercised on each arm rather than just one.
+	Phase[] all = [Phase::Idle, Phase::Busy, Phase::Done]:Phase;
+	for (i32 i = 0; i < all.Length; i++)
+	{
+		WriteLine(to_str(i) + " -> " + Name(all[i]));
+	}
+
+	return 0;
+}

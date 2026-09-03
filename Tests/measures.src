@@ -1,0 +1,60 @@
+// A measure rides in the type and is erased before codegen, so this is `f64` arithmetic at run time.
+#measure m;
+#measure s;
+#measure deg;
+#measure g;
+
+// A file-scope `const` names its measure the way a signature does, and the type is made on demand.
+const f64<1/s> Gain = 0.5:f64<1/s>;
+const f64<m/s^2/g> Gravity = 9.81:f64<m/s^2/g>;
+
+// A measure is part of the signature, so a caller cannot hand this one seconds.
+f64<m> travelled(f64<m/s> speed, f64<s> dt)
+{
+	return speed * dt;
+}
+
+// Dividing a measure out leaves the bare primitive, which is what a ratio is.
+f64 ratio(f64<m> a, f64<m> b)
+{
+	return a / b;
+}
+
+i32 main()
+{
+	const f64<m> dist = 12.0:f64<m>;
+	const f64<s> dt = 4.0:f64<s>;
+
+	// Exponents subtract, and subtract again.
+	const f64<m/s> v = dist / dt;
+	const f64<m/s^2> a = v / dt;
+	WriteLine("v = " + to_str(v) + " a = " + to_str(a));
+
+	// And add, back to where they started.
+	WriteLine("back = " + to_str(travelled(v, dt)));
+
+	// A bare number is dimensionless, so scaling keeps the measure it started with.
+	const f64<m> scaled = dist * 2.0;
+	WriteLine("scaled = " + to_str(scaled));
+
+	// A measure over itself cancels.
+	WriteLine("ratio = " + to_str(ratio(dist, scaled)));
+
+	// One base, one exponent: `deg^2` is not `deg`, and the type says so.
+	const f64<deg> turn = 90.0:f64<deg>;
+	const f64<deg^2> square = turn * turn;
+	WriteLine("square = " + to_str(square));
+
+	// A measured value reads as its representation, which is what lets a math builtin take one.
+	WriteLine("root = " + to_str(sqrt<f64>(square)));
+
+	// `1/s` is a measure of its own: a rate constant, which turns a distance into a speed.
+	WriteLine("gain = " + to_str(dist * Gain));
+
+	// And an exponent may be divided out twice over: `(m/s^2)/g` times `g` is an acceleration.
+	const f64<g> read = 2.0:f64<g>;
+	const f64<m/s^2> accel = read * Gravity;
+	WriteLine("accel = " + to_str(accel));
+
+	return 0;
+}

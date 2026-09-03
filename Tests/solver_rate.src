@@ -1,0 +1,52 @@
+// A block runs every cycle unless its `#create` carries a schedule: the `${...}` bag after the args.
+#using "Lib/types.src"
+
+// 10 ms a cycle, so a period of 30 ms is every third one.
+const time Step = 10000000;
+
+// The clock, listed first: everything below reads the stamp it publishes.
+void Clock(#param str name, #state time t = 0, #output time now @ "cycle_time")
+{
+	now = t;
+	t = t + Step;
+}
+
+void Tick(#param str name, #input time now @ "cycle_time")
+{
+	WriteLine("  " + name + " at " + to_str(cast<i64>(now)));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Clock(name = "clock"),
+
+			// Every cycle: no bag at all, and an empty one, which mean the same thing.
+			#create Tick(name = "fast"),
+			#create Tick(name = "also") ${},
+
+			// Every third cycle, on the cycle.
+			#create Tick(name = "third") ${ period = 3:time * Step },
+
+			// The same rate, one cycle later, so the two never land together.
+			#create Tick(name = "offset") ${ period = 3:time * Step, phase = Step }
+		]:Function;
+
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 c = 0; c < 6; c++)
+			{
+				WriteLine("cycle " + to_str(c));
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

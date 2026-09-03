@@ -1,0 +1,10 @@
+// `time` is an i64 under a name of its own, so a raw count cannot become a timestamp by assignment.
+// The other direction is allowed: a time may be read as the i64 it is.
+typedef i64 time;
+
+i32 main()
+{
+	i64 ticks = 5:i64;
+	time t = ticks;
+	return 0;
+}

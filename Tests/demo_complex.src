@@ -1,0 +1,54 @@
+// The helpers this needs from Math.src, spelled here so the test stands alone.
+// The one helper this needs from Math.src, spelled here so the test stands alone.
+i32 sum_to(const i32 n)
+{
+	i32 sum = 0;
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}
+
+i32 factorial(const i32 n)
+{
+	if (n < 2)
+	{
+		return 1;
+	}
+	return n * factorial(n - 1);
+}
+
+i32 get_num()
+{
+	return 10;
+}
+
+i32 calc_sum(i32 start)
+{
+	return start + sum_to(get_num());
+}
+
+i32 calc_mult(i32 start)
+{
+	return start * factorial(get_num());
+}
+
+void test()
+{
+	i32 sum = calc_sum(0);
+	i32 mult = calc_mult(1);
+
+	str sumStr = $"Sum: {sum}";
+	str multStr = $"Mult: {mult}";
+	WriteLine(sumStr);
+	WriteLine(multStr);
+}
+
+i32 main()
+{
+	#run test();
+	test();
+
+	return 0;
+}

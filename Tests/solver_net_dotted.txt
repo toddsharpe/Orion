@@ -1,0 +1,15 @@
+-- cycle 0 --
+  Baro.Pressure = 101325.0
+  Baro.BiasPressure = 101325.0
+-- cycle 1 --
+  Baro.Pressure = 101300.0
+  Baro.BiasPressure = 101300.0
+-- cycle 2 --
+  Baro.Pressure = 101250.0
+  Baro.BiasPressure = 101250.0
+-- schema --
+  Baro.Pressure : f32
+  Baro.Updated : bool
+  Baro.BiasPressure : f32
+  baro_t : i32
+  bias_held : f32

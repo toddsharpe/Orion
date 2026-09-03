@@ -1,0 +1,59 @@
+// #param values of any type: a scalar array, a struct, and an array of structs, each passed into
+// a data-driven #build solver block that reads it at build time to emit its ports/body.
+
+struct Point { i32 x; i32 y; }
+struct Field { str name; i32 value; }
+
+// array-of-scalars #param
+void Nums(#param str name, #param Span<i32> nums)
+{
+	#run {
+		for (i32 i = 0; i < nums.Length; i++)
+		{
+			i32 n = nums[i];
+			#insert { WriteLine("num = " + to_str(${n})); }
+		}
+	}
+}
+
+// struct #param
+void Pt(#param str name, #param Point p)
+{
+	#run {
+		#insert { WriteLine("point = (" + to_str(${p.x}) + ", " + to_str(${p.y}) + ")"); }
+	}
+}
+
+// array-of-structs #param
+void Fields(#param str name, #param Span<Field> fields)
+{
+	#run {
+		for (i32 i = 0; i < fields.Length; i++)
+		{
+			Field f = fields[i];
+			#insert { WriteLine(${f.name} + " = " + to_str(${f.value})); }
+		}
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [
+			#create Nums(name = "n", nums = [1, 2, 3]:i32),
+			#create Pt(name = "p", p = Point{ x = 7, y = 9 }),
+			#create Fields(name = "f", fields = [
+				Field{ name = "alpha", value = 100 },
+				Field{ name = "beta",  value = 200 }
+			]:Field)
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { solver_cycle(state); }
+	}
+	return 0;
+}

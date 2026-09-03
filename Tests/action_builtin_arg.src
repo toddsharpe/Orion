@@ -1,0 +1,17 @@
+void run_impl(Action<str> a)
+{
+	a("test");
+}
+
+void run()
+{
+	run_impl(WriteLine);
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

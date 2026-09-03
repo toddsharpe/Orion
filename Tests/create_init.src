@@ -1,0 +1,35 @@
+// A block used on its own runs its own startup: `f.Init` is the lifted #init, a handle like any other.
+void Opener(
+	#param str name,
+	#state  i32 fd,
+	#output i32 handle
+)
+{
+	#init
+	{
+		fd = 7;
+		return fd != -1;
+	}
+
+	fd = fd + 1;
+	handle = fd;
+}
+
+i32 main()
+{
+	i32 fd = 0;
+	i32 handle = 0;
+	bool ok = false;
+
+	#run
+	{
+		Function op = #create Opener(name = "op");
+		#insert { ok = ${op.Init}(fd); }
+		#insert { ${op}(fd, handle); }
+	}
+
+	WriteLine("ok = " + to_str(ok));
+	WriteLine("fd = " + to_str(fd));
+	WriteLine("handle = " + to_str(handle));
+	return 0;
+}

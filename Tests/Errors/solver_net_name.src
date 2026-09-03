@@ -1,0 +1,19 @@
+// A net becomes a field of SolverState, so its name has to be one every target can declare. `Imu/AccX`
+// used to compile clean and emit `f32 Imu/AccX;` for the C++ compiler to reject.
+void Src(#param str name, #output f32 y @ "Imu/AccX")
+{
+	y = 1.0:f32;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [#create Src(name = "s")]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

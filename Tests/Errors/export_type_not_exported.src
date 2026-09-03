@@ -1,0 +1,16 @@
+// An `#export` promises a consumer can name every type in the signature, and only an exported type
+// reaches the header. A struct the source did not export is a promise the header cannot keep.
+struct Reading
+{
+	f64 value;
+}
+
+#export Reading latest()
+{
+	return Reading{ value = 1.5 };
+}
+
+#build i32 main()
+{
+	return 0;
+}

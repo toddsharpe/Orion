@@ -1,0 +1,79 @@
+// A block template whose body varies by #param. `#if` picks the branch when `#create` supplies the
+// value, so the untaken one is deleted before it binds -- one template, three shapes of block.
+
+void Count(#param str name, #state i32 prev = 0, #output i32 n)
+{
+	n = prev;
+	prev = prev + 1;
+}
+
+void Scale(
+	#param str name,
+	#param str mode,
+	#input i32 n,
+	#output i32 scaled @ $"{name}_out"
+)
+{
+	// The `#` carries down the chain: these `else if`s are static too, so no `#elif` is needed.
+	#if (mode == "square")
+	{
+		scaled = n * n;
+	}
+	else if (mode == "double")
+	{
+		scaled = n + n;
+	}
+	else
+	{
+		scaled = n;
+	}
+}
+
+// A #param that only guards a port: with `report` off the block declares no extra net at all.
+void Report(
+	#param str name,
+	#param bool report,
+	#input i32 squared @ "sq_out"
+)
+{
+	#if (report)
+	{
+		#run
+		{
+			#output i32 echo;
+			#insert { echo = squared + 1000; }
+		}
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Count(name = "c"),
+			#create Scale(name = "sq", mode = "square"),
+			#create Scale(name = "db", mode = "double"),
+			#create Scale(name = "id", mode = "pass"),
+			#create Report(name = "rp", report = true),
+			#create Report(name = "off", report = false)
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		Code view = Solver::ViewState(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 4; i++)
+			{
+				WriteLine("Cycle: " + to_str(i));
+				solver_cycle(state);
+				${view};
+			}
+		}
+	}
+
+	return 0;
+}

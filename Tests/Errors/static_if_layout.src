@@ -1,0 +1,17 @@
+// An `#if` may ask what a type IS, since the declarations say so before Binding. How big it is needs
+// layout, which Binding decides -- long after `#if` has chosen. Half-answering that would be worse.
+
+i32 count<T>(T v)
+{
+	#if (Type::ArrayLength(T) > 2)
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
+i32 main()
+{
+	return count<i32>(1);
+}

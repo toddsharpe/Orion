@@ -1,0 +1,26 @@
+// An `#input` reads a net it does not own, so there is no cell of its own to start.
+void Source(#param str name, #output i32 value @ "shared")
+{
+	value = 1;
+}
+
+void Sink(#param str name, #input i32 value = 7 @ "shared")
+{
+	WriteLine(to_str(value));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Source(name = "src"),
+			#create Sink(name = "sink")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

@@ -1,0 +1,69 @@
+// A struct `#output` publishes the struct AND one net per field, down through a nested one.
+
+struct Fix
+{
+	bool Valid;
+	i32 Sats;
+}
+
+struct Sample
+{
+	i32 Temp;
+	Fix Loc;
+}
+
+// One port, six nets: Gps, Gps.Temp, Gps.Loc, Gps.Loc.Valid, Gps.Loc.Sats.
+void Sensor(#param str name, #state i32 tick = 0, #output Sample sample @ "Gps")
+{
+	tick = tick + 1;
+
+	sample.Temp = 20 + tick;
+	sample.Loc.Valid = tick > 1;
+	sample.Loc.Sats = tick * 3;
+}
+
+// The whole struct, which is what a telemetry writer or a frame packer wants.
+void Whole(#param str name, #input Sample sample @ "Gps")
+{
+	WriteLine("  whole  temp " + to_str(sample.Temp) + " sats " + to_str(sample.Loc.Sats));
+}
+
+// One field, at any depth, as the scalar it is.
+void Scalar(#param str name, #input i32 temp @ "Gps.Temp", #input i32 sats @ "Gps.Loc.Sats")
+{
+	WriteLine("  scalar temp " + to_str(temp) + " sats " + to_str(sats));
+}
+
+// A nested struct is a net of its own, between the two.
+void Group(#param str name, #input Fix loc @ "Gps.Loc")
+{
+	WriteLine("  group  valid " + to_str(loc.Valid) + " sats " + to_str(loc.Sats));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Sensor(name = "gps"),
+			#create Whole(name = "whole"),
+			#create Scalar(name = "scalar"),
+			#create Group(name = "group")
+		]:Function;
+
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 c = 0; c < 3; c++)
+			{
+				WriteLine("cycle " + to_str(c));
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

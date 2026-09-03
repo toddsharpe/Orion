@@ -1,0 +1,20 @@
+// Common-subexpression elimination (B11): a repeated pure computation within one
+// block is computed once and reused. Both the arithmetic `a * b` and the duplicate
+// `to_str(v)` builtin call are de-duplicated; output must be unchanged.
+i32 poly(i32 a, i32 b)
+{
+	i32 p = a * b + a * b;
+	return p;
+}
+
+void show(i32 v)
+{
+	WriteLine(to_str(v) + "/" + to_str(v));
+}
+
+i32 main()
+{
+	WriteLine(to_str(poly(3, 4)));
+	show(7);
+	return 0;
+}

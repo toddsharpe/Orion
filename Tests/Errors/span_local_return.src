@@ -1,0 +1,13 @@
+// A view of a LOCAL dangles the moment the frame goes; only a global outlives the call.
+Span<i32> leak()
+{
+	i32[4] xs;
+	xs[0] = 1;
+	return span_slice<i32>(xs, 0:u32, 2:u32);
+}
+
+i32 main()
+{
+	Span<i32> v = leak();
+	return v[0];
+}

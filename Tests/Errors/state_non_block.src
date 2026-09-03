@@ -1,0 +1,13 @@
+// A #state port only means anything on a solver block; elsewhere nothing allocates it.
+void helper(#state i32 c)
+{
+	c = c + 1;
+}
+
+i32 main()
+{
+	i32 x = 0;
+	helper(x);
+	WriteLine(to_str(x));
+	return 0;
+}

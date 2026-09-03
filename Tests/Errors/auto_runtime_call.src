@@ -1,0 +1,12 @@
+// `T[]` needs an initializer that states a length; a runtime call does not.
+i32[3] three()
+{
+	i32[3] out;
+	return out;
+}
+
+i32 main()
+{
+	i32[] xs = three();
+	return xs[0];
+}

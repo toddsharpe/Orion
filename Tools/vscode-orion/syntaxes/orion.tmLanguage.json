@@ -1,0 +1,187 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Orion",
+	"scopeName": "source.orion",
+	"patterns": [
+		{ "include": "#comments" },
+		{ "include": "#strings" },
+		{ "include": "#argsinterp" },
+		{ "include": "#directives" },
+		{ "include": "#keywords" },
+		{ "include": "#constants" },
+		{ "include": "#types" },
+		{ "include": "#numbers" },
+		{ "include": "#enum" },
+		{ "include": "#function-call" },
+		{ "include": "#operators" },
+		{ "include": "#punctuation" }
+	],
+	"repository": {
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.double-slash.orion",
+					"match": "//.*$"
+				},
+				{
+					"name": "comment.block.orion",
+					"begin": "/\\*",
+					"end": "\\*/"
+				}
+			]
+		},
+
+		"string-escape": {
+			"name": "constant.character.escape.orion",
+			"match": "\\\\[nrt\"\\\\{]"
+		},
+
+		"strings": {
+			"patterns": [
+				{
+					"comment": "Interpolated string $\"text {expr} more\" (Parser.fs pinterp)",
+					"name": "string.interpolated.orion",
+					"begin": "\\$\"",
+					"end": "\"",
+					"beginCaptures": { "0": { "name": "punctuation.definition.string.begin.orion" } },
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.orion" } },
+					"patterns": [
+						{ "include": "#string-escape" },
+						{
+							"name": "meta.interpolation.orion",
+							"begin": "\\{",
+							"end": "\\}",
+							"beginCaptures": { "0": { "name": "punctuation.section.interpolation.begin.orion" } },
+							"endCaptures": { "0": { "name": "punctuation.section.interpolation.end.orion" } },
+							"patterns": [ { "include": "$self" } ]
+						}
+					]
+				},
+				{
+					"comment": "Plain string with \\n \\r \\t \\\" \\\\ escapes (Parser.fs pstringliteral)",
+					"name": "string.quoted.double.orion",
+					"begin": "\"",
+					"end": "\"",
+					"beginCaptures": { "0": { "name": "punctuation.definition.string.begin.orion" } },
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.orion" } },
+					"patterns": [ { "include": "#string-escape" } ]
+				}
+			]
+		},
+
+		"argsinterp": {
+			"comment": "Build-time args / holes ${ field = expr } and #insert/#input/#output ${expr} holes",
+			"name": "meta.interpolation.args.orion",
+			"begin": "\\$\\{",
+			"end": "\\}",
+			"beginCaptures": { "0": { "name": "punctuation.section.interpolation.begin.orion" } },
+			"endCaptures": { "0": { "name": "punctuation.section.interpolation.end.orion" } },
+			"patterns": [ { "include": "$self" } ]
+		},
+
+		"directives": {
+			"comment": "# directives: pbuildonly/pbuildrun/pbinding/pstorage/ptemplatestmt/pusing/pmeasure/pfiletest in Parser.fs",
+			"name": "keyword.control.directive.orion",
+			"match": "#(build|run|create|code|param|input|output|prev|state|insert|assert|src|init|using|if|export|measure|test)\\b"
+		},
+
+		"keywords": {
+			"patterns": [
+				{
+					"comment": "Reserved control words (Parser.fs pidentifier reserved list + else)",
+					"name": "keyword.control.orion",
+					"match": "\\b(if|else|for|while|do|switch|case|default|break|continue|return)\\b"
+				},
+				{
+					"comment": "cast<T>(x) and to_str(x) are conversion operators, not calls, so both are reserved",
+					"name": "keyword.operator.cast.orion",
+					"match": "\\b(cast|to_str)\\b"
+				},
+				{
+					"name": "keyword.declaration.orion",
+					"match": "\\b(struct|enum)\\b"
+				},
+				{
+					"name": "storage.modifier.orion",
+					"match": "\\b(const)\\b"
+				}
+			]
+		},
+
+		"constants": {
+			"name": "constant.language.boolean.orion",
+			"match": "\\b(true|false)\\b"
+		},
+
+		"types": {
+			"patterns": [
+				{
+					"comment": "Primitive type codes (Parser.fs ptypecode) + void/bool/str",
+					"name": "storage.type.primitive.orion",
+					"match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|bool|str|void)\\b"
+				},
+				{
+					"comment": "Built-in library/build-time types",
+					"name": "support.type.orion",
+					"match": "\\b(HFunc|Solver|File|List|Map|Action|Func|Span|Code|Type|Enum|Port)\\b"
+				},
+				{
+					"comment": "Identifier used as an array-element type: Foo[]",
+					"name": "storage.type.orion",
+					"match": "\\b[A-Za-z_]\\w*(?=\\[\\])"
+				}
+			]
+		},
+
+		"numbers": {
+			"comment": "Numeric literal with optional :typecode suffix, e.g. 128:i64, 3.14:f32 (Parser.fs pnumber)",
+			"name": "constant.numeric.orion",
+			"match": "\\b\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?(?::(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64))?\\b",
+			"captures": {
+				"1": { "name": "keyword.other.typecode.orion" }
+			}
+		},
+
+		"enum": {
+			"comment": "Enum member access Name::Member (Parser.fs penumval)",
+			"match": "\\b([A-Za-z_]\\w*)\\s*(::)\\s*([A-Za-z_]\\w*)",
+			"captures": {
+				"1": { "name": "entity.name.type.enum.orion" },
+				"2": { "name": "keyword.operator.scope.orion" },
+				"3": { "name": "constant.other.enum.orion" }
+			}
+		},
+
+		"function-call": {
+			"comment": "Identifier immediately before ( is a call (Parser.fs pcall)",
+			"name": "entity.name.function.orion",
+			"match": "\\b[A-Za-z_]\\w*(?=\\s*\\()"
+		},
+
+		"operators": {
+			"comment": "Ordered longest-first so multi-char ops win over their single-char prefixes",
+			"patterns": [
+				{ "name": "keyword.operator.net.orion", "match": "@" },
+				{ "name": "keyword.operator.assignment.compound.orion", "match": "\\+=|-=|\\*=|/=|%=|&=|\\|=|\\^=" },
+				{ "name": "keyword.operator.comparison.orion", "match": "==|!=|<=|>=" },
+				{ "name": "keyword.operator.bitwise.orion", "match": "<<|>>" },
+				{ "name": "keyword.operator.logical.orion", "match": "&&|\\|\\|" },
+				{ "name": "keyword.operator.increment.orion", "match": "\\+\\+|--" },
+				{ "name": "keyword.operator.assignment.orion", "match": "=" },
+				{ "name": "keyword.operator.comparison.orion", "match": "<|>" },
+				{ "name": "keyword.operator.arithmetic.orion", "match": "\\+|-|\\*|/|%" },
+				{ "name": "keyword.operator.bitwise.orion", "match": "&|\\||\\^" },
+				{ "name": "keyword.operator.logical.orion", "match": "!" },
+				{ "name": "keyword.operator.ternary.orion", "match": "\\?|:" }
+			]
+		},
+
+		"punctuation": {
+			"patterns": [
+				{ "name": "punctuation.accessor.orion", "match": "\\." },
+				{ "name": "punctuation.terminator.statement.orion", "match": ";" },
+				{ "name": "punctuation.separator.orion", "match": "," }
+			]
+		}
+	}
+}

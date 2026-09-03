@@ -1,0 +1,11 @@
+// A `#build` cell has no runtime storage, so it may only be read from a build context.
+#build i32 twice(i32 v)
+{
+	return v * 2;
+}
+
+i32 main()
+{
+	#build const i32 d = twice(21);
+	return d;
+}

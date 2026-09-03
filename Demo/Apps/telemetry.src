@@ -1,0 +1,88 @@
+//A self-describing frame on a channel: nothing here names an address, and decode.py needs no schema.
+#using "Lib/types.src"
+#using "Lib/Common.src"
+#using "Services.src"
+#using "Lib/Math.src"
+#using "Lib/Telemetry.src"
+
+//A stepped setpoint, so the telemetry shows a response rather than a constant.
+void Setpoint(
+	#param str name,
+	#param f64 low,
+	#param f64 high,
+	#param i32 hold,
+	#state i32 held = 0,
+	#state bool raised = false,
+	#output f64 setpoint @ $"{name}_value"
+)
+{
+	held = held + 1;
+	if (held >= hold)
+	{
+		held = 0;
+		raised = !raised;
+	}
+
+	if (raised) { setpoint = high; } else { setpoint = low; }
+}
+
+//One pole, discretized: the `#output` read back is last cycle's value, so it needs no `#state` cell.
+void Lag(
+	#param str name,
+	#param str source,
+	#param f64 tau,
+	#param f64 dt,
+	#input f64 command @ source,
+	#output f64 measured @ $"{name}_out"
+)
+{
+	measured = measured + (command - measured) * (dt / tau);
+}
+
+//The mode as an enum, so the frame carries something the schema has to describe to be read back.
+void Mode(
+	#param str name,
+	#param str source,
+	#param f64 ready_above,
+	#input f64 level @ source,
+	#state AppState phase = AppState::Init,
+	#output AppState state @ $"{name}_state"
+)
+{
+	switch (phase)
+	{
+		case AppState::Init: { phase = AppState::Warmup; }
+		case AppState::Warmup: { if (level > ready_above) { phase = AppState::Run; } }
+		default: { }
+	}
+
+	state = phase;
+}
+
+#build i32 main()
+{
+	const f64 dt = 0.01;
+
+	//What rides the frame: a line here grows the frame and the schema together, with no other change.
+	List<Device> telem = List::New<Device>();
+	telem.Add(Device { name = "sp_value", type = Type::Of<f64>() });
+	telem.Add(Device { name = "plant_out", type = Type::Of<f64>() });
+	telem.Add(Device { name = "mode_state", type = Type::Of<AppState>() });
+	telem.Add(Device { name = "cycle_time", type = Type::Of<time>() });
+
+	Function[] blocks =
+	[
+		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
+		#create CycleStart(name = "cycle", dt_ns = Hz_100),
+		//Two seconds per half at 100 Hz: long enough to settle, short enough that a step is never far away.
+		#create Setpoint(name = "sp", low = 20.0, high = 60.0, hold = 200),
+		#create Lag(name = "plant", source = "sp_value", tau = 0.5, dt = dt),
+		#create Mode(name = "mode", source = "plant_out", ready_above = 25.0),
+		#create TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry"))
+	]:Function;
+
+	Solver solver = Solver::New(blocks);
+	Solver::Export(solver, Hz_100);
+
+	return 0;
+}

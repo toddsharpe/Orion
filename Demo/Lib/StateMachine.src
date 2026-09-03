@@ -1,0 +1,390 @@
+//A machine read from a `#src` spec generates its own ports, enums and body. Per cycle, in order:
+//  1. evaluate the triggers THIS STATE acts on -> at most one command (first match wins)
+//  2. apply the transition for (state, command), clear the buffer, reset the counter, stamp entry
+//  3. apply every event matching (state, tick) -> write output nets
+//  4. drive one `{block}_enabled` net per block, true for this state's phase and false for the rest
+//  5. tick = tick + 1
+//Triggers are evaluated PER STATE, in list order; the gate lives in each block, not in the schedule.
+#using "Lib/sm_types.src"
+
+//Reject a broken machine at build time, reporting every problem rather than failing in the C++ compiler.
+
+//What a state does on a tick: write its outputs, and on the last event raise its timeout command.
+#build Code sm_events(State s, str stateEnum, str cmdEnum)
+{
+	List<i32> cycles = List::New<i32>();
+	for (const Event e in s.events)
+	{
+		cycles.AddUnique(e.cycle);
+	}
+
+	Code body = Code::Empty();
+	for (const i32 cyc in cycles)
+	{
+		str writes = "";
+		for (const Event e in s.events)
+		{
+			if (e.cycle == cyc)
+			{
+				if (e.output == TIMEOUT) { writes = writes + $"sm_cmd = {cmdEnum}::{e.value}; "; }
+				else { writes = writes + $"{e.output} = {e.value}; "; }
+			}
+		}
+
+		body = Code::Concat(body, Code::Parse($"if (sm_tick == {cyc}) \{ {writes}}"));
+	}
+
+	return Code::Case<Enum>(Enum::Value(stateEnum, s.name), body);
+}
+
+//One trigger as a nest of `if`s, a `Code` fragment being statements: no conditions fires unconditionally.
+#build Code sm_trigger(Trigger t, Map<str, Port> reads, str cmdEnum)
+{
+	Code body = #code { sm_cmd = ${Enum::Value(cmdEnum, t.command)}; };
+
+	for (i32 i = t.conditions.Length - 1; i >= 0; i--)
+	{
+		const Condition c = t.conditions[i];
+		body = #code
+		{
+			if (${reads[c.input]} ${c.op} ${Str::To(c.threshold, reads[c.input].Type)})
+			{
+				${body};
+			}
+		};
+	}
+
+	return body;
+}
+
+//The triggers one state acts on, guarded so the first match wins; a state consuming none gets an empty arm.
+#build Code sm_triggers(State s, StateMachine m, Map<str, Port> reads, str stateEnum, str cmdEnum)
+{
+	Code body = Code::Empty();
+	for (const Trigger t in m.triggers)
+	{
+		if (s.commands.Has(t.command))
+		{
+			Code raise = sm_trigger(t, reads, cmdEnum);
+			body = Code::Concat(body, #code
+			{
+				if (sm_cmd == ${Enum::Value(cmdEnum, "NoCmd")})
+				{
+					${raise};
+				}
+			});
+		}
+	}
+
+	return Code::Case<Enum>(Enum::Value(stateEnum, s.name), body);
+}
+
+//How one state leaves, and the only place a transition is known, which is why the entry stamp is here.
+#build Code sm_transitions(State s, str stateEnum, str cmdEnum)
+{
+	Code body = Code::Empty();
+	for (const str c in s.commands.Keys)
+	{
+		str to = s.commands[c];
+		body = Code::Concat(body, #code {
+			if (sm_cmd == ${Enum::Value(cmdEnum, c)})
+			{
+				sm_state = ${Enum::Value(stateEnum, to)};
+				sm_tick = 0;
+				sm_entry = sm_now;
+			}
+		});
+	}
+
+	return Code::Case<Enum>(Enum::Value(stateEnum, s.name), body);
+}
+
+//The blocks one state dispatches, scanned rather than indexed: an omitted `phase` is null, not empty.
+#build List<str> sm_running(State s, StateMachine m)
+{
+	List<str> running = List::New<str>();
+	for (const str p in m.phases.Keys)
+	{
+		if (s.phase == p)
+		{
+			for (const str b in m.phases[p])
+			{
+				running.AddUnique(b);
+			}
+		}
+	}
+
+	return running;
+}
+
+//One state's dispatch, written every cycle rather than on entry, so the first cycle is not a case.
+#build Code sm_dispatch(State s, StateMachine m, Map<str, Port> flags, List<str> blocks, str stateEnum)
+{
+	List<str> running = sm_running(s, m);
+
+	Code body = Code::Empty();
+	for (const str b in blocks)
+	{
+		const bool on = running.Contains(b);
+		body = Code::Concat(body, #code { ${flags[b]} = ${on}; });
+	}
+
+	return Code::Case<Enum>(Enum::Value(stateEnum, s.name), body);
+}
+
+//Every block any phase dispatches, once each, walked over the STATES so two builds of one file agree.
+#build List<str> sm_blocks(StateMachine m)
+{
+	List<str> blocks = List::New<str>();
+	for (const State s in m.states)
+	{
+		for (const str b in sm_running(s, m))
+		{
+			blocks.AddUnique(b);
+		}
+	}
+
+	return blocks;
+}
+
+#build void sm_validate(StateMachine m)
+{
+	#assert(m.states.Length > 0, "state machine has no states");
+
+	List<str> names = List::New<str>();
+	for (const State s in m.states)
+	{
+		#assert(!names.Contains(s.name), $"duplicate state '{s.name}'");
+		names.Add(s.name);
+	}
+
+	// An event writes a net by name, so only the timeout marker may reach the machine's own state.
+	const List<str> RESERVED = [TIMEOUT, "sm_state", "sm_tick", "sm_cmd", "sm_line", "sm_entry", "sm_now"]:List<str>;
+
+	List<str> ins = List::New<str>();
+	for (const Device p in m.inputs)
+	{
+		#assert(!RESERVED.Contains(p.name), $"input '{p.name}' is a name the generated machine uses");
+		ins.Add(p.name);
+	}
+	for (const str p in m.prev)
+	{
+		#assert(ins.Contains(p), $"`prev` names '{p}', which is not an input");
+	}
+	List<str> outs = List::New<str>();
+	for (const Device p in m.outputs)
+	{
+		#assert(!RESERVED.Contains(p.name), $"output '{p.name}' is a name the generated machine uses");
+		outs.Add(p.name);
+	}
+
+	// A trigger writes the operator it wants emitted, so only the comparison itself is checked.
+	const List<str> ops = [">=", ">", "<=", "<", "==", "!="]:List<str>;
+
+	// A command must be both consumed by a state and raised by a trigger, or the edge can never fire.
+	List<str> raised = List::New<str>();
+	for (const Trigger t in m.triggers)
+	{
+		for (const Condition c in t.conditions)
+		{
+			#assert(ins.Contains(c.input), $"trigger '{t.name}' reads '{c.input}', which is not an input");
+			#assert(ops.Contains(c.op), $"trigger '{t.name}' uses unknown operator '{c.op}'");
+		}
+		raised.AddUnique(t.command);
+	}
+
+	List<str> consumed = List::New<str>();
+	for (const State s in m.states)
+	{
+		for (const str c in s.commands.Keys)
+		{
+			consumed.AddUnique(c);
+			str to = s.commands[c];
+			#assert(names.Contains(to), $"state '{s.name}' moves to '{to}' on {c}, which is not a state");
+		}
+
+		// A timeout raises a command, so it is what makes that command reachable without a trigger.
+		i32 at = 0;
+		for (const Event e in s.events)
+		{
+			if (e.output == TIMEOUT)
+			{
+				#assert(at == s.events.Length - 1, $"state '{s.name}' times out on '{e.value}' before the end of its event list");
+				#assert(s.commands.Has(e.value), $"state '{s.name}' times out on '{e.value}', which it does not act on");
+				raised.AddUnique(e.value);
+			}
+			else
+			{
+				#assert(outs.Contains(e.output), $"state '{s.name}' writes '{e.output}', which is not an output");
+			}
+			at = at + 1;
+		}
+	}
+
+	for (const str c in raised)
+	{
+		#assert(consumed.Contains(c), $"command '{c}' is raised by a trigger but no state acts on it");
+	}
+	for (const str c in consumed)
+	{
+		#assert(raised.Contains(c), $"command '{c}' is acted on but no trigger raises it");
+	}
+
+	//A phase no state is in flags nothing, which is also how a misspelled `State.phase` is caught.
+	for (const str p in m.phases.Keys)
+	{
+		bool used = false;
+		for (const State s in m.states)
+		{
+			if (s.phase == p) { used = true; }
+		}
+		#assert(used, $"phase '{p}' is declared but no state is in it");
+		#assert(m.phases[p].Length > 0, $"phase '{p}' declares no blocks, so a state in it dispatches nothing");
+	}
+
+	// Walk the graph from the initial state; anything unvisited can never run.
+	List<str> reached = List::New<str>();
+	if (m.states.Length > 0)
+	{
+		reached.Add(m.states[0].name);
+	}
+
+	i32 cursor = 0;
+	while (cursor < reached.Length)
+	{
+		str at = reached[cursor];
+		for (const State s in m.states)
+		{
+			if (s.name == at)
+			{
+				for (const str c in s.commands.Keys)
+				{
+					reached.AddUnique(s.commands[c]);
+				}
+			}
+		}
+		cursor = cursor + 1;
+	}
+
+	for (const str n in names)
+	{
+		#assert(reached.Contains(n), $"state '{n}' is unreachable");
+	}
+
+	// Stop before generating: a bad value would emit code that fails to parse, hiding the real error.
+	if (Build::Failed()) { Assert(false); }
+}
+
+void StateMachine(#param str name, #param str spec)
+{
+	#run {
+		//Run the configuration program: `spec` is a #param, so the file is not known until this executes.
+		StateMachine m = #src spec machine();
+		sm_validate(m);
+
+		str stateEnum = $"{name}_State";
+		str cmdEnum = $"{name}_Cmd";
+		str phaseEnum = $"{name}_Phase";
+
+		//Pass 1: declare the ports and collect the state and command vocabularies.
+		Map<str, Port> reads = Map::New<str, Port>();
+		for (const Device p in m.inputs)
+		{
+			//A name in `prev` is driven by a block listed AFTER this one, so the read is a cycle behind.
+			Port read = m.prev.Contains(p.name) ? Port::Prev(p.type, p.name) : Port::In(p.type, p.name);
+			reads = reads + Map<str, Port>{ p.name = read };
+		}
+
+		Map<str, Port> writes = Map::New<str, Port>();
+		for (const Device p in m.outputs)
+		{
+			writes = writes + Map<str, Port>{ p.name = Port::Out(p.type, p.name) };
+		}
+
+		// Commands are whatever the triggers raise and the states consume, plus the idle NoCmd.
+		List<str> stateNames = List::New<str>();
+		List<str> commands = List::New<str>();
+		commands.Add("NoCmd");
+		for (const Trigger t in m.triggers) { commands.AddUnique(t.command); }
+		for (const State s in m.states)
+		{
+			stateNames.Add(s.name);
+			for (const str c in s.commands.Keys) { commands.AddUnique(c); }
+		}
+
+		// The generated enums exist only from here on, so every reference below is inside emitted code.
+		Build::Enum(stateEnum, stateNames);
+		Build::Enum(cmdEnum, commands);
+
+		//State and entry stamp are `#output`s, not cells, because they are telemetry -- and both persist.
+		Port::In(Type::Parse("time"), "sm_now", "cycle_time");
+		Port::Out(Type::Parse(stateEnum), "sm_state", $"{name}.CurrentState");
+		Port::Out(Type::Parse("time"), "sm_entry", $"{name}.StateEntryTime");
+
+		#insert { #state i32 sm_tick = 0; }
+		#insert { #state ${Type::Parse(cmdEnum)} sm_cmd = ${Enum::Value(cmdEnum, "NoCmd")}; }
+
+		//Dispatch: one bool per block any phase names; a machine with no phases declares none of this.
+		List<str> blocks = sm_blocks(m);
+		Map<str, Port> flags = Map::New<str, Port>();
+		if (blocks.Length > 0)
+		{
+			List<str> phaseNames = List::New<str>();
+			phaseNames.Add("None");
+			for (const State s in m.states)
+			{
+				if (s.phase != "") { phaseNames.AddUnique(s.phase); }
+			}
+			Build::Enum(phaseEnum, phaseNames);
+
+			//`CurrentPhase`, not `Phase`: the field would be `{name}_Phase`, which is the enum's name.
+			Port::Out(Type::Parse(phaseEnum), "sm_phase", $"{name}.CurrentPhase");
+
+			// Named for the block, which derives the same name from its own `#param str name`.
+			for (const str b in blocks)
+			{
+				flags = flags + Map<str, Port>{ b = Port::Out(Type::Of<bool>(), b, $"{b}_enabled") };
+			}
+		}
+
+		//Pass 2: triggers, one arm per state; the `sm_cmd == NoCmd` guard makes the first match win.
+		const List<Code> garms = [sm_triggers(s, m, reads, stateEnum, cmdEnum) for const State s in m.states]:List<Code>;
+		#insert { switch (sm_state) { ${Code::Combine(garms)} } }
+
+		//Pass 3: transitions, then the buffer clears; a pass 5 timeout is in it, so a dwell costs a cycle.
+		const List<Code> tarms = [sm_transitions(s, stateEnum, cmdEnum) for const State s in m.states]:List<Code>;
+		#insert { switch (sm_state) { ${Code::Combine(tarms)} } }
+		#insert { sm_cmd = ${Enum::Value(cmdEnum, "NoCmd")}; }
+
+		//Pass 4: dispatch, after the transition, so the state entered THIS cycle runs its blocks now.
+		if (blocks.Length > 0)
+		{
+			const List<Code> darms = [sm_dispatch(s, m, flags, blocks, stateEnum) for const State s in m.states]:List<Code>;
+			#insert { switch (sm_state) { ${Code::Combine(darms)} } }
+
+			const List<Code> parms = [Code::Case<Enum>(Enum::Value(stateEnum, s.name),
+				#code { sm_phase = ${s.phase == "" ? Enum::Value(phaseEnum, "None") : Enum::Value(phaseEnum, s.phase)}; })
+				for const State s in m.states]:List<Code>;
+			#insert { switch (sm_state) { ${Code::Combine(parms)} } }
+		}
+
+		//Pass 5: events -- the output sequence and the dwell timeout, one switch arm per state.
+		const List<Code> earms = [sm_events(s, stateEnum, cmdEnum) for const State s in m.states]:List<Code>;
+		#insert { switch (sm_state) { ${Code::Combine(earms)} } }
+
+		//Pass 6: an optional per-cycle trace line, the state naming itself through `to_str`.
+		if (m.trace)
+		{
+			#insert { str sm_line = "state=" + to_str(sm_state); }
+
+			for (const Device o in m.outputs)
+			{
+				#insert { sm_line = sm_line + ${" " + o.name + "="} + to_str(${writes[o.name]}); }
+			}
+
+			#insert { WriteLine(sm_line); }
+		}
+
+		#insert { sm_tick = sm_tick + 1; }
+	}
+}

@@ -1,0 +1,23 @@
+void test()
+{
+	str x = "test";
+	bool b = true;
+	if (b)
+	{
+		x = "test1";
+	}
+	else
+	{
+		x = "test2";
+		x = "test3";
+	}
+	i32 y = 3 * -1;
+	WriteLine(x);
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

@@ -1,0 +1,134 @@
+// Landed: a descent seen FIRST, then stillness -- which is what keeps the pad from counting as one.
+#using "Lib/types.src"
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Debounce.src"
+
+// A real descent, well past the noise the estimator carries on the pad.
+const f32<m/s> DescentThreshold = -2.0:f32<m/s>;
+
+// How still counts as stopped.
+const f32<m/s> LandingThreshold = 0.5:f32<m/s>;
+
+// Two full seconds, because a vehicle swinging under a parachute passes through zero rate twice a swing.
+const time LandedHold = 2000000000:time;
+
+struct LandedState
+{
+	// Latched once a real descent has been seen; nothing is tested until it is.
+	bool descending;
+	Debounce debounce;
+}
+
+// One tick. `velocity` is the fused vertical rate, positive up.
+void LandedDetect(
+	#param str name,
+	#param f32<m/s> descent = -2.0:f32<m/s>,
+	#param f32<m/s> landing = 0.5:f32<m/s>,
+	#param time hold = 2000000000:time,
+	#param str time_src = "cycle_time",
+	#state LandedState landed,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<m/s> velocity @ "Alt.Velocity",
+	#input time now @ time_src,
+	#output bool detected @ "Landed.Detected"
+)
+{
+	// Not dispatched: `descending`, the run and the latch hold, so the exit precedes the false write.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// Before a descent there is nothing to detect: on the pad the vehicle is already still.
+	if (landed.descending == false)
+	{
+		landed.descending = velocity < descent;
+		detected = false;
+		return;
+	}
+
+	// Stillness is a magnitude, and `fabs` only reshapes, so the rate keeps its measure to meet the threshold.
+	detected = Debounce_Update(landed.debounce, fabs<f32>(velocity) < landing, now, hold);
+}
+
+// ---- self-test ----
+
+#build bool LandedDetect_SelfTest()
+{
+	const time step = 100000000:time;   // 100 ms, so the 2s hold needs twenty-one ticks
+
+	Instance s = Function::Start(#create LandedDetect(name = "landeddetect_selftest"));
+	#assert(Instance::Get<LandedState>(s, "landed").descending == false, "Landed: a cold start has seen no descent");
+	#assert(Instance::Get<LandedState>(s, "landed").debounce.start == 0:time, "Landed: and has no run in progress");
+
+	// The whole point: a vehicle sitting on the pad is still, and must not read as landed.
+	for (i32 i = 1; i <= 600; i++)
+	{
+		Function::Tick(s, ${enabled = true, velocity = 0.0:f32, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(s, "detected") == false, "Landed: a vehicle on the pad has not landed");
+	}
+	#assert(Instance::Get<LandedState>(s, "landed").descending == false, "Landed: sitting still is not descending");
+
+	// Ascent does not arm it either.
+	Function::Tick(s, ${enabled = true, velocity = 60.0:f32, now = step * 601:time});
+	#assert(Instance::Get<LandedState>(s, "landed").descending == false, "Landed: going up is not descending");
+
+	// A real descent arms the second half.
+	Function::Tick(s, ${enabled = true, velocity = -15.0:f32, now = step * 602:time});
+	#assert(Instance::Get<LandedState>(s, "landed").descending, "Landed: a real descent must arm the test");
+	#assert(Instance::Get<bool>(s, "detected") == false, "Landed: descending is not landed");
+
+	// Still descending is not landed, however long it goes on.
+	for (i32 i = 603; i <= 800; i++)
+	{
+		Function::Tick(s, ${enabled = true, velocity = -15.0:f32, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(s, "detected") == false, "Landed: a vehicle under canopy has not landed");
+	}
+
+	// Down: the rate goes to zero and holds for the full two seconds.
+	for (i32 i = 801; i <= 821; i++)
+	{
+		Function::Tick(s, ${enabled = true, velocity = 0.0:f32, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(s, "detected") == (i == 821), "Landed: fires on the twenty-first tick of stillness and not before");
+	}
+
+	// A parachute swing passes through zero rate but does not stay there, so the hold restarts.
+	Instance swing = Function::Start(#create LandedDetect(name = "landeddetect_swing"));
+	Function::Tick(swing, ${enabled = true, velocity = -15.0:f32, now = step});
+	for (i32 i = 2; i <= 200; i++)
+	{
+		// Five ticks near zero, five clearly falling, over and over.
+		const f32<m/s> rate = (i % 10) < 5 ? 0.0:f32<m/s> : -4.0:f32<m/s>;
+		Function::Tick(swing, ${enabled = true, velocity = rate, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(swing, "detected") == false, "Landed: a swing under canopy must not read as stopped");
+	}
+
+	// The threshold is a magnitude, so drifting upward slowly is as still as drifting downward.
+	Instance drift = Function::Start(#create LandedDetect(name = "landeddetect_drift"));
+	Function::Tick(drift, ${enabled = true, velocity = -15.0:f32, now = step});
+	for (i32 i = 2; i <= 22; i++)
+	{
+		Function::Tick(drift, ${enabled = true, velocity = 0.2:f32, now = step * cast<time>(i)});
+	}
+	#assert(Instance::Get<bool>(drift, "detected"), "Landed: stillness is a magnitude, not a direction");
+
+	// Disabled: neither half advances, so an undispatched descent is not remembered.
+	Instance held = Function::Start(#create LandedDetect(name = "landeddetect_held"));
+	Function::Tick(held, ${enabled = false, velocity = -15.0:f32, now = step});
+	#assert(Instance::Get<LandedState>(held, "landed").descending == false, "Landed: a disabled tick sees no descent");
+
+	// And a latched answer survives a disabled tick rather than being cleared by the first branch.
+	Function::Tick(held, ${enabled = true, velocity = -15.0:f32, now = step * 2:time});
+	for (i32 i = 3; i <= 23; i++)
+	{
+		Function::Tick(held, ${enabled = true, velocity = 0.0:f32, now = step * cast<time>(i)});
+	}
+	#assert(Instance::Get<bool>(held, "detected"), "Landed: enabled again, the sequence completes");
+	Function::Tick(held, ${enabled = false, velocity = 60.0:f32, now = step * 24:time});
+	#assert(Instance::Get<bool>(held, "detected"), "Landed: and a disabled tick must not clear the answer");
+
+	return true;
+}
+
+#test LandedDetect_SelfTest "Landing detection"

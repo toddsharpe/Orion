@@ -1,0 +1,58 @@
+// A valued `#run { }` sits BETWEEN two statement escapes in a solver block. Solver::Block matches
+// escapes positionally against pre-extracted generators, so the valued block must not shift that.
+
+void Src(
+	#param str name,
+	#param i32 value,
+	#output i32 output @ $"{name}_out"
+)
+{
+	output = value;
+}
+
+void Stage(
+	#param str name,
+	#param str source,
+	#param i32 scale,
+	#input i32 input @ source,
+	#output i32 output @ $"{name}_out"
+)
+{
+	#run
+	{
+		#insert { WriteLine(${name} + ": first escape"); }
+	}
+
+	const i32 doubled = #run
+	{
+		return scale * 2;
+	};
+
+	#run
+	{
+		#insert { WriteLine(${name} + ": second escape"); }
+	}
+
+	output = input * doubled;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Src(name = "s", value = 3),
+			#create Stage(name = "a", source = "s_out", scale = 5),
+			#create Stage(name = "b", source = "a_out", scale = 10)
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { solver_cycle(state); }
+		#insert Solver::ViewState(solver);
+	}
+
+	return 0;
+}

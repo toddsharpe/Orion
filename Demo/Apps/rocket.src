@@ -1,0 +1,379 @@
+//Flight computer: four recorded sensors, a state machine and fourteen calcs at 100 Hz. See Demo/README.md.
+#using "Lib/Calcs/Flight/Types.src"
+#using "Lib/Calcs/Flight/Debounce.src"
+#using "Lib/Calcs/Flight/RollingAvg.src"
+#using "Lib/Calcs/Flight/BaroBias.src"
+#using "Lib/Calcs/Flight/GyroBias.src"
+#using "Lib/Calcs/Flight/Altitude.src"
+#using "Lib/Calcs/Flight/Orientation.src"
+#using "Lib/Calcs/Flight/Heading.src"
+#using "Lib/Calcs/Flight/SpinRate.src"
+#using "Lib/Calcs/Flight/LaunchDetect.src"
+#using "Lib/Calcs/Flight/CoastDetect.src"
+#using "Lib/Calcs/Flight/ApogeeDetect.src"
+#using "Lib/Calcs/Flight/LandedDetect.src"
+#using "Lib/Calcs/Flight/GpsReady.src"
+#using "Lib/Calcs/Flight/PadLocation.src"
+#using "Lib/Calcs/Flight/Range.src"
+#using "Lib/Calcs/Flight/LandedLocation.src"
+#using "Lib/Common.src"
+#using "Lib/Report.src"
+#using "Lib/StateMachine.src"
+#using "Lib/Telemetry.src"
+#using "Lib/units.src"
+#using "Services.src"
+
+// 100 Hz, the rate FlightH7 flies at. Anything that prints or transmits runs on a 10 Hz slot below.
+const time CycleStep = Hz_100;
+const time ReportStep = Hz_10;
+
+// One port, four nets: a struct `#output` publishes each field, and Csv::Read names columns by field so this is the row too.
+struct BaroReading
+{
+	f32<degC> Temp;
+	f32<Pa> Pressure;
+	bool Updated;
+}
+
+void FakeBaro(
+	#param str name,
+	#param str path,
+	#state i32 row = 0,
+	#input time now @ "cycle_time",
+	#output BaroReading baro @ "Baro",
+	#output time lastUpdate @ "Baro.LastUpdate"
+)
+{
+	// A constant, hoisted out of the cycle: unsized, so the file's own row count is the extent.
+	const BaroReading[] csv = #run Csv::Read<BaroReading>(path);
+
+	// Past the end of the recording nothing is fresh, and the last reading stands.
+	baro.Updated = false;
+	if (row < csv.Length)
+	{
+		// The recording's columns ARE the published field names, so a fresh row is the reading whole.
+		if (csv[row].Updated)
+		{
+			baro = csv[row];
+			lastUpdate = now;
+		}
+
+		row = row + 1;
+	}
+}
+
+// The recording spells `gyro_x` where the net is `Imu.GyroX`, so the row keeps its own type and the copy casts each column.
+struct ImuRow
+{
+	f32 temp;
+	f32 gyro_x;
+	f32 gyro_y;
+	f32 gyro_z;
+	f32 acc_x;
+	f32 acc_y;
+	f32 acc_z;
+	bool updated;
+}
+
+// Eight nets from one port: Imu, Imu.Temp, Imu.GyroX .. Imu.AccZ and Imu.Updated.
+struct ImuReading
+{
+	f32<degC> Temp;
+	f32<deg/s> GyroX;
+	f32<deg/s> GyroY;
+	f32<deg/s> GyroZ;
+	f32<g> AccX;
+	f32<g> AccY;
+	f32<g> AccZ;
+	bool Updated;
+}
+
+void FakeImu(
+	#param str name,
+	#param str path,
+	#state i32 row = 0,
+	#input time now @ "cycle_time",
+	#output ImuReading imu @ "Imu",
+	#output time lastUpdate @ "Imu.LastUpdate"
+)
+{
+	const ImuRow[] csv = #run Csv::Read<ImuRow>(path);
+
+	imu.Updated = false;
+	if (row < csv.Length)
+	{
+		imu.Updated = csv[row].updated;
+		if (imu.Updated)
+		{
+			// Rate is deg/s and the accelerometer reads in g, which the seven casts are the one record of.
+			imu.Temp = cast<f32<degC>>(csv[row].temp);
+			imu.GyroX = cast<f32<deg/s>>(csv[row].gyro_x);
+			imu.GyroY = cast<f32<deg/s>>(csv[row].gyro_y);
+			imu.GyroZ = cast<f32<deg/s>>(csv[row].gyro_z);
+			imu.AccX = cast<f32<g>>(csv[row].acc_x);
+			imu.AccY = cast<f32<g>>(csv[row].acc_y);
+			imu.AccZ = cast<f32<g>>(csv[row].acc_z);
+			lastUpdate = now;
+		}
+
+		row = row + 1;
+	}
+}
+
+struct MagRow
+{
+	f32 temp;
+	f32 out_x;
+	f32 out_y;
+	f32 out_z;
+	bool updated;
+}
+
+struct MagReading
+{
+	f32<degC> Temp;
+	f32<uT> OutX;
+	f32<uT> OutY;
+	f32<uT> OutZ;
+	bool Updated;
+}
+
+void FakeMag(
+	#param str name,
+	#param str path,
+	#state i32 row = 0,
+	#input time now @ "cycle_time",
+	#output MagReading mag @ "Mag",
+	#output time lastUpdate @ "Mag.LastUpdate"
+)
+{
+	const MagRow[] csv = #run Csv::Read<MagRow>(path);
+
+	mag.Updated = false;
+	if (row < csv.Length)
+	{
+		mag.Updated = csv[row].updated;
+		if (mag.Updated)
+		{
+			mag.Temp = cast<f32<degC>>(csv[row].temp);
+			mag.OutX = cast<f32<uT>>(csv[row].out_x);
+			mag.OutY = cast<f32<uT>>(csv[row].out_y);
+			mag.OutZ = cast<f32<uT>>(csv[row].out_z);
+			lastUpdate = now;
+		}
+
+		row = row + 1;
+	}
+}
+
+struct GpsRow
+{
+	bool loc_valid;
+	f64 lat;
+	f64 lng;
+	GpsFix fix;
+	bool alt_valid;
+	f64 altitude;
+	u32 sats;
+	f64 hdop;
+	bool updated;
+}
+
+// A nested struct is a net of its own: `Gps.Loc` binds entire, `Gps.Loc.Lat` is the one number Range wants.
+struct GpsLoc
+{
+	bool Valid;
+	GpsFix Fix;
+	f64<deg> Lat;
+	f64<deg> Lng;
+}
+
+struct GpsAlt
+{
+	bool Valid;
+	f64<m> Altitude;
+}
+
+// Twelve nets from one port, down through the two groups above.
+struct GpsReading
+{
+	GpsLoc Loc;
+	GpsAlt Alt;
+	u32 Sats;
+
+	// Horizontal dilution of precision: a ratio, so it is deliberately a bare number.
+	f64 Hdop;
+	bool Updated;
+}
+
+void FakeGps(
+	#param str name,
+	#param str path,
+	#state i32 row = 0,
+	#input time now @ "cycle_time",
+	#output GpsReading gps @ "Gps",
+	#output time lastUpdate @ "Gps.LastUpdate"
+)
+{
+	const GpsRow[] csv = #run Csv::Read<GpsRow>(path);
+
+	gps.Updated = false;
+	if (row < csv.Length)
+	{
+		gps.Updated = csv[row].updated;
+		if (gps.Updated)
+		{
+			// A recording's row is flat and these nets are nested, so this one keeps its copies.
+			gps.Loc.Valid = csv[row].loc_valid;
+			gps.Loc.Fix = csv[row].fix;
+			// Degrees of latitude and longitude, which is what Range and PadLocation are written against.
+			gps.Loc.Lat = cast<f64<deg>>(csv[row].lat);
+			gps.Loc.Lng = cast<f64<deg>>(csv[row].lng);
+			gps.Alt.Valid = csv[row].alt_valid;
+			gps.Alt.Altitude = cast<f64<m>>(csv[row].altitude);
+			gps.Sats = csv[row].sats;
+			gps.Hdop = csv[row].hdop;
+			lastUpdate = now;
+		}
+
+		row = row + 1;
+	}
+}
+
+struct CmdRow
+{
+	bool arm_cmd;
+	bool relaunch_cmd;
+}
+
+void FakeCmds(
+	#param str name,
+	#param str path,
+	#state i32 row = 0,
+	#output bool arm @ "ArmCmd",
+	#output bool relaunch @ "RelaunchCmd"
+)
+{
+	const CmdRow[] csv = #run Csv::Read<CmdRow>(path);
+
+	// A relaunch takes a landed vehicle back to GpsWait, which is the only edge out of Landed.
+	if (row < csv.Length)
+	{
+		arm = csv[row].arm_cmd;
+		relaunch = csv[row].relaunch_cmd;
+		row = row + 1;
+	}
+}
+
+// ---- report -------------------------------------------------------------
+
+// What the flight computer made of the recording.
+void Trajectory(
+	#param str name,
+	#param i32 every,
+	#state i32 tick = 0,
+	#input f32<m> altitude @ "Alt.Altitude",
+	#input f32<m/s> velocity @ "Alt.Velocity"
+)
+{
+	tick = tick + 1;
+
+	// `every` is a `#param`, so this folds to a comparison against a literal.
+	if (tick % every != 0)
+	{
+		return;
+	}
+
+	WriteLine("--- trajectory, cycle " + to_str(tick));
+	WriteLine("  fused    " + to_str(altitude) + " m  " + to_str(velocity) + " m/s");
+}
+
+// Every transition as the machine makes it, named through the `<Name>_str` Build::Enum wrote.
+void StateReport(
+	#param str name,
+	#param str spec,
+	#param str state_net,
+	#param str entry_net,
+	#param str enum_name
+)
+{
+	#run
+	{
+		StateMachine m = #src spec machine();
+		const Port st = Port::In(Type::Parse(enum_name), state_net);
+		const Port entry = Port::In(Type::Parse("time"), entry_net);
+
+		//Starts at the initial state, so the first transition out of it is the first thing printed.
+		#insert { #state ${Type::Parse(enum_name)} seen = ${Enum::Value(enum_name, m.states[0].name)}; }
+
+		#insert
+		{
+			if (${st} != seen)
+			{
+				seen = ${st};
+				WriteLine("state -> " + to_str(${st}) + " at " + to_str(${entry}));
+			}
+		}
+	}
+}
+
+#build i32 main()
+{
+	// ONE device list, two consumers: the console report prints it and the telemetry writer packs it.
+	const List<Device> telem = #src "Configs/rocket_telem.src" devices();
+
+	// Listing order IS execution order: sensors -> commands -> machine -> pad calcs -> flight calcs -> detectors -> report.
+	Function[] blocks =
+	[
+		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
+		#create CycleStart(name = "cycle", dt_ns = CycleStep),
+
+		#create FakeBaro(name = "baro", path = "Sim/Rocket/baro.csv"),
+		#create FakeImu(name = "imu", path = "Sim/Rocket/imu.csv"),
+		#create FakeMag(name = "mag", path = "Sim/Rocket/mag.csv"),
+		#create FakeGps(name = "gps", path = "Sim/Rocket/gps.csv"),
+		#create FakeCmds(name = "cmds", path = "Sim/Rocket/cmd.csv"),
+
+		// Decides which of the fourteen calcs below run this cycle, and defines `MainSm_State` for StateReport.
+		#create StateMachine(name = "MainSm", spec = "Configs/rocket_sm.src"),
+
+		// `dispatch_calcs_pad`.
+		#create GpsReady(name = "gpsready"),
+		#create BaroBias(name = "barobias"),
+		#create GyroBias(name = "gyrobias"),
+		#create PadLocation(name = "pad"),
+
+		// `dispatch_calcs_flight`. `alpha` is per SAMPLE, and 100 Hz is the rate its default was written for.
+		#create Altitude(name = "alt"),
+		#create Range(name = "range"),
+		#create Orientation(name = "orient"),
+		#create Heading(name = "heading"),
+		#create SpinRate(name = "spin"),
+
+		// One per state, each enabled in exactly one, after Altitude so they see this cycle's velocity.
+		#create LaunchDetect(name = "launch"),
+		#create CoastDetect(name = "coast"),
+		#create ApogeeDetect(name = "apogee"),
+		#create LandedDetect(name = "landed"),
+
+		// `dispatch_calcs_landed`.
+		#create LandedLocation(name = "site"),
+
+		// Reporting is last, so it sees what the cycle decided, and on a 10 Hz slot: 100 Hz of it is noise.
+		#create StateReport(name = "state", spec = "Configs/rocket_sm.src",
+			state_net = "MainSm.CurrentState", entry_net = "MainSm.StateEntryTime",
+			enum_name = "MainSm_State") ${ period = ReportStep },
+		#create ReportEvery(name = "report", title = "--- cycle", every = 50, fields = telem) ${ period = ReportStep },
+		#create Trajectory(name = "traj", every = 50) ${ period = ReportStep },
+
+		// The same devices packed rather than printed: the writer derives layout and schema from this list at build time.
+		#create TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry")) ${ period = ReportStep }
+	]:Function;
+
+	Solver solver = Solver::New(blocks);
+
+	// Export rather than Solve: the state becomes the program's global, so a platform links against functions and owns the loop.
+	Solver::Export(solver, CycleStep);
+
+	return 0;
+}

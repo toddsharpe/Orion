@@ -1,0 +1,3 @@
+build  : and=251662080 xor=251658480 shr=16711935 shr_hi=15 shr_neg=-4 i_and=15 i_or=4095 i_xor=4080 i_not=-3856 i_shl=61680 prec=true,true fold=3840,3840,-3856
+runtime: and=251662080 xor=251658480 shr=16711935 shr_hi=15 shr_neg=-4 i_and=15 i_or=4095 i_xor=4080 i_not=-3856 i_shl=61680 prec=true,true fold=3840,3840,-3856
+wide   : or=4293984240 not=16711935 shl=4278255360 u8_not=15 u8_shl=224

@@ -1,0 +1,18 @@
+// The interprocedural case: a callee that may write says so by NOT declaring its parameter const.
+#build i32 fill(List<i32> xs)
+{
+	xs.Add(99);
+	return xs.Length;
+}
+
+#build str probe()
+{
+	const List<i32> ro = List::New<i32>();
+	return to_str(fill(ro));
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

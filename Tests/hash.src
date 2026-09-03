@@ -1,0 +1,13 @@
+#build str make_str(str s)
+{
+	Span<u8> hash = str_md5(s);
+	str hex = bytes_hexstr(hash);
+	return hex + " " + to_str(str_len(s));
+}
+
+i32 main()
+{
+	WriteLine(#run make_str("Hello World!"));
+
+	return 0;
+}

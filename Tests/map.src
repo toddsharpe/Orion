@@ -1,0 +1,41 @@
+// Build-time Map<K,V>: put/get/has/count/keys, and grouping via a Map<str, List<str>>.
+#build str report()
+{
+	Map<str, i32> ages = Map::New<str, i32>();
+	ages["ann"] = 30;
+	ages["bob"] = 25;
+	ages["ann"] = 31;
+
+	str r = "ann=" + to_str(ages["ann"]);
+	r = r + " count=" + to_str(ages.Length);
+	r = r + " has_bob=" + to_str(ages.Has("bob"));
+	r = r + " has_x=" + to_str(ages.Has("x"));
+
+	// GetOrAdd groups by key: the list it returns is the stored one, so appending to it lands.
+	Map<str, List<str>> groups = Map::New<str, List<str>>();
+	str[] rows = ["fruit:apple", "veg:carrot", "fruit:pear", "veg:pea", "fruit:plum"]:str;
+	for (const str row in rows)
+	{
+		Span<str> p = Str::Split(row, ":");
+		List<str> bucket = groups.GetOrAdd(p[0]);
+		bucket.Add(p[1]);
+	}
+	for (const str k in groups.Keys)
+	{
+		r = r + " " + k + "=" + to_str(groups[k].Length);
+	}
+
+	//`+` on a List is BuildList's op_Addition, which concatenates into a new list -- neither side
+	//is disturbed, so a list already feeding other call sites can be extended for just this one.
+	List<str> all = groups["fruit"] + groups["veg"];
+	r = r + " all=" + to_str(all.Length) + " fruit=" + to_str(groups["fruit"].Length);
+
+	return r;
+}
+
+i32 main()
+{
+	str s = #run report();
+	WriteLine(s);
+	return 0;
+}

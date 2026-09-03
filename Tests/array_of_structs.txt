@@ -1,0 +1,4 @@
+written 7 set
+zeroed  0 []
+deep    3 0
+grid    9 0

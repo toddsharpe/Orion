@@ -1,0 +1,84 @@
+// Whether the fix is good enough to act on: too few satellites, or bunched, is a position with no accuracy.
+#using "Lib/Math.src"
+#using "Lib/Calcs/Flight/Types.src"
+
+// Four satellites solve the equations; six leaves margin for one going behind a tree.
+const u32 MinSatellites = 6:u32;
+
+// Horizontal dilution of precision: under 2 is good, under 5 usable.
+const f64 MaxHdop = 5.0;
+
+// One tick. Every condition has to hold; a fix is not partly usable.
+void GpsReady(
+	#param str name,
+	#param u32 min_satellites = 6:u32,
+	#param f64 max_hdop = 5.0,
+	#input bool enabled @ $"{name}_enabled",
+	#input bool valid @ "Gps.Loc.Valid",
+	#input GpsFix fix @ "Gps.Loc.Fix",
+	#input u32 satellites @ "Gps.Sats",
+	#input f64 hdop @ "Gps.Hdop",
+	#output bool ready @ "GpsReady.Ready"
+)
+{
+	// No state to hold, but the gate keeps `GpsReady.Ready` through a flight, where a lost fix means nothing.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	ready = valid
+		&& fix >= GpsFix::Fix3D
+		&& satellites >= min_satellites
+		&& hdop <= max_hdop;
+}
+
+// ---- self-test ----
+
+// Nothing carries between ticks, so one `#create` answers every case through `Function::Out`.
+#build bool GpsReady_SelfTest()
+{
+	Function gps = #create GpsReady(name = "gpsready_selftest");
+
+	// The good case, which every rejection below is one change away from.
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = 9:u32, hdop = 1.2}, "ready"),
+		"GpsReady: a strong fix is ready");
+
+	// Each condition on its own is enough to reject.
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = false, fix = GpsFix::Fix3D, satellites = 9:u32, hdop = 1.2}, "ready") == false,
+		"GpsReady: an invalid reading is not ready whatever else it says");
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::Fix2D, satellites = 9:u32, hdop = 1.2}, "ready") == false,
+		"GpsReady: a 2D fix has no altitude, so it is not a fix");
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::None, satellites = 9:u32, hdop = 1.2}, "ready") == false,
+		"GpsReady: no fix is not ready");
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = 4:u32, hdop = 1.2}, "ready") == false,
+		"GpsReady: too few satellites is not ready");
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = 9:u32, hdop = 8.0}, "ready") == false,
+		"GpsReady: poor geometry is not ready");
+
+	// The boundaries are inclusive on both counts: exactly the minimum passes, exactly the maximum passes.
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = MinSatellites, hdop = MaxHdop}, "ready"),
+		"GpsReady: the limits themselves are acceptable");
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = MinSatellites - 1:u32, hdop = 1.2}, "ready") == false,
+		"GpsReady: one satellite short is not ready");
+
+	// A better fix than required still passes, so the test is a floor and not an equality.
+	#assert(Function::Out<bool>(gps, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = 24:u32, hdop = 0.6}, "ready"),
+		"GpsReady: better than required is still ready");
+
+	// The limits are `#param`s, so a mission that demands more is a different block and not an argument.
+	Function strict = #create GpsReady(name = "gpsready_strict", max_hdop = 2.0);
+	Function many = #create GpsReady(name = "gpsready_many", min_satellites = 12:u32);
+	#assert(Function::Out<bool>(strict, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = 9:u32, hdop = 3.0}, "ready") == false,
+		"GpsReady: a tighter hdop limit rejects a fix the default accepts");
+	#assert(Function::Out<bool>(many, ${enabled = true, valid = true, fix = GpsFix::Fix3D, satellites = 9:u32, hdop = 3.0}, "ready") == false,
+		"GpsReady: a higher satellite floor rejects it too");
+
+	// Disabled: the port is not written, which on a solved netlist is the net holding its last value.
+	#assert(Function::Out<bool>(gps, ${enabled = false, valid = true, fix = GpsFix::Fix3D, satellites = 24:u32, hdop = 0.6}, "ready") == false,
+		"GpsReady: a disabled tick writes no answer");
+
+	return true;
+}
+
+#test GpsReady_SelfTest "GPS fix usability"

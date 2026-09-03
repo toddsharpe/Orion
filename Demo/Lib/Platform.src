@@ -1,0 +1,10 @@
+#using "Lib/types.src"
+
+//THE clock, and the only one: monotonic nanoseconds from an arbitrary origin. See Lib/Common.src.
+extern time Platform_Now();
+
+//Holds the loop to its rate. Absolute rather than a duration, so a wait is to a point on the schedule.
+extern void Platform_SleepUntil(time deadline);
+
+//The stop condition, for a program that owns its own loop. A Demo app does not: the platform dispatches.
+extern bool Platform_Running();

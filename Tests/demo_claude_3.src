@@ -1,0 +1,11578 @@
+/*
+ * demo_claude_3 -- an auto-generated 10,000+ line Orion program.
+ *
+ * A deliberately huge stress test that pushes the whole language: hundreds of
+ * generated arithmetic pipelines, array reducers, predicates, recursive
+ * functions, enum classifiers and struct processors, a hand-written core
+ * (factorial/fib/gcd/primes, a bytecode VM, higher-order combinators, struct
+ * arrays) and a self-checking harness in main().
+ */
+
+enum Grade
+{
+	F,
+	D,
+	C,
+	B,
+	A
+}
+
+enum Phase
+{
+	Idle,
+	Warmup,
+	Active,
+	Cooldown,
+	Done
+}
+
+struct Acc
+{
+	i32 Sum;
+	i32 Count;
+	i32 Max;
+}
+
+struct Vec3
+{
+	i32 X;
+	i32 Y;
+	i32 Z;
+}
+
+struct Pair
+{
+	i32 A;
+	i32 B;
+}
+
+/*
+ * ---- scalar transforms (210) ----
+ */
+
+i32 sc_0(i32 x)
+{
+	i32 r = x + 25;
+	r = (r * 8) + 7;
+	return r % 7;
+}
+
+i32 sc_1(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 1) + 42;
+	return r % 11;
+}
+
+i32 sc_2(i32 x)
+{
+	i32 r = x + 4;
+	r = (r * 6) + 15;
+	return r % 7;
+}
+
+i32 sc_3(i32 x)
+{
+	i32 r = x + 1;
+	r = (r * 1) + 22;
+	return r % 101;
+}
+
+i32 sc_4(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 8) + 9;
+	return r % 11;
+}
+
+i32 sc_5(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 2) + 0;
+	return r % 97;
+}
+
+i32 sc_6(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 4) + 4;
+	return r % 97;
+}
+
+i32 sc_7(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 8) + 4;
+	return r % 101;
+}
+
+i32 sc_8(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 2) + 32;
+	return r % 101;
+}
+
+i32 sc_9(i32 x)
+{
+	i32 r = x + 2;
+	r = (r * 5) + 35;
+	return r % 11;
+}
+
+i32 sc_10(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 5) + 30;
+	return r % 23;
+}
+
+i32 sc_11(i32 x)
+{
+	i32 r = x + 9;
+	r = (r * 4) + 41;
+	return r % 17;
+}
+
+i32 sc_12(i32 x)
+{
+	i32 r = x + 15;
+	r = (r * 9) + 42;
+	return r % 7;
+}
+
+i32 sc_13(i32 x)
+{
+	i32 r = x + 17;
+	r = (r * 2) + 0;
+	return r % 23;
+}
+
+i32 sc_14(i32 x)
+{
+	i32 r = x + 5;
+	r = (r * 8) + 42;
+	return r % 29;
+}
+
+i32 sc_15(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 1) + 4;
+	return r % 101;
+}
+
+i32 sc_16(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 3) + 4;
+	return r % 97;
+}
+
+i32 sc_17(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 3) + 1;
+	return r % 23;
+}
+
+i32 sc_18(i32 x)
+{
+	i32 r = x + 25;
+	r = (r * 2) + 33;
+	return r % 13;
+}
+
+i32 sc_19(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 5) + 29;
+	return r % 7;
+}
+
+i32 sc_20(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 5) + 42;
+	return r % 7;
+}
+
+i32 sc_21(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 5) + 9;
+	return r % 19;
+}
+
+i32 sc_22(i32 x)
+{
+	i32 r = x + 28;
+	r = (r * 3) + 49;
+	return r % 31;
+}
+
+i32 sc_23(i32 x)
+{
+	i32 r = x + 2;
+	r = (r * 7) + 48;
+	return r % 23;
+}
+
+i32 sc_24(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 6) + 37;
+	return r % 31;
+}
+
+i32 sc_25(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 1) + 50;
+	return r % 31;
+}
+
+i32 sc_26(i32 x)
+{
+	i32 r = x + 28;
+	r = (r * 3) + 28;
+	return r % 97;
+}
+
+i32 sc_27(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 8) + 18;
+	return r % 19;
+}
+
+i32 sc_28(i32 x)
+{
+	i32 r = x + 4;
+	r = (r * 3) + 26;
+	return r % 29;
+}
+
+i32 sc_29(i32 x)
+{
+	i32 r = x + 25;
+	r = (r * 2) + 33;
+	return r % 11;
+}
+
+i32 sc_30(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 8) + 24;
+	return r % 19;
+}
+
+i32 sc_31(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 4) + 22;
+	return r % 11;
+}
+
+i32 sc_32(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 3) + 37;
+	return r % 19;
+}
+
+i32 sc_33(i32 x)
+{
+	i32 r = x + 5;
+	r = (r * 6) + 50;
+	return r % 31;
+}
+
+i32 sc_34(i32 x)
+{
+	i32 r = x + 24;
+	r = (r * 2) + 5;
+	return r % 29;
+}
+
+i32 sc_35(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 1) + 18;
+	return r % 7;
+}
+
+i32 sc_36(i32 x)
+{
+	i32 r = x + 8;
+	r = (r * 9) + 5;
+	return r % 23;
+}
+
+i32 sc_37(i32 x)
+{
+	i32 r = x + 10;
+	r = (r * 8) + 4;
+	return r % 101;
+}
+
+i32 sc_38(i32 x)
+{
+	i32 r = x + 9;
+	r = (r * 2) + 44;
+	return r % 29;
+}
+
+i32 sc_39(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 2) + 25;
+	return r % 17;
+}
+
+i32 sc_40(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 8) + 32;
+	return r % 17;
+}
+
+i32 sc_41(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 6) + 13;
+	return r % 97;
+}
+
+i32 sc_42(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 7) + 11;
+	return r % 101;
+}
+
+i32 sc_43(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 5) + 3;
+	return r % 23;
+}
+
+i32 sc_44(i32 x)
+{
+	i32 r = x + 18;
+	r = (r * 3) + 31;
+	return r % 97;
+}
+
+i32 sc_45(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 6) + 8;
+	return r % 13;
+}
+
+i32 sc_46(i32 x)
+{
+	i32 r = x + 2;
+	r = (r * 3) + 9;
+	return r % 97;
+}
+
+i32 sc_47(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 6) + 10;
+	return r % 7;
+}
+
+i32 sc_48(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 1) + 40;
+	return r % 11;
+}
+
+i32 sc_49(i32 x)
+{
+	i32 r = x + 25;
+	r = (r * 3) + 13;
+	return r % 7;
+}
+
+i32 sc_50(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 7) + 47;
+	return r % 23;
+}
+
+i32 sc_51(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 7) + 17;
+	return r % 97;
+}
+
+i32 sc_52(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 5) + 27;
+	return r % 23;
+}
+
+i32 sc_53(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 3) + 34;
+	return r % 11;
+}
+
+i32 sc_54(i32 x)
+{
+	i32 r = x + 25;
+	r = (r * 5) + 17;
+	return r % 29;
+}
+
+i32 sc_55(i32 x)
+{
+	i32 r = x + 13;
+	r = (r * 5) + 33;
+	return r % 11;
+}
+
+i32 sc_56(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 7) + 17;
+	return r % 17;
+}
+
+i32 sc_57(i32 x)
+{
+	i32 r = x + 10;
+	r = (r * 7) + 3;
+	return r % 23;
+}
+
+i32 sc_58(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 8) + 14;
+	return r % 31;
+}
+
+i32 sc_59(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 7) + 19;
+	return r % 7;
+}
+
+i32 sc_60(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 8) + 25;
+	return r % 19;
+}
+
+i32 sc_61(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 8) + 11;
+	return r % 29;
+}
+
+i32 sc_62(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 8) + 10;
+	return r % 19;
+}
+
+i32 sc_63(i32 x)
+{
+	i32 r = x + 19;
+	r = (r * 6) + 41;
+	return r % 101;
+}
+
+i32 sc_64(i32 x)
+{
+	i32 r = x + 12;
+	r = (r * 4) + 10;
+	return r % 97;
+}
+
+i32 sc_65(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 8) + 42;
+	return r % 31;
+}
+
+i32 sc_66(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 1) + 50;
+	return r % 31;
+}
+
+i32 sc_67(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 2) + 1;
+	return r % 23;
+}
+
+i32 sc_68(i32 x)
+{
+	i32 r = x + 26;
+	r = (r * 8) + 4;
+	return r % 13;
+}
+
+i32 sc_69(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 6) + 22;
+	return r % 19;
+}
+
+i32 sc_70(i32 x)
+{
+	i32 r = x + 10;
+	r = (r * 6) + 36;
+	return r % 19;
+}
+
+i32 sc_71(i32 x)
+{
+	i32 r = x + 19;
+	r = (r * 4) + 32;
+	return r % 19;
+}
+
+i32 sc_72(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 9) + 44;
+	return r % 101;
+}
+
+i32 sc_73(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 6) + 32;
+	return r % 23;
+}
+
+i32 sc_74(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 6) + 29;
+	return r % 19;
+}
+
+i32 sc_75(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 9) + 37;
+	return r % 101;
+}
+
+i32 sc_76(i32 x)
+{
+	i32 r = x + 18;
+	r = (r * 2) + 15;
+	return r % 19;
+}
+
+i32 sc_77(i32 x)
+{
+	i32 r = x + 12;
+	r = (r * 3) + 1;
+	return r % 29;
+}
+
+i32 sc_78(i32 x)
+{
+	i32 r = x + 2;
+	r = (r * 1) + 13;
+	return r % 13;
+}
+
+i32 sc_79(i32 x)
+{
+	i32 r = x + 11;
+	r = (r * 9) + 22;
+	return r % 29;
+}
+
+i32 sc_80(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 9) + 4;
+	return r % 19;
+}
+
+i32 sc_81(i32 x)
+{
+	i32 r = x + 9;
+	r = (r * 8) + 37;
+	return r % 17;
+}
+
+i32 sc_82(i32 x)
+{
+	i32 r = x + 12;
+	r = (r * 9) + 5;
+	return r % 7;
+}
+
+i32 sc_83(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 6) + 36;
+	return r % 17;
+}
+
+i32 sc_84(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 8) + 31;
+	return r % 13;
+}
+
+i32 sc_85(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 9) + 39;
+	return r % 101;
+}
+
+i32 sc_86(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 3) + 34;
+	return r % 17;
+}
+
+i32 sc_87(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 3) + 32;
+	return r % 97;
+}
+
+i32 sc_88(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 7) + 20;
+	return r % 13;
+}
+
+i32 sc_89(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 9) + 36;
+	return r % 97;
+}
+
+i32 sc_90(i32 x)
+{
+	i32 r = x + 20;
+	r = (r * 8) + 2;
+	return r % 23;
+}
+
+i32 sc_91(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 6) + 48;
+	return r % 29;
+}
+
+i32 sc_92(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 1) + 38;
+	return r % 101;
+}
+
+i32 sc_93(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 6) + 14;
+	return r % 101;
+}
+
+i32 sc_94(i32 x)
+{
+	i32 r = x + 26;
+	r = (r * 4) + 22;
+	return r % 97;
+}
+
+i32 sc_95(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 7) + 37;
+	return r % 31;
+}
+
+i32 sc_96(i32 x)
+{
+	i32 r = x + 2;
+	r = (r * 1) + 28;
+	return r % 11;
+}
+
+i32 sc_97(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 5) + 27;
+	return r % 23;
+}
+
+i32 sc_98(i32 x)
+{
+	i32 r = x + 5;
+	r = (r * 8) + 43;
+	return r % 17;
+}
+
+i32 sc_99(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 1) + 47;
+	return r % 23;
+}
+
+i32 sc_100(i32 x)
+{
+	i32 r = x + 19;
+	r = (r * 6) + 26;
+	return r % 13;
+}
+
+i32 sc_101(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 1) + 13;
+	return r % 17;
+}
+
+i32 sc_102(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 9) + 46;
+	return r % 13;
+}
+
+i32 sc_103(i32 x)
+{
+	i32 r = x + 17;
+	r = (r * 3) + 43;
+	return r % 19;
+}
+
+i32 sc_104(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 1) + 38;
+	return r % 31;
+}
+
+i32 sc_105(i32 x)
+{
+	i32 r = x + 12;
+	r = (r * 6) + 18;
+	return r % 29;
+}
+
+i32 sc_106(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 6) + 14;
+	return r % 19;
+}
+
+i32 sc_107(i32 x)
+{
+	i32 r = x + 1;
+	r = (r * 6) + 37;
+	return r % 19;
+}
+
+i32 sc_108(i32 x)
+{
+	i32 r = x + 4;
+	r = (r * 9) + 38;
+	return r % 7;
+}
+
+i32 sc_109(i32 x)
+{
+	i32 r = x + 28;
+	r = (r * 4) + 34;
+	return r % 101;
+}
+
+i32 sc_110(i32 x)
+{
+	i32 r = x + 19;
+	r = (r * 6) + 34;
+	return r % 13;
+}
+
+i32 sc_111(i32 x)
+{
+	i32 r = x + 11;
+	r = (r * 5) + 23;
+	return r % 19;
+}
+
+i32 sc_112(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 3) + 29;
+	return r % 13;
+}
+
+i32 sc_113(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 1) + 34;
+	return r % 29;
+}
+
+i32 sc_114(i32 x)
+{
+	i32 r = x + 8;
+	r = (r * 4) + 28;
+	return r % 19;
+}
+
+i32 sc_115(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 3) + 22;
+	return r % 101;
+}
+
+i32 sc_116(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 7) + 33;
+	return r % 31;
+}
+
+i32 sc_117(i32 x)
+{
+	i32 r = x + 25;
+	r = (r * 8) + 30;
+	return r % 97;
+}
+
+i32 sc_118(i32 x)
+{
+	i32 r = x + 15;
+	r = (r * 6) + 39;
+	return r % 11;
+}
+
+i32 sc_119(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 9) + 25;
+	return r % 101;
+}
+
+i32 sc_120(i32 x)
+{
+	i32 r = x + 5;
+	r = (r * 2) + 50;
+	return r % 31;
+}
+
+i32 sc_121(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 2) + 34;
+	return r % 97;
+}
+
+i32 sc_122(i32 x)
+{
+	i32 r = x + 5;
+	r = (r * 5) + 15;
+	return r % 11;
+}
+
+i32 sc_123(i32 x)
+{
+	i32 r = x + 11;
+	r = (r * 7) + 18;
+	return r % 97;
+}
+
+i32 sc_124(i32 x)
+{
+	i32 r = x + 12;
+	r = (r * 7) + 35;
+	return r % 17;
+}
+
+i32 sc_125(i32 x)
+{
+	i32 r = x + 20;
+	r = (r * 8) + 43;
+	return r % 31;
+}
+
+i32 sc_126(i32 x)
+{
+	i32 r = x + 11;
+	r = (r * 8) + 33;
+	return r % 11;
+}
+
+i32 sc_127(i32 x)
+{
+	i32 r = x + 18;
+	r = (r * 8) + 5;
+	return r % 11;
+}
+
+i32 sc_128(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 3) + 38;
+	return r % 23;
+}
+
+i32 sc_129(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 7) + 17;
+	return r % 17;
+}
+
+i32 sc_130(i32 x)
+{
+	i32 r = x + 9;
+	r = (r * 1) + 10;
+	return r % 23;
+}
+
+i32 sc_131(i32 x)
+{
+	i32 r = x + 20;
+	r = (r * 2) + 2;
+	return r % 7;
+}
+
+i32 sc_132(i32 x)
+{
+	i32 r = x + 26;
+	r = (r * 5) + 27;
+	return r % 23;
+}
+
+i32 sc_133(i32 x)
+{
+	i32 r = x + 11;
+	r = (r * 5) + 37;
+	return r % 29;
+}
+
+i32 sc_134(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 3) + 24;
+	return r % 29;
+}
+
+i32 sc_135(i32 x)
+{
+	i32 r = x + 1;
+	r = (r * 5) + 38;
+	return r % 101;
+}
+
+i32 sc_136(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 5) + 45;
+	return r % 23;
+}
+
+i32 sc_137(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 4) + 9;
+	return r % 17;
+}
+
+i32 sc_138(i32 x)
+{
+	i32 r = x + 20;
+	r = (r * 8) + 38;
+	return r % 31;
+}
+
+i32 sc_139(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 9) + 21;
+	return r % 97;
+}
+
+i32 sc_140(i32 x)
+{
+	i32 r = x + 9;
+	r = (r * 7) + 25;
+	return r % 19;
+}
+
+i32 sc_141(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 8) + 20;
+	return r % 17;
+}
+
+i32 sc_142(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 5) + 10;
+	return r % 13;
+}
+
+i32 sc_143(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 7) + 10;
+	return r % 7;
+}
+
+i32 sc_144(i32 x)
+{
+	i32 r = x + 8;
+	r = (r * 9) + 22;
+	return r % 97;
+}
+
+i32 sc_145(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 7) + 28;
+	return r % 7;
+}
+
+i32 sc_146(i32 x)
+{
+	i32 r = x + 18;
+	r = (r * 7) + 49;
+	return r % 11;
+}
+
+i32 sc_147(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 2) + 4;
+	return r % 17;
+}
+
+i32 sc_148(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 7) + 45;
+	return r % 31;
+}
+
+i32 sc_149(i32 x)
+{
+	i32 r = x + 13;
+	r = (r * 4) + 44;
+	return r % 19;
+}
+
+i32 sc_150(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 9) + 20;
+	return r % 97;
+}
+
+i32 sc_151(i32 x)
+{
+	i32 r = x + 17;
+	r = (r * 8) + 42;
+	return r % 11;
+}
+
+i32 sc_152(i32 x)
+{
+	i32 r = x + 10;
+	r = (r * 1) + 32;
+	return r % 13;
+}
+
+i32 sc_153(i32 x)
+{
+	i32 r = x + 5;
+	r = (r * 3) + 24;
+	return r % 29;
+}
+
+i32 sc_154(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 9) + 8;
+	return r % 19;
+}
+
+i32 sc_155(i32 x)
+{
+	i32 r = x + 4;
+	r = (r * 8) + 34;
+	return r % 23;
+}
+
+i32 sc_156(i32 x)
+{
+	i32 r = x + 20;
+	r = (r * 3) + 17;
+	return r % 29;
+}
+
+i32 sc_157(i32 x)
+{
+	i32 r = x + 28;
+	r = (r * 8) + 17;
+	return r % 23;
+}
+
+i32 sc_158(i32 x)
+{
+	i32 r = x + 6;
+	r = (r * 2) + 50;
+	return r % 31;
+}
+
+i32 sc_159(i32 x)
+{
+	i32 r = x + 8;
+	r = (r * 8) + 15;
+	return r % 11;
+}
+
+i32 sc_160(i32 x)
+{
+	i32 r = x + 9;
+	r = (r * 3) + 40;
+	return r % 97;
+}
+
+i32 sc_161(i32 x)
+{
+	i32 r = x + 9;
+	r = (r * 3) + 25;
+	return r % 17;
+}
+
+i32 sc_162(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 9) + 33;
+	return r % 13;
+}
+
+i32 sc_163(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 4) + 21;
+	return r % 101;
+}
+
+i32 sc_164(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 1) + 33;
+	return r % 23;
+}
+
+i32 sc_165(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 4) + 41;
+	return r % 17;
+}
+
+i32 sc_166(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 9) + 1;
+	return r % 7;
+}
+
+i32 sc_167(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 6) + 28;
+	return r % 17;
+}
+
+i32 sc_168(i32 x)
+{
+	i32 r = x + 22;
+	r = (r * 1) + 26;
+	return r % 29;
+}
+
+i32 sc_169(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 7) + 21;
+	return r % 101;
+}
+
+i32 sc_170(i32 x)
+{
+	i32 r = x + 17;
+	r = (r * 4) + 48;
+	return r % 101;
+}
+
+i32 sc_171(i32 x)
+{
+	i32 r = x + 25;
+	r = (r * 8) + 19;
+	return r % 31;
+}
+
+i32 sc_172(i32 x)
+{
+	i32 r = x + 19;
+	r = (r * 1) + 1;
+	return r % 19;
+}
+
+i32 sc_173(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 2) + 28;
+	return r % 101;
+}
+
+i32 sc_174(i32 x)
+{
+	i32 r = x + 28;
+	r = (r * 4) + 25;
+	return r % 29;
+}
+
+i32 sc_175(i32 x)
+{
+	i32 r = x + 7;
+	r = (r * 1) + 27;
+	return r % 29;
+}
+
+i32 sc_176(i32 x)
+{
+	i32 r = x + 4;
+	r = (r * 7) + 11;
+	return r % 13;
+}
+
+i32 sc_177(i32 x)
+{
+	i32 r = x + 20;
+	r = (r * 2) + 50;
+	return r % 23;
+}
+
+i32 sc_178(i32 x)
+{
+	i32 r = x + 26;
+	r = (r * 3) + 47;
+	return r % 17;
+}
+
+i32 sc_179(i32 x)
+{
+	i32 r = x + 26;
+	r = (r * 2) + 32;
+	return r % 29;
+}
+
+i32 sc_180(i32 x)
+{
+	i32 r = x + 2;
+	r = (r * 3) + 17;
+	return r % 97;
+}
+
+i32 sc_181(i32 x)
+{
+	i32 r = x + 1;
+	r = (r * 6) + 32;
+	return r % 7;
+}
+
+i32 sc_182(i32 x)
+{
+	i32 r = x + 26;
+	r = (r * 5) + 46;
+	return r % 97;
+}
+
+i32 sc_183(i32 x)
+{
+	i32 r = x + 1;
+	r = (r * 1) + 26;
+	return r % 31;
+}
+
+i32 sc_184(i32 x)
+{
+	i32 r = x + 1;
+	r = (r * 5) + 11;
+	return r % 17;
+}
+
+i32 sc_185(i32 x)
+{
+	i32 r = x + 28;
+	r = (r * 8) + 36;
+	return r % 7;
+}
+
+i32 sc_186(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 5) + 15;
+	return r % 31;
+}
+
+i32 sc_187(i32 x)
+{
+	i32 r = x + 15;
+	r = (r * 3) + 16;
+	return r % 13;
+}
+
+i32 sc_188(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 5) + 33;
+	return r % 7;
+}
+
+i32 sc_189(i32 x)
+{
+	i32 r = x + 30;
+	r = (r * 5) + 41;
+	return r % 23;
+}
+
+i32 sc_190(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 4) + 11;
+	return r % 7;
+}
+
+i32 sc_191(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 5) + 40;
+	return r % 101;
+}
+
+i32 sc_192(i32 x)
+{
+	i32 r = x + 16;
+	r = (r * 1) + 27;
+	return r % 13;
+}
+
+i32 sc_193(i32 x)
+{
+	i32 r = x + 14;
+	r = (r * 6) + 39;
+	return r % 19;
+}
+
+i32 sc_194(i32 x)
+{
+	i32 r = x + 28;
+	r = (r * 2) + 5;
+	return r % 101;
+}
+
+i32 sc_195(i32 x)
+{
+	i32 r = x + 24;
+	r = (r * 7) + 36;
+	return r % 23;
+}
+
+i32 sc_196(i32 x)
+{
+	i32 r = x + 17;
+	r = (r * 1) + 42;
+	return r % 29;
+}
+
+i32 sc_197(i32 x)
+{
+	i32 r = x + 15;
+	r = (r * 9) + 11;
+	return r % 29;
+}
+
+i32 sc_198(i32 x)
+{
+	i32 r = x + 4;
+	r = (r * 9) + 33;
+	return r % 23;
+}
+
+i32 sc_199(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 9) + 34;
+	return r % 17;
+}
+
+i32 sc_200(i32 x)
+{
+	i32 r = x + 21;
+	r = (r * 9) + 6;
+	return r % 29;
+}
+
+i32 sc_201(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 6) + 44;
+	return r % 97;
+}
+
+i32 sc_202(i32 x)
+{
+	i32 r = x + 5;
+	r = (r * 2) + 41;
+	return r % 23;
+}
+
+i32 sc_203(i32 x)
+{
+	i32 r = x + 24;
+	r = (r * 8) + 16;
+	return r % 11;
+}
+
+i32 sc_204(i32 x)
+{
+	i32 r = x + 3;
+	r = (r * 8) + 49;
+	return r % 101;
+}
+
+i32 sc_205(i32 x)
+{
+	i32 r = x + 29;
+	r = (r * 1) + 22;
+	return r % 7;
+}
+
+i32 sc_206(i32 x)
+{
+	i32 r = x + 19;
+	r = (r * 4) + 6;
+	return r % 31;
+}
+
+i32 sc_207(i32 x)
+{
+	i32 r = x + 23;
+	r = (r * 9) + 11;
+	return r % 101;
+}
+
+i32 sc_208(i32 x)
+{
+	i32 r = x + 2;
+	r = (r * 5) + 32;
+	return r % 101;
+}
+
+i32 sc_209(i32 x)
+{
+	i32 r = x + 27;
+	r = (r * 7) + 19;
+	return r % 101;
+}
+
+/*
+ * ---- arithmetic pipelines (150) ----
+ */
+
+i32 pipe_0(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 5) + 3;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_1(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 5) + 22;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_2(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 5) + 16;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_3(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 3) + 2;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_4(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 1) + 20;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_5(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 6) + 28;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_6(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 4) + 6;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_7(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 3) + 22;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_8(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 3) + 7;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_9(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 2) + 29;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_10(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 6) + 9;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_11(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 3) + 37;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_12(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 5) + 22;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_13(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 1) + 33;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_14(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 3) + 2;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_15(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 2) + 35;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_16(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 7) + 37;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_17(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 4) + 11;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_18(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 4) + 9;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_19(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 6) + 31;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_20(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 5) + 18;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_21(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 3) + 9;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_22(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 3) + 16;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_23(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 2) + 39;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_24(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 3) + 27;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_25(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 1) + 23;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_26(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 1) + 13;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_27(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 4) + 25;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_28(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 5) + 25;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_29(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 4) + 34;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_30(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 6) + 40;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_31(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 2) + 21;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_32(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 5) + 24;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_33(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 3) + 25;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_34(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 3) + 17;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_35(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 5) + 23;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_36(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 6) + 12;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_37(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 5) + 30;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_38(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 4) + 20;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_39(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 5) + 17;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_40(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 5) + 29;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_41(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 1) + 11;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_42(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 4) + 29;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_43(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 3) + 29;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_44(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 5) + 30;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_45(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 6) + 4;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_46(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 3) + 14;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_47(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 4) + 40;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_48(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 2) + 19;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_49(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 3) + 12;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_50(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 4) + 4;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_51(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 5) + 31;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_52(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 7) + 11;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_53(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 1) + 10;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_54(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 4) + 24;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_55(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 1) + 6;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_56(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 3) + 25;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_57(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 6) + 28;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_58(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 3) + 29;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_59(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 3) + 4;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_60(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 3) + 26;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_61(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 5) + 32;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_62(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 7) + 11;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_63(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 5) + 2;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_64(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 3) + 33;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_65(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 3) + 30;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_66(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 1) + 19;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_67(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 7) + 7;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_68(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 4) + 18;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_69(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 4) + 1;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_70(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 1) + 15;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_71(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 1) + 34;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_72(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 6) + 32;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_73(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 1) + 1;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_74(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 5) + 15;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_75(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 3) + 33;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_76(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 3) + 5;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_77(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 5) + 19;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_78(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 7) + 22;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_79(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 6) + 3;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_80(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 5) + 21;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_81(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 6) + 13;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_82(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 6) + 27;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_83(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 1) + 18;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_84(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 1) + 38;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_85(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 5) + 27;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_86(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 1) + 29;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_87(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 1) + 15;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_88(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 1) + 14;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_89(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 7) + 36;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_90(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 6) + 10;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_91(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 1) + 35;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_92(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 1) + 29;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_93(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 4) + 26;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_94(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 3) + 38;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_95(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 1) + 27;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_96(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 6) + 15;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_97(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 6) + 29;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_98(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 5) + 37;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_99(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 5) + 19;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_100(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 7) + 33;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_101(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 3) + 30;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_102(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 2) + 12;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_103(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 4) + 19;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_104(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 5) + 38;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_105(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 1) + 36;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_106(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 6) + 21;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_107(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 7) + 7;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_108(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 1) + 14;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_109(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 4) + 26;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_110(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 3) + 7;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_111(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 6) + 13;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_112(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 6) + 23;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_113(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 5) + 31;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_114(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 4) + 3;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_115(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 2) + 8;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_116(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 3) + 34;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_117(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 5) + 11;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_118(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 7) + 5;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_119(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 2) + 22;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_120(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 4) + 38;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_121(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 6) + 32;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_122(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 7) + 19;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_123(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 4) + 15;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_124(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 5) + 33;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_125(i32 seed)
+{
+	i32 acc = seed % 97;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 7) + 10;
+		acc = acc % 97;
+	}
+	return acc;
+}
+
+i32 pipe_126(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 4) + 34;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_127(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 2) + 29;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_128(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 7) + 8;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_129(i32 seed)
+{
+	i32 acc = seed % 13;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 7) + 13;
+		acc = acc % 13;
+	}
+	return acc;
+}
+
+i32 pipe_130(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 5) + 25;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_131(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 4) + 12;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_132(i32 seed)
+{
+	i32 acc = seed % 17;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 2) + 16;
+		acc = acc % 17;
+	}
+	return acc;
+}
+
+i32 pipe_133(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 7) + 1;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_134(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 5) + 14;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_135(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 5) + 40;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_136(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 3) + 29;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_137(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 7) + 10;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_138(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 2) + 21;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_139(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 5; i++)
+	{
+		acc = (acc * 4) + 29;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_140(i32 seed)
+{
+	i32 acc = seed % 23;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 2) + 15;
+		acc = acc % 23;
+	}
+	return acc;
+}
+
+i32 pipe_141(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 8; i++)
+	{
+		acc = (acc * 3) + 34;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_142(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 4; i++)
+	{
+		acc = (acc * 7) + 31;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_143(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 5) + 35;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_144(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 3) + 26;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+i32 pipe_145(i32 seed)
+{
+	i32 acc = seed % 31;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 2) + 13;
+		acc = acc % 31;
+	}
+	return acc;
+}
+
+i32 pipe_146(i32 seed)
+{
+	i32 acc = seed % 19;
+	for (i32 i = 0; i < 7; i++)
+	{
+		acc = (acc * 3) + 11;
+		acc = acc % 19;
+	}
+	return acc;
+}
+
+i32 pipe_147(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 9; i++)
+	{
+		acc = (acc * 2) + 28;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_148(i32 seed)
+{
+	i32 acc = seed % 29;
+	for (i32 i = 0; i < 6; i++)
+	{
+		acc = (acc * 5) + 30;
+		acc = acc % 29;
+	}
+	return acc;
+}
+
+i32 pipe_149(i32 seed)
+{
+	i32 acc = seed % 37;
+	for (i32 i = 0; i < 3; i++)
+	{
+		acc = (acc * 2) + 26;
+		acc = acc % 37;
+	}
+	return acc;
+}
+
+/*
+ * ---- array reducers (150) ----
+ */
+
+i32 red_0(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 107;
+	}
+	return acc;
+}
+
+i32 red_1(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 127;
+	}
+	return acc;
+}
+
+i32 red_2(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 101;
+	}
+	return acc;
+}
+
+i32 red_3(ConstSpan<i32> data)
+{
+	i32 acc = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 101;
+	}
+	return acc;
+}
+
+i32 red_4(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 103;
+	}
+	return acc;
+}
+
+i32 red_5(ConstSpan<i32> data)
+{
+	i32 acc = 5;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 101;
+	}
+	return acc;
+}
+
+i32 red_6(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 101;
+	}
+	return acc;
+}
+
+i32 red_7(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 113;
+	}
+	return acc;
+}
+
+i32 red_8(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 107;
+	}
+	return acc;
+}
+
+i32 red_9(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 109;
+	}
+	return acc;
+}
+
+i32 red_10(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 109;
+	}
+	return acc;
+}
+
+i32 red_11(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 109;
+	}
+	return acc;
+}
+
+i32 red_12(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 127;
+	}
+	return acc;
+}
+
+i32 red_13(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 107;
+	}
+	return acc;
+}
+
+i32 red_14(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 101;
+	}
+	return acc;
+}
+
+i32 red_15(ConstSpan<i32> data)
+{
+	i32 acc = 16;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 103;
+	}
+	return acc;
+}
+
+i32 red_16(ConstSpan<i32> data)
+{
+	i32 acc = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 103;
+	}
+	return acc;
+}
+
+i32 red_17(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 103;
+	}
+	return acc;
+}
+
+i32 red_18(ConstSpan<i32> data)
+{
+	i32 acc = 7;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 101;
+	}
+	return acc;
+}
+
+i32 red_19(ConstSpan<i32> data)
+{
+	i32 acc = 6;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 101;
+	}
+	return acc;
+}
+
+i32 red_20(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 127;
+	}
+	return acc;
+}
+
+i32 red_21(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_22(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 107;
+	}
+	return acc;
+}
+
+i32 red_23(ConstSpan<i32> data)
+{
+	i32 acc = 20;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_24(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 101;
+	}
+	return acc;
+}
+
+i32 red_25(ConstSpan<i32> data)
+{
+	i32 acc = 7;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 103;
+	}
+	return acc;
+}
+
+i32 red_26(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 113;
+	}
+	return acc;
+}
+
+i32 red_27(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 109;
+	}
+	return acc;
+}
+
+i32 red_28(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 113;
+	}
+	return acc;
+}
+
+i32 red_29(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 113;
+	}
+	return acc;
+}
+
+i32 red_30(ConstSpan<i32> data)
+{
+	i32 acc = 18;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 109;
+	}
+	return acc;
+}
+
+i32 red_31(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 109;
+	}
+	return acc;
+}
+
+i32 red_32(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 127;
+	}
+	return acc;
+}
+
+i32 red_33(ConstSpan<i32> data)
+{
+	i32 acc = 18;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 103;
+	}
+	return acc;
+}
+
+i32 red_34(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 127;
+	}
+	return acc;
+}
+
+i32 red_35(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 109;
+	}
+	return acc;
+}
+
+i32 red_36(ConstSpan<i32> data)
+{
+	i32 acc = 9;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 113;
+	}
+	return acc;
+}
+
+i32 red_37(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 113;
+	}
+	return acc;
+}
+
+i32 red_38(ConstSpan<i32> data)
+{
+	i32 acc = 7;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 127;
+	}
+	return acc;
+}
+
+i32 red_39(ConstSpan<i32> data)
+{
+	i32 acc = 16;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 103;
+	}
+	return acc;
+}
+
+i32 red_40(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 113;
+	}
+	return acc;
+}
+
+i32 red_41(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_42(ConstSpan<i32> data)
+{
+	i32 acc = 9;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 109;
+	}
+	return acc;
+}
+
+i32 red_43(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 107;
+	}
+	return acc;
+}
+
+i32 red_44(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 107;
+	}
+	return acc;
+}
+
+i32 red_45(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 109;
+	}
+	return acc;
+}
+
+i32 red_46(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 113;
+	}
+	return acc;
+}
+
+i32 red_47(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 127;
+	}
+	return acc;
+}
+
+i32 red_48(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_49(ConstSpan<i32> data)
+{
+	i32 acc = 5;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 103;
+	}
+	return acc;
+}
+
+i32 red_50(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 101;
+	}
+	return acc;
+}
+
+i32 red_51(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 107;
+	}
+	return acc;
+}
+
+i32 red_52(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 113;
+	}
+	return acc;
+}
+
+i32 red_53(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 127;
+	}
+	return acc;
+}
+
+i32 red_54(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 103;
+	}
+	return acc;
+}
+
+i32 red_55(ConstSpan<i32> data)
+{
+	i32 acc = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 127;
+	}
+	return acc;
+}
+
+i32 red_56(ConstSpan<i32> data)
+{
+	i32 acc = 15;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 101;
+	}
+	return acc;
+}
+
+i32 red_57(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 101;
+	}
+	return acc;
+}
+
+i32 red_58(ConstSpan<i32> data)
+{
+	i32 acc = 6;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_59(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 109;
+	}
+	return acc;
+}
+
+i32 red_60(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 127;
+	}
+	return acc;
+}
+
+i32 red_61(ConstSpan<i32> data)
+{
+	i32 acc = 9;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 127;
+	}
+	return acc;
+}
+
+i32 red_62(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 107;
+	}
+	return acc;
+}
+
+i32 red_63(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 109;
+	}
+	return acc;
+}
+
+i32 red_64(ConstSpan<i32> data)
+{
+	i32 acc = 7;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 103;
+	}
+	return acc;
+}
+
+i32 red_65(ConstSpan<i32> data)
+{
+	i32 acc = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 107;
+	}
+	return acc;
+}
+
+i32 red_66(ConstSpan<i32> data)
+{
+	i32 acc = 9;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 113;
+	}
+	return acc;
+}
+
+i32 red_67(ConstSpan<i32> data)
+{
+	i32 acc = 18;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 113;
+	}
+	return acc;
+}
+
+i32 red_68(ConstSpan<i32> data)
+{
+	i32 acc = 16;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 127;
+	}
+	return acc;
+}
+
+i32 red_69(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 107;
+	}
+	return acc;
+}
+
+i32 red_70(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 103;
+	}
+	return acc;
+}
+
+i32 red_71(ConstSpan<i32> data)
+{
+	i32 acc = 18;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 127;
+	}
+	return acc;
+}
+
+i32 red_72(ConstSpan<i32> data)
+{
+	i32 acc = 5;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 127;
+	}
+	return acc;
+}
+
+i32 red_73(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 101;
+	}
+	return acc;
+}
+
+i32 red_74(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 107;
+	}
+	return acc;
+}
+
+i32 red_75(ConstSpan<i32> data)
+{
+	i32 acc = 16;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 113;
+	}
+	return acc;
+}
+
+i32 red_76(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 107;
+	}
+	return acc;
+}
+
+i32 red_77(ConstSpan<i32> data)
+{
+	i32 acc = 15;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 113;
+	}
+	return acc;
+}
+
+i32 red_78(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 109;
+	}
+	return acc;
+}
+
+i32 red_79(ConstSpan<i32> data)
+{
+	i32 acc = 7;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 101;
+	}
+	return acc;
+}
+
+i32 red_80(ConstSpan<i32> data)
+{
+	i32 acc = 13;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 109;
+	}
+	return acc;
+}
+
+i32 red_81(ConstSpan<i32> data)
+{
+	i32 acc = 13;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 127;
+	}
+	return acc;
+}
+
+i32 red_82(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 107;
+	}
+	return acc;
+}
+
+i32 red_83(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 109;
+	}
+	return acc;
+}
+
+i32 red_84(ConstSpan<i32> data)
+{
+	i32 acc = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 107;
+	}
+	return acc;
+}
+
+i32 red_85(ConstSpan<i32> data)
+{
+	i32 acc = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 127;
+	}
+	return acc;
+}
+
+i32 red_86(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 127;
+	}
+	return acc;
+}
+
+i32 red_87(ConstSpan<i32> data)
+{
+	i32 acc = 2;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 107;
+	}
+	return acc;
+}
+
+i32 red_88(ConstSpan<i32> data)
+{
+	i32 acc = 15;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 107;
+	}
+	return acc;
+}
+
+i32 red_89(ConstSpan<i32> data)
+{
+	i32 acc = 20;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 103;
+	}
+	return acc;
+}
+
+i32 red_90(ConstSpan<i32> data)
+{
+	i32 acc = 20;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 127;
+	}
+	return acc;
+}
+
+i32 red_91(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 109;
+	}
+	return acc;
+}
+
+i32 red_92(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 101;
+	}
+	return acc;
+}
+
+i32 red_93(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_94(ConstSpan<i32> data)
+{
+	i32 acc = 9;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 127;
+	}
+	return acc;
+}
+
+i32 red_95(ConstSpan<i32> data)
+{
+	i32 acc = 7;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 101;
+	}
+	return acc;
+}
+
+i32 red_96(ConstSpan<i32> data)
+{
+	i32 acc = 18;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 113;
+	}
+	return acc;
+}
+
+i32 red_97(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 113;
+	}
+	return acc;
+}
+
+i32 red_98(ConstSpan<i32> data)
+{
+	i32 acc = 20;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 103;
+	}
+	return acc;
+}
+
+i32 red_99(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 109;
+	}
+	return acc;
+}
+
+i32 red_100(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 109;
+	}
+	return acc;
+}
+
+i32 red_101(ConstSpan<i32> data)
+{
+	i32 acc = 18;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 103;
+	}
+	return acc;
+}
+
+i32 red_102(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 101;
+	}
+	return acc;
+}
+
+i32 red_103(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 103;
+	}
+	return acc;
+}
+
+i32 red_104(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 103;
+	}
+	return acc;
+}
+
+i32 red_105(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 113;
+	}
+	return acc;
+}
+
+i32 red_106(ConstSpan<i32> data)
+{
+	i32 acc = 13;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 107;
+	}
+	return acc;
+}
+
+i32 red_107(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 103;
+	}
+	return acc;
+}
+
+i32 red_108(ConstSpan<i32> data)
+{
+	i32 acc = 6;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 107;
+	}
+	return acc;
+}
+
+i32 red_109(ConstSpan<i32> data)
+{
+	i32 acc = 9;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 127;
+	}
+	return acc;
+}
+
+i32 red_110(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 103;
+	}
+	return acc;
+}
+
+i32 red_111(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 113;
+	}
+	return acc;
+}
+
+i32 red_112(ConstSpan<i32> data)
+{
+	i32 acc = 5;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 127;
+	}
+	return acc;
+}
+
+i32 red_113(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 113;
+	}
+	return acc;
+}
+
+i32 red_114(ConstSpan<i32> data)
+{
+	i32 acc = 3;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 107;
+	}
+	return acc;
+}
+
+i32 red_115(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 101;
+	}
+	return acc;
+}
+
+i32 red_116(ConstSpan<i32> data)
+{
+	i32 acc = 1;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 107;
+	}
+	return acc;
+}
+
+i32 red_117(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 101;
+	}
+	return acc;
+}
+
+i32 red_118(ConstSpan<i32> data)
+{
+	i32 acc = 13;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 127;
+	}
+	return acc;
+}
+
+i32 red_119(ConstSpan<i32> data)
+{
+	i32 acc = 10;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 127;
+	}
+	return acc;
+}
+
+i32 red_120(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 109;
+	}
+	return acc;
+}
+
+i32 red_121(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 107;
+	}
+	return acc;
+}
+
+i32 red_122(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 107;
+	}
+	return acc;
+}
+
+i32 red_123(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 101;
+	}
+	return acc;
+}
+
+i32 red_124(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 101;
+	}
+	return acc;
+}
+
+i32 red_125(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 113;
+	}
+	return acc;
+}
+
+i32 red_126(ConstSpan<i32> data)
+{
+	i32 acc = 8;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 101;
+	}
+	return acc;
+}
+
+i32 red_127(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 107;
+	}
+	return acc;
+}
+
+i32 red_128(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 103;
+	}
+	return acc;
+}
+
+i32 red_129(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 107;
+	}
+	return acc;
+}
+
+i32 red_130(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 113;
+	}
+	return acc;
+}
+
+i32 red_131(ConstSpan<i32> data)
+{
+	i32 acc = 18;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 113;
+	}
+	return acc;
+}
+
+i32 red_132(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 101;
+	}
+	return acc;
+}
+
+i32 red_133(ConstSpan<i32> data)
+{
+	i32 acc = 2;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 101;
+	}
+	return acc;
+}
+
+i32 red_134(ConstSpan<i32> data)
+{
+	i32 acc = 17;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 101;
+	}
+	return acc;
+}
+
+i32 red_135(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 113;
+	}
+	return acc;
+}
+
+i32 red_136(ConstSpan<i32> data)
+{
+	i32 acc = 11;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_137(ConstSpan<i32> data)
+{
+	i32 acc = 20;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 127;
+	}
+	return acc;
+}
+
+i32 red_138(ConstSpan<i32> data)
+{
+	i32 acc = 6;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 3)) % 113;
+	}
+	return acc;
+}
+
+i32 red_139(ConstSpan<i32> data)
+{
+	i32 acc = 12;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 113;
+	}
+	return acc;
+}
+
+i32 red_140(ConstSpan<i32> data)
+{
+	i32 acc = 15;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 107;
+	}
+	return acc;
+}
+
+i32 red_141(ConstSpan<i32> data)
+{
+	i32 acc = 16;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 113;
+	}
+	return acc;
+}
+
+i32 red_142(ConstSpan<i32> data)
+{
+	i32 acc = 5;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 127;
+	}
+	return acc;
+}
+
+i32 red_143(ConstSpan<i32> data)
+{
+	i32 acc = 13;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 107;
+	}
+	return acc;
+}
+
+i32 red_144(ConstSpan<i32> data)
+{
+	i32 acc = 2;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 113;
+	}
+	return acc;
+}
+
+i32 red_145(ConstSpan<i32> data)
+{
+	i32 acc = 20;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 6)) % 101;
+	}
+	return acc;
+}
+
+i32 red_146(ConstSpan<i32> data)
+{
+	i32 acc = 19;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 1)) % 113;
+	}
+	return acc;
+}
+
+i32 red_147(ConstSpan<i32> data)
+{
+	i32 acc = 14;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 5)) % 107;
+	}
+	return acc;
+}
+
+i32 red_148(ConstSpan<i32> data)
+{
+	i32 acc = 4;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 4)) % 113;
+	}
+	return acc;
+}
+
+i32 red_149(ConstSpan<i32> data)
+{
+	i32 acc = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i];
+		acc = (acc + (v * 2)) % 107;
+	}
+	return acc;
+}
+
+/*
+ * ---- predicates (120) ----
+ */
+
+bool pred_0(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 29;
+}
+
+bool pred_1(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 17;
+}
+
+bool pred_2(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 83;
+}
+
+bool pred_3(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 8;
+}
+
+bool pred_4(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 93;
+}
+
+bool pred_5(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 63;
+}
+
+bool pred_6(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 89;
+}
+
+bool pred_7(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 20;
+}
+
+bool pred_8(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 54;
+}
+
+bool pred_9(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 9;
+}
+
+bool pred_10(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 19;
+}
+
+bool pred_11(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 86;
+}
+
+bool pred_12(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 43;
+}
+
+bool pred_13(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 98;
+}
+
+bool pred_14(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 19;
+}
+
+bool pred_15(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 54;
+}
+
+bool pred_16(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 87;
+}
+
+bool pred_17(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 64;
+}
+
+bool pred_18(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 11;
+}
+
+bool pred_19(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 3;
+}
+
+bool pred_20(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 70;
+}
+
+bool pred_21(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 86;
+}
+
+bool pred_22(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 25;
+}
+
+bool pred_23(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 48;
+}
+
+bool pred_24(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 78;
+}
+
+bool pred_25(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 57;
+}
+
+bool pred_26(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 28;
+}
+
+bool pred_27(i32 x)
+{
+	i32 m = x % 9;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 15;
+}
+
+bool pred_28(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 13;
+}
+
+bool pred_29(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 73;
+}
+
+bool pred_30(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 17;
+}
+
+bool pred_31(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 86;
+}
+
+bool pred_32(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 64;
+}
+
+bool pred_33(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 32;
+}
+
+bool pred_34(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 85;
+}
+
+bool pred_35(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 65;
+}
+
+bool pred_36(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 48;
+}
+
+bool pred_37(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 11;
+}
+
+bool pred_38(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 82;
+}
+
+bool pred_39(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 59;
+}
+
+bool pred_40(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 55;
+}
+
+bool pred_41(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 53;
+}
+
+bool pred_42(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 99;
+}
+
+bool pred_43(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 38;
+}
+
+bool pred_44(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 20;
+}
+
+bool pred_45(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 39;
+}
+
+bool pred_46(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 67;
+}
+
+bool pred_47(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 99;
+}
+
+bool pred_48(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 78;
+}
+
+bool pred_49(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 13;
+}
+
+bool pred_50(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 73;
+}
+
+bool pred_51(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 59;
+}
+
+bool pred_52(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 50;
+}
+
+bool pred_53(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 54;
+}
+
+bool pred_54(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 43;
+}
+
+bool pred_55(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 94;
+}
+
+bool pred_56(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 18;
+}
+
+bool pred_57(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 23;
+}
+
+bool pred_58(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 90;
+}
+
+bool pred_59(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 6;
+}
+
+bool pred_60(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 4;
+}
+
+bool pred_61(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 34;
+}
+
+bool pred_62(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 62;
+}
+
+bool pred_63(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 32;
+}
+
+bool pred_64(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 47;
+}
+
+bool pred_65(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 13;
+}
+
+bool pred_66(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 72;
+}
+
+bool pred_67(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 57;
+}
+
+bool pred_68(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 37;
+}
+
+bool pred_69(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 74;
+}
+
+bool pred_70(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 74;
+}
+
+bool pred_71(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 99;
+}
+
+bool pred_72(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 86;
+}
+
+bool pred_73(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 17;
+}
+
+bool pred_74(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 64;
+}
+
+bool pred_75(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 35;
+}
+
+bool pred_76(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 64;
+}
+
+bool pred_77(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 65;
+}
+
+bool pred_78(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 13;
+}
+
+bool pred_79(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 42;
+}
+
+bool pred_80(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 82;
+}
+
+bool pred_81(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 68;
+}
+
+bool pred_82(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 83;
+}
+
+bool pred_83(i32 x)
+{
+	i32 m = x % 8;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 58;
+}
+
+bool pred_84(i32 x)
+{
+	i32 m = x % 9;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 98;
+}
+
+bool pred_85(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 8;
+}
+
+bool pred_86(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 80;
+}
+
+bool pred_87(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 14;
+}
+
+bool pred_88(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 90;
+}
+
+bool pred_89(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 33;
+}
+
+bool pred_90(i32 x)
+{
+	i32 m = x % 11;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 35;
+}
+
+bool pred_91(i32 x)
+{
+	i32 m = x % 9;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 93;
+}
+
+bool pred_92(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 68;
+}
+
+bool pred_93(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 83;
+}
+
+bool pred_94(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 92;
+}
+
+bool pred_95(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 8;
+}
+
+bool pred_96(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 19;
+}
+
+bool pred_97(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 64;
+}
+
+bool pred_98(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 47;
+}
+
+bool pred_99(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 5;
+}
+
+bool pred_100(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 59;
+}
+
+bool pred_101(i32 x)
+{
+	i32 m = x % 10;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 64;
+}
+
+bool pred_102(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 1;
+}
+
+bool pred_103(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 15;
+}
+
+bool pred_104(i32 x)
+{
+	i32 m = x % 9;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 47;
+}
+
+bool pred_105(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 23;
+}
+
+bool pred_106(i32 x)
+{
+	i32 m = x % 7;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 84;
+}
+
+bool pred_107(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 5;
+}
+
+bool pred_108(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 61;
+}
+
+bool pred_109(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 69;
+}
+
+bool pred_110(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 15;
+}
+
+bool pred_111(i32 x)
+{
+	i32 m = x % 6;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 37;
+}
+
+bool pred_112(i32 x)
+{
+	i32 m = x % 4;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 36;
+}
+
+bool pred_113(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 2;
+}
+
+bool pred_114(i32 x)
+{
+	i32 m = x % 9;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 89;
+}
+
+bool pred_115(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 16;
+}
+
+bool pred_116(i32 x)
+{
+	i32 m = x % 5;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 88;
+}
+
+bool pred_117(i32 x)
+{
+	i32 m = x % 3;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 62;
+}
+
+bool pred_118(i32 x)
+{
+	i32 m = x % 2;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 62;
+}
+
+bool pred_119(i32 x)
+{
+	i32 m = x % 12;
+	if (m == 0)
+	{
+		return true;
+	}
+	return x != 59;
+}
+
+/*
+ * ---- recursive functions (70) ----
+ */
+
+i32 rec_0(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_0(x - 2);
+	return sub + 2;
+}
+
+i32 rec_1(i32 x)
+{
+	if (x < 3)
+	{
+		return 2;
+	}
+	i32 sub = rec_1(x - 1);
+	return sub + 2;
+}
+
+i32 rec_2(i32 x)
+{
+	if (x < 3)
+	{
+		return 2;
+	}
+	i32 sub = rec_2(x - 1);
+	return sub + 2;
+}
+
+i32 rec_3(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_3(x - 2);
+	return sub + 4;
+}
+
+i32 rec_4(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_4(x - 2);
+	return sub + 3;
+}
+
+i32 rec_5(i32 x)
+{
+	if (x < 1)
+	{
+		return 4;
+	}
+	i32 sub = rec_5(x - 1);
+	return sub + 3;
+}
+
+i32 rec_6(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_6(x - 2);
+	return sub + 5;
+}
+
+i32 rec_7(i32 x)
+{
+	if (x < 1)
+	{
+		return 4;
+	}
+	i32 sub = rec_7(x - 1);
+	return sub + 4;
+}
+
+i32 rec_8(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_8(x - 2);
+	return sub + 5;
+}
+
+i32 rec_9(i32 x)
+{
+	if (x < 2)
+	{
+		return 2;
+	}
+	i32 sub = rec_9(x - 1);
+	return sub + 2;
+}
+
+i32 rec_10(i32 x)
+{
+	if (x < 2)
+	{
+		return 1;
+	}
+	i32 sub = rec_10(x - 1);
+	return sub + 5;
+}
+
+i32 rec_11(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_11(x - 1);
+	return sub + 5;
+}
+
+i32 rec_12(i32 x)
+{
+	if (x < 2)
+	{
+		return 1;
+	}
+	i32 sub = rec_12(x - 1);
+	return sub + 1;
+}
+
+i32 rec_13(i32 x)
+{
+	if (x < 2)
+	{
+		return 2;
+	}
+	i32 sub = rec_13(x - 1);
+	return sub + 5;
+}
+
+i32 rec_14(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_14(x - 1);
+	return sub + 4;
+}
+
+i32 rec_15(i32 x)
+{
+	if (x < 3)
+	{
+		return 0;
+	}
+	i32 sub = rec_15(x - 1);
+	return sub + 3;
+}
+
+i32 rec_16(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_16(x - 1);
+	return sub + 2;
+}
+
+i32 rec_17(i32 x)
+{
+	if (x < 2)
+	{
+		return 1;
+	}
+	i32 sub = rec_17(x - 2);
+	return sub + 2;
+}
+
+i32 rec_18(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_18(x - 1);
+	return sub + 3;
+}
+
+i32 rec_19(i32 x)
+{
+	if (x < 2)
+	{
+		return 1;
+	}
+	i32 sub = rec_19(x - 2);
+	return sub + 4;
+}
+
+i32 rec_20(i32 x)
+{
+	if (x < 3)
+	{
+		return 4;
+	}
+	i32 sub = rec_20(x - 1);
+	return sub + 4;
+}
+
+i32 rec_21(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_21(x - 1);
+	return sub + 1;
+}
+
+i32 rec_22(i32 x)
+{
+	if (x < 1)
+	{
+		return 3;
+	}
+	i32 sub = rec_22(x - 1);
+	return sub + 5;
+}
+
+i32 rec_23(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_23(x - 1);
+	return sub + 3;
+}
+
+i32 rec_24(i32 x)
+{
+	if (x < 2)
+	{
+		return 1;
+	}
+	i32 sub = rec_24(x - 2);
+	return sub + 1;
+}
+
+i32 rec_25(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_25(x - 2);
+	return sub + 1;
+}
+
+i32 rec_26(i32 x)
+{
+	if (x < 3)
+	{
+		return 0;
+	}
+	i32 sub = rec_26(x - 2);
+	return sub + 4;
+}
+
+i32 rec_27(i32 x)
+{
+	if (x < 1)
+	{
+		return 0;
+	}
+	i32 sub = rec_27(x - 2);
+	return sub + 5;
+}
+
+i32 rec_28(i32 x)
+{
+	if (x < 1)
+	{
+		return 3;
+	}
+	i32 sub = rec_28(x - 1);
+	return sub + 5;
+}
+
+i32 rec_29(i32 x)
+{
+	if (x < 1)
+	{
+		return 0;
+	}
+	i32 sub = rec_29(x - 2);
+	return sub + 1;
+}
+
+i32 rec_30(i32 x)
+{
+	if (x < 1)
+	{
+		return 4;
+	}
+	i32 sub = rec_30(x - 1);
+	return sub + 3;
+}
+
+i32 rec_31(i32 x)
+{
+	if (x < 1)
+	{
+		return 3;
+	}
+	i32 sub = rec_31(x - 1);
+	return sub + 5;
+}
+
+i32 rec_32(i32 x)
+{
+	if (x < 3)
+	{
+		return 1;
+	}
+	i32 sub = rec_32(x - 2);
+	return sub + 2;
+}
+
+i32 rec_33(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_33(x - 2);
+	return sub + 2;
+}
+
+i32 rec_34(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_34(x - 1);
+	return sub + 5;
+}
+
+i32 rec_35(i32 x)
+{
+	if (x < 1)
+	{
+		return 4;
+	}
+	i32 sub = rec_35(x - 1);
+	return sub + 4;
+}
+
+i32 rec_36(i32 x)
+{
+	if (x < 1)
+	{
+		return 1;
+	}
+	i32 sub = rec_36(x - 1);
+	return sub + 1;
+}
+
+i32 rec_37(i32 x)
+{
+	if (x < 3)
+	{
+		return 4;
+	}
+	i32 sub = rec_37(x - 1);
+	return sub + 4;
+}
+
+i32 rec_38(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_38(x - 2);
+	return sub + 5;
+}
+
+i32 rec_39(i32 x)
+{
+	if (x < 3)
+	{
+		return 4;
+	}
+	i32 sub = rec_39(x - 2);
+	return sub + 5;
+}
+
+i32 rec_40(i32 x)
+{
+	if (x < 3)
+	{
+		return 2;
+	}
+	i32 sub = rec_40(x - 1);
+	return sub + 3;
+}
+
+i32 rec_41(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_41(x - 1);
+	return sub + 1;
+}
+
+i32 rec_42(i32 x)
+{
+	if (x < 3)
+	{
+		return 2;
+	}
+	i32 sub = rec_42(x - 2);
+	return sub + 4;
+}
+
+i32 rec_43(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_43(x - 1);
+	return sub + 3;
+}
+
+i32 rec_44(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_44(x - 1);
+	return sub + 5;
+}
+
+i32 rec_45(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_45(x - 2);
+	return sub + 3;
+}
+
+i32 rec_46(i32 x)
+{
+	if (x < 2)
+	{
+		return 1;
+	}
+	i32 sub = rec_46(x - 2);
+	return sub + 2;
+}
+
+i32 rec_47(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_47(x - 1);
+	return sub + 4;
+}
+
+i32 rec_48(i32 x)
+{
+	if (x < 1)
+	{
+		return 3;
+	}
+	i32 sub = rec_48(x - 1);
+	return sub + 4;
+}
+
+i32 rec_49(i32 x)
+{
+	if (x < 3)
+	{
+		return 3;
+	}
+	i32 sub = rec_49(x - 2);
+	return sub + 5;
+}
+
+i32 rec_50(i32 x)
+{
+	if (x < 3)
+	{
+		return 1;
+	}
+	i32 sub = rec_50(x - 2);
+	return sub + 3;
+}
+
+i32 rec_51(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_51(x - 1);
+	return sub + 4;
+}
+
+i32 rec_52(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_52(x - 1);
+	return sub + 2;
+}
+
+i32 rec_53(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_53(x - 1);
+	return sub + 4;
+}
+
+i32 rec_54(i32 x)
+{
+	if (x < 1)
+	{
+		return 0;
+	}
+	i32 sub = rec_54(x - 2);
+	return sub + 5;
+}
+
+i32 rec_55(i32 x)
+{
+	if (x < 1)
+	{
+		return 1;
+	}
+	i32 sub = rec_55(x - 1);
+	return sub + 4;
+}
+
+i32 rec_56(i32 x)
+{
+	if (x < 1)
+	{
+		return 3;
+	}
+	i32 sub = rec_56(x - 2);
+	return sub + 1;
+}
+
+i32 rec_57(i32 x)
+{
+	if (x < 2)
+	{
+		return 3;
+	}
+	i32 sub = rec_57(x - 2);
+	return sub + 2;
+}
+
+i32 rec_58(i32 x)
+{
+	if (x < 1)
+	{
+		return 4;
+	}
+	i32 sub = rec_58(x - 1);
+	return sub + 2;
+}
+
+i32 rec_59(i32 x)
+{
+	if (x < 2)
+	{
+		return 4;
+	}
+	i32 sub = rec_59(x - 1);
+	return sub + 5;
+}
+
+i32 rec_60(i32 x)
+{
+	if (x < 3)
+	{
+		return 2;
+	}
+	i32 sub = rec_60(x - 2);
+	return sub + 2;
+}
+
+i32 rec_61(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_61(x - 2);
+	return sub + 2;
+}
+
+i32 rec_62(i32 x)
+{
+	if (x < 3)
+	{
+		return 4;
+	}
+	i32 sub = rec_62(x - 2);
+	return sub + 2;
+}
+
+i32 rec_63(i32 x)
+{
+	if (x < 1)
+	{
+		return 0;
+	}
+	i32 sub = rec_63(x - 1);
+	return sub + 1;
+}
+
+i32 rec_64(i32 x)
+{
+	if (x < 1)
+	{
+		return 2;
+	}
+	i32 sub = rec_64(x - 2);
+	return sub + 2;
+}
+
+i32 rec_65(i32 x)
+{
+	if (x < 1)
+	{
+		return 4;
+	}
+	i32 sub = rec_65(x - 2);
+	return sub + 1;
+}
+
+i32 rec_66(i32 x)
+{
+	if (x < 3)
+	{
+		return 4;
+	}
+	i32 sub = rec_66(x - 1);
+	return sub + 3;
+}
+
+i32 rec_67(i32 x)
+{
+	if (x < 1)
+	{
+		return 3;
+	}
+	i32 sub = rec_67(x - 2);
+	return sub + 1;
+}
+
+i32 rec_68(i32 x)
+{
+	if (x < 3)
+	{
+		return 0;
+	}
+	i32 sub = rec_68(x - 2);
+	return sub + 3;
+}
+
+i32 rec_69(i32 x)
+{
+	if (x < 2)
+	{
+		return 2;
+	}
+	i32 sub = rec_69(x - 2);
+	return sub + 1;
+}
+
+/*
+ * ---- enum classifiers (70) ----
+ */
+
+Grade grade_0(i32 score)
+{
+	if (score < 26)
+	{
+		return Grade::F;
+	}
+	if (score < 48)
+	{
+		return Grade::D;
+	}
+	if (score < 80)
+	{
+		return Grade::C;
+	}
+	if (score < 84)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_1(i32 score)
+{
+	if (score < 12)
+	{
+		return Grade::F;
+	}
+	if (score < 27)
+	{
+		return Grade::D;
+	}
+	if (score < 70)
+	{
+		return Grade::C;
+	}
+	if (score < 85)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_2(i32 score)
+{
+	if (score < 22)
+	{
+		return Grade::F;
+	}
+	if (score < 24)
+	{
+		return Grade::D;
+	}
+	if (score < 85)
+	{
+		return Grade::C;
+	}
+	if (score < 90)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_3(i32 score)
+{
+	if (score < 41)
+	{
+		return Grade::F;
+	}
+	if (score < 43)
+	{
+		return Grade::D;
+	}
+	if (score < 44)
+	{
+		return Grade::C;
+	}
+	if (score < 63)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_4(i32 score)
+{
+	if (score < 22)
+	{
+		return Grade::F;
+	}
+	if (score < 36)
+	{
+		return Grade::D;
+	}
+	if (score < 81)
+	{
+		return Grade::C;
+	}
+	if (score < 91)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_5(i32 score)
+{
+	if (score < 12)
+	{
+		return Grade::F;
+	}
+	if (score < 13)
+	{
+		return Grade::D;
+	}
+	if (score < 26)
+	{
+		return Grade::C;
+	}
+	if (score < 65)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_6(i32 score)
+{
+	if (score < 15)
+	{
+		return Grade::F;
+	}
+	if (score < 37)
+	{
+		return Grade::D;
+	}
+	if (score < 49)
+	{
+		return Grade::C;
+	}
+	if (score < 93)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_7(i32 score)
+{
+	if (score < 29)
+	{
+		return Grade::F;
+	}
+	if (score < 36)
+	{
+		return Grade::D;
+	}
+	if (score < 63)
+	{
+		return Grade::C;
+	}
+	if (score < 76)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_8(i32 score)
+{
+	if (score < 14)
+	{
+		return Grade::F;
+	}
+	if (score < 19)
+	{
+		return Grade::D;
+	}
+	if (score < 21)
+	{
+		return Grade::C;
+	}
+	if (score < 27)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_9(i32 score)
+{
+	if (score < 41)
+	{
+		return Grade::F;
+	}
+	if (score < 59)
+	{
+		return Grade::D;
+	}
+	if (score < 61)
+	{
+		return Grade::C;
+	}
+	if (score < 64)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_10(i32 score)
+{
+	if (score < 62)
+	{
+		return Grade::F;
+	}
+	if (score < 66)
+	{
+		return Grade::D;
+	}
+	if (score < 80)
+	{
+		return Grade::C;
+	}
+	if (score < 82)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_11(i32 score)
+{
+	if (score < 26)
+	{
+		return Grade::F;
+	}
+	if (score < 28)
+	{
+		return Grade::D;
+	}
+	if (score < 36)
+	{
+		return Grade::C;
+	}
+	if (score < 43)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_12(i32 score)
+{
+	if (score < 13)
+	{
+		return Grade::F;
+	}
+	if (score < 22)
+	{
+		return Grade::D;
+	}
+	if (score < 46)
+	{
+		return Grade::C;
+	}
+	if (score < 91)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_13(i32 score)
+{
+	if (score < 15)
+	{
+		return Grade::F;
+	}
+	if (score < 16)
+	{
+		return Grade::D;
+	}
+	if (score < 29)
+	{
+		return Grade::C;
+	}
+	if (score < 83)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_14(i32 score)
+{
+	if (score < 18)
+	{
+		return Grade::F;
+	}
+	if (score < 43)
+	{
+		return Grade::D;
+	}
+	if (score < 44)
+	{
+		return Grade::C;
+	}
+	if (score < 60)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_15(i32 score)
+{
+	if (score < 36)
+	{
+		return Grade::F;
+	}
+	if (score < 42)
+	{
+		return Grade::D;
+	}
+	if (score < 48)
+	{
+		return Grade::C;
+	}
+	if (score < 91)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_16(i32 score)
+{
+	if (score < 11)
+	{
+		return Grade::F;
+	}
+	if (score < 22)
+	{
+		return Grade::D;
+	}
+	if (score < 38)
+	{
+		return Grade::C;
+	}
+	if (score < 76)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_17(i32 score)
+{
+	if (score < 17)
+	{
+		return Grade::F;
+	}
+	if (score < 20)
+	{
+		return Grade::D;
+	}
+	if (score < 59)
+	{
+		return Grade::C;
+	}
+	if (score < 67)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_18(i32 score)
+{
+	if (score < 15)
+	{
+		return Grade::F;
+	}
+	if (score < 17)
+	{
+		return Grade::D;
+	}
+	if (score < 52)
+	{
+		return Grade::C;
+	}
+	if (score < 86)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_19(i32 score)
+{
+	if (score < 19)
+	{
+		return Grade::F;
+	}
+	if (score < 31)
+	{
+		return Grade::D;
+	}
+	if (score < 52)
+	{
+		return Grade::C;
+	}
+	if (score < 86)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_20(i32 score)
+{
+	if (score < 25)
+	{
+		return Grade::F;
+	}
+	if (score < 60)
+	{
+		return Grade::D;
+	}
+	if (score < 87)
+	{
+		return Grade::C;
+	}
+	if (score < 90)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_21(i32 score)
+{
+	if (score < 32)
+	{
+		return Grade::F;
+	}
+	if (score < 35)
+	{
+		return Grade::D;
+	}
+	if (score < 37)
+	{
+		return Grade::C;
+	}
+	if (score < 50)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_22(i32 score)
+{
+	if (score < 12)
+	{
+		return Grade::F;
+	}
+	if (score < 23)
+	{
+		return Grade::D;
+	}
+	if (score < 88)
+	{
+		return Grade::C;
+	}
+	if (score < 94)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_23(i32 score)
+{
+	if (score < 35)
+	{
+		return Grade::F;
+	}
+	if (score < 52)
+	{
+		return Grade::D;
+	}
+	if (score < 62)
+	{
+		return Grade::C;
+	}
+	if (score < 93)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_24(i32 score)
+{
+	if (score < 11)
+	{
+		return Grade::F;
+	}
+	if (score < 15)
+	{
+		return Grade::D;
+	}
+	if (score < 31)
+	{
+		return Grade::C;
+	}
+	if (score < 85)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_25(i32 score)
+{
+	if (score < 26)
+	{
+		return Grade::F;
+	}
+	if (score < 58)
+	{
+		return Grade::D;
+	}
+	if (score < 72)
+	{
+		return Grade::C;
+	}
+	if (score < 73)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_26(i32 score)
+{
+	if (score < 16)
+	{
+		return Grade::F;
+	}
+	if (score < 40)
+	{
+		return Grade::D;
+	}
+	if (score < 57)
+	{
+		return Grade::C;
+	}
+	if (score < 74)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_27(i32 score)
+{
+	if (score < 25)
+	{
+		return Grade::F;
+	}
+	if (score < 42)
+	{
+		return Grade::D;
+	}
+	if (score < 56)
+	{
+		return Grade::C;
+	}
+	if (score < 66)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_28(i32 score)
+{
+	if (score < 21)
+	{
+		return Grade::F;
+	}
+	if (score < 46)
+	{
+		return Grade::D;
+	}
+	if (score < 64)
+	{
+		return Grade::C;
+	}
+	if (score < 74)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_29(i32 score)
+{
+	if (score < 33)
+	{
+		return Grade::F;
+	}
+	if (score < 41)
+	{
+		return Grade::D;
+	}
+	if (score < 48)
+	{
+		return Grade::C;
+	}
+	if (score < 64)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_30(i32 score)
+{
+	if (score < 54)
+	{
+		return Grade::F;
+	}
+	if (score < 62)
+	{
+		return Grade::D;
+	}
+	if (score < 70)
+	{
+		return Grade::C;
+	}
+	if (score < 81)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_31(i32 score)
+{
+	if (score < 25)
+	{
+		return Grade::F;
+	}
+	if (score < 41)
+	{
+		return Grade::D;
+	}
+	if (score < 62)
+	{
+		return Grade::C;
+	}
+	if (score < 87)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_32(i32 score)
+{
+	if (score < 51)
+	{
+		return Grade::F;
+	}
+	if (score < 56)
+	{
+		return Grade::D;
+	}
+	if (score < 75)
+	{
+		return Grade::C;
+	}
+	if (score < 94)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_33(i32 score)
+{
+	if (score < 18)
+	{
+		return Grade::F;
+	}
+	if (score < 46)
+	{
+		return Grade::D;
+	}
+	if (score < 60)
+	{
+		return Grade::C;
+	}
+	if (score < 62)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_34(i32 score)
+{
+	if (score < 15)
+	{
+		return Grade::F;
+	}
+	if (score < 46)
+	{
+		return Grade::D;
+	}
+	if (score < 52)
+	{
+		return Grade::C;
+	}
+	if (score < 92)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_35(i32 score)
+{
+	if (score < 31)
+	{
+		return Grade::F;
+	}
+	if (score < 45)
+	{
+		return Grade::D;
+	}
+	if (score < 79)
+	{
+		return Grade::C;
+	}
+	if (score < 89)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_36(i32 score)
+{
+	if (score < 19)
+	{
+		return Grade::F;
+	}
+	if (score < 22)
+	{
+		return Grade::D;
+	}
+	if (score < 38)
+	{
+		return Grade::C;
+	}
+	if (score < 44)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_37(i32 score)
+{
+	if (score < 14)
+	{
+		return Grade::F;
+	}
+	if (score < 40)
+	{
+		return Grade::D;
+	}
+	if (score < 67)
+	{
+		return Grade::C;
+	}
+	if (score < 82)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_38(i32 score)
+{
+	if (score < 11)
+	{
+		return Grade::F;
+	}
+	if (score < 66)
+	{
+		return Grade::D;
+	}
+	if (score < 67)
+	{
+		return Grade::C;
+	}
+	if (score < 91)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_39(i32 score)
+{
+	if (score < 16)
+	{
+		return Grade::F;
+	}
+	if (score < 24)
+	{
+		return Grade::D;
+	}
+	if (score < 68)
+	{
+		return Grade::C;
+	}
+	if (score < 79)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_40(i32 score)
+{
+	if (score < 61)
+	{
+		return Grade::F;
+	}
+	if (score < 83)
+	{
+		return Grade::D;
+	}
+	if (score < 89)
+	{
+		return Grade::C;
+	}
+	if (score < 94)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_41(i32 score)
+{
+	if (score < 16)
+	{
+		return Grade::F;
+	}
+	if (score < 40)
+	{
+		return Grade::D;
+	}
+	if (score < 74)
+	{
+		return Grade::C;
+	}
+	if (score < 83)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_42(i32 score)
+{
+	if (score < 22)
+	{
+		return Grade::F;
+	}
+	if (score < 29)
+	{
+		return Grade::D;
+	}
+	if (score < 33)
+	{
+		return Grade::C;
+	}
+	if (score < 72)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_43(i32 score)
+{
+	if (score < 33)
+	{
+		return Grade::F;
+	}
+	if (score < 43)
+	{
+		return Grade::D;
+	}
+	if (score < 48)
+	{
+		return Grade::C;
+	}
+	if (score < 76)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_44(i32 score)
+{
+	if (score < 55)
+	{
+		return Grade::F;
+	}
+	if (score < 58)
+	{
+		return Grade::D;
+	}
+	if (score < 91)
+	{
+		return Grade::C;
+	}
+	if (score < 93)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_45(i32 score)
+{
+	if (score < 45)
+	{
+		return Grade::F;
+	}
+	if (score < 70)
+	{
+		return Grade::D;
+	}
+	if (score < 78)
+	{
+		return Grade::C;
+	}
+	if (score < 85)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_46(i32 score)
+{
+	if (score < 27)
+	{
+		return Grade::F;
+	}
+	if (score < 58)
+	{
+		return Grade::D;
+	}
+	if (score < 66)
+	{
+		return Grade::C;
+	}
+	if (score < 77)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_47(i32 score)
+{
+	if (score < 19)
+	{
+		return Grade::F;
+	}
+	if (score < 65)
+	{
+		return Grade::D;
+	}
+	if (score < 66)
+	{
+		return Grade::C;
+	}
+	if (score < 74)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_48(i32 score)
+{
+	if (score < 10)
+	{
+		return Grade::F;
+	}
+	if (score < 14)
+	{
+		return Grade::D;
+	}
+	if (score < 69)
+	{
+		return Grade::C;
+	}
+	if (score < 78)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_49(i32 score)
+{
+	if (score < 24)
+	{
+		return Grade::F;
+	}
+	if (score < 29)
+	{
+		return Grade::D;
+	}
+	if (score < 50)
+	{
+		return Grade::C;
+	}
+	if (score < 89)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_50(i32 score)
+{
+	if (score < 31)
+	{
+		return Grade::F;
+	}
+	if (score < 49)
+	{
+		return Grade::D;
+	}
+	if (score < 63)
+	{
+		return Grade::C;
+	}
+	if (score < 69)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_51(i32 score)
+{
+	if (score < 22)
+	{
+		return Grade::F;
+	}
+	if (score < 41)
+	{
+		return Grade::D;
+	}
+	if (score < 50)
+	{
+		return Grade::C;
+	}
+	if (score < 75)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_52(i32 score)
+{
+	if (score < 63)
+	{
+		return Grade::F;
+	}
+	if (score < 78)
+	{
+		return Grade::D;
+	}
+	if (score < 82)
+	{
+		return Grade::C;
+	}
+	if (score < 85)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_53(i32 score)
+{
+	if (score < 42)
+	{
+		return Grade::F;
+	}
+	if (score < 50)
+	{
+		return Grade::D;
+	}
+	if (score < 59)
+	{
+		return Grade::C;
+	}
+	if (score < 67)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_54(i32 score)
+{
+	if (score < 17)
+	{
+		return Grade::F;
+	}
+	if (score < 40)
+	{
+		return Grade::D;
+	}
+	if (score < 54)
+	{
+		return Grade::C;
+	}
+	if (score < 82)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_55(i32 score)
+{
+	if (score < 16)
+	{
+		return Grade::F;
+	}
+	if (score < 30)
+	{
+		return Grade::D;
+	}
+	if (score < 51)
+	{
+		return Grade::C;
+	}
+	if (score < 71)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_56(i32 score)
+{
+	if (score < 16)
+	{
+		return Grade::F;
+	}
+	if (score < 26)
+	{
+		return Grade::D;
+	}
+	if (score < 28)
+	{
+		return Grade::C;
+	}
+	if (score < 92)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_57(i32 score)
+{
+	if (score < 32)
+	{
+		return Grade::F;
+	}
+	if (score < 38)
+	{
+		return Grade::D;
+	}
+	if (score < 76)
+	{
+		return Grade::C;
+	}
+	if (score < 89)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_58(i32 score)
+{
+	if (score < 17)
+	{
+		return Grade::F;
+	}
+	if (score < 60)
+	{
+		return Grade::D;
+	}
+	if (score < 82)
+	{
+		return Grade::C;
+	}
+	if (score < 93)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_59(i32 score)
+{
+	if (score < 66)
+	{
+		return Grade::F;
+	}
+	if (score < 70)
+	{
+		return Grade::D;
+	}
+	if (score < 81)
+	{
+		return Grade::C;
+	}
+	if (score < 83)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_60(i32 score)
+{
+	if (score < 11)
+	{
+		return Grade::F;
+	}
+	if (score < 23)
+	{
+		return Grade::D;
+	}
+	if (score < 67)
+	{
+		return Grade::C;
+	}
+	if (score < 91)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_61(i32 score)
+{
+	if (score < 15)
+	{
+		return Grade::F;
+	}
+	if (score < 29)
+	{
+		return Grade::D;
+	}
+	if (score < 55)
+	{
+		return Grade::C;
+	}
+	if (score < 90)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_62(i32 score)
+{
+	if (score < 18)
+	{
+		return Grade::F;
+	}
+	if (score < 29)
+	{
+		return Grade::D;
+	}
+	if (score < 33)
+	{
+		return Grade::C;
+	}
+	if (score < 81)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_63(i32 score)
+{
+	if (score < 31)
+	{
+		return Grade::F;
+	}
+	if (score < 56)
+	{
+		return Grade::D;
+	}
+	if (score < 65)
+	{
+		return Grade::C;
+	}
+	if (score < 73)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_64(i32 score)
+{
+	if (score < 23)
+	{
+		return Grade::F;
+	}
+	if (score < 64)
+	{
+		return Grade::D;
+	}
+	if (score < 83)
+	{
+		return Grade::C;
+	}
+	if (score < 89)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_65(i32 score)
+{
+	if (score < 14)
+	{
+		return Grade::F;
+	}
+	if (score < 23)
+	{
+		return Grade::D;
+	}
+	if (score < 37)
+	{
+		return Grade::C;
+	}
+	if (score < 49)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_66(i32 score)
+{
+	if (score < 32)
+	{
+		return Grade::F;
+	}
+	if (score < 49)
+	{
+		return Grade::D;
+	}
+	if (score < 55)
+	{
+		return Grade::C;
+	}
+	if (score < 63)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_67(i32 score)
+{
+	if (score < 15)
+	{
+		return Grade::F;
+	}
+	if (score < 32)
+	{
+		return Grade::D;
+	}
+	if (score < 59)
+	{
+		return Grade::C;
+	}
+	if (score < 94)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_68(i32 score)
+{
+	if (score < 34)
+	{
+		return Grade::F;
+	}
+	if (score < 37)
+	{
+		return Grade::D;
+	}
+	if (score < 42)
+	{
+		return Grade::C;
+	}
+	if (score < 93)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+Grade grade_69(i32 score)
+{
+	if (score < 56)
+	{
+		return Grade::F;
+	}
+	if (score < 58)
+	{
+		return Grade::D;
+	}
+	if (score < 83)
+	{
+		return Grade::C;
+	}
+	if (score < 92)
+	{
+		return Grade::B;
+	}
+	return Grade::A;
+}
+
+/*
+ * ---- struct processors (70) ----
+ */
+
+Acc acc_0(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_1(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_2(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_3(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_4(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_5(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_6(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_7(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_8(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_9(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_10(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_11(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_12(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_13(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_14(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_15(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_16(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_17(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_18(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_19(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_20(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_21(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_22(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_23(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_24(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_25(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_26(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_27(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_28(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_29(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_30(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_31(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_32(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_33(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_34(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_35(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_36(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_37(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_38(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_39(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_40(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_41(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_42(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_43(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_44(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_45(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_46(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_47(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_48(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_49(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_50(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_51(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_52(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_53(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_54(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_55(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_56(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_57(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_58(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_59(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_60(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_61(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_62(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 3;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_63(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_64(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_65(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_66(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_67(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 2;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_68(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 4;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+Acc acc_69(ConstSpan<i32> data)
+{
+	Acc a = Acc{};
+	a.Sum = 0;
+	a.Count = 0;
+	a.Max = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		i32 v = data[i] * 1;
+		a.Sum = a.Sum + v;
+		a.Count = a.Count + 1;
+		if (v > a.Max)
+		{
+			a.Max = v;
+		}
+	}
+	return a;
+}
+
+/*
+ * ---- string builders (110) ----
+ */
+
+str fmt_0(i32 x)
+{
+	str s = "t0=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_1(i32 x)
+{
+	str s = "t1=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_2(i32 x)
+{
+	str s = "t2=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_3(i32 x)
+{
+	str s = "t3=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_4(i32 x)
+{
+	str s = "t4=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_5(i32 x)
+{
+	str s = "t5=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_6(i32 x)
+{
+	str s = "t6=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_7(i32 x)
+{
+	str s = "t7=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_8(i32 x)
+{
+	str s = "t8=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_9(i32 x)
+{
+	str s = "t9=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_10(i32 x)
+{
+	str s = "t10=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_11(i32 x)
+{
+	str s = "t11=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_12(i32 x)
+{
+	str s = "t12=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_13(i32 x)
+{
+	str s = "t13=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_14(i32 x)
+{
+	str s = "t14=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_15(i32 x)
+{
+	str s = "t15=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_16(i32 x)
+{
+	str s = "t16=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_17(i32 x)
+{
+	str s = "t17=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_18(i32 x)
+{
+	str s = "t18=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_19(i32 x)
+{
+	str s = "t19=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_20(i32 x)
+{
+	str s = "t20=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_21(i32 x)
+{
+	str s = "t21=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_22(i32 x)
+{
+	str s = "t22=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_23(i32 x)
+{
+	str s = "t23=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_24(i32 x)
+{
+	str s = "t24=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_25(i32 x)
+{
+	str s = "t25=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_26(i32 x)
+{
+	str s = "t26=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_27(i32 x)
+{
+	str s = "t27=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_28(i32 x)
+{
+	str s = "t28=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_29(i32 x)
+{
+	str s = "t29=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_30(i32 x)
+{
+	str s = "t30=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_31(i32 x)
+{
+	str s = "t31=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_32(i32 x)
+{
+	str s = "t32=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_33(i32 x)
+{
+	str s = "t33=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_34(i32 x)
+{
+	str s = "t34=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_35(i32 x)
+{
+	str s = "t35=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_36(i32 x)
+{
+	str s = "t36=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_37(i32 x)
+{
+	str s = "t37=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_38(i32 x)
+{
+	str s = "t38=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_39(i32 x)
+{
+	str s = "t39=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_40(i32 x)
+{
+	str s = "t40=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_41(i32 x)
+{
+	str s = "t41=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_42(i32 x)
+{
+	str s = "t42=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_43(i32 x)
+{
+	str s = "t43=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_44(i32 x)
+{
+	str s = "t44=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_45(i32 x)
+{
+	str s = "t45=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_46(i32 x)
+{
+	str s = "t46=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_47(i32 x)
+{
+	str s = "t47=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_48(i32 x)
+{
+	str s = "t48=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_49(i32 x)
+{
+	str s = "t49=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_50(i32 x)
+{
+	str s = "t50=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_51(i32 x)
+{
+	str s = "t51=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_52(i32 x)
+{
+	str s = "t52=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_53(i32 x)
+{
+	str s = "t53=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_54(i32 x)
+{
+	str s = "t54=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_55(i32 x)
+{
+	str s = "t55=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_56(i32 x)
+{
+	str s = "t56=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_57(i32 x)
+{
+	str s = "t57=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_58(i32 x)
+{
+	str s = "t58=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_59(i32 x)
+{
+	str s = "t59=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_60(i32 x)
+{
+	str s = "t60=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_61(i32 x)
+{
+	str s = "t61=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_62(i32 x)
+{
+	str s = "t62=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_63(i32 x)
+{
+	str s = "t63=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_64(i32 x)
+{
+	str s = "t64=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_65(i32 x)
+{
+	str s = "t65=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_66(i32 x)
+{
+	str s = "t66=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_67(i32 x)
+{
+	str s = "t67=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_68(i32 x)
+{
+	str s = "t68=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_69(i32 x)
+{
+	str s = "t69=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_70(i32 x)
+{
+	str s = "t70=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_71(i32 x)
+{
+	str s = "t71=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_72(i32 x)
+{
+	str s = "t72=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_73(i32 x)
+{
+	str s = "t73=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_74(i32 x)
+{
+	str s = "t74=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_75(i32 x)
+{
+	str s = "t75=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_76(i32 x)
+{
+	str s = "t76=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_77(i32 x)
+{
+	str s = "t77=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_78(i32 x)
+{
+	str s = "t78=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_79(i32 x)
+{
+	str s = "t79=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_80(i32 x)
+{
+	str s = "t80=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_81(i32 x)
+{
+	str s = "t81=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_82(i32 x)
+{
+	str s = "t82=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_83(i32 x)
+{
+	str s = "t83=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_84(i32 x)
+{
+	str s = "t84=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_85(i32 x)
+{
+	str s = "t85=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_86(i32 x)
+{
+	str s = "t86=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_87(i32 x)
+{
+	str s = "t87=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_88(i32 x)
+{
+	str s = "t88=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_89(i32 x)
+{
+	str s = "t89=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_90(i32 x)
+{
+	str s = "t90=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_91(i32 x)
+{
+	str s = "t91=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_92(i32 x)
+{
+	str s = "t92=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_93(i32 x)
+{
+	str s = "t93=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_94(i32 x)
+{
+	str s = "t94=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_95(i32 x)
+{
+	str s = "t95=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_96(i32 x)
+{
+	str s = "t96=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_97(i32 x)
+{
+	str s = "t97=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_98(i32 x)
+{
+	str s = "t98=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_99(i32 x)
+{
+	str s = "t99=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_100(i32 x)
+{
+	str s = "t100=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_101(i32 x)
+{
+	str s = "t101=";
+	i32 v = x % 10;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_102(i32 x)
+{
+	str s = "t102=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_103(i32 x)
+{
+	str s = "t103=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_104(i32 x)
+{
+	str s = "t104=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_105(i32 x)
+{
+	str s = "t105=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_106(i32 x)
+{
+	str s = "t106=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_107(i32 x)
+{
+	str s = "t107=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_108(i32 x)
+{
+	str s = "t108=";
+	i32 v = x % 1000;
+	s = s + to_str(v);
+	return s;
+}
+
+str fmt_109(i32 x)
+{
+	str s = "t109=";
+	i32 v = x % 100;
+	s = s + to_str(v);
+	return s;
+}
+
+/*
+ * ---- Hand-written core ----
+ */
+
+T abs_i<T>(T x)
+{
+	if (x < 0)
+	{
+		return x * -1;
+	}
+	return x;
+}
+
+i32 factorial(i32 n)
+{
+	if (n < 2)
+	{
+		return 1;
+	}
+	return n * factorial(n - 1);
+}
+
+i32 fib(i32 n)
+{
+	if (n < 2)
+	{
+		return n;
+	}
+	return fib(n - 1) + fib(n - 2);
+}
+
+T gcd<T>(T a, T b)
+{
+	T x = abs_i<T>(a);
+	T y = abs_i<T>(b);
+	while (y != 0)
+	{
+		T t = x % y;
+		x = y;
+		y = t;
+	}
+	return x;
+}
+
+bool is_prime(i32 n)
+{
+	if (n < 2)
+	{
+		return false;
+	}
+	for (i32 d = 2; (d * d) <= n; d++)
+	{
+		if ((n % d) == 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+i32 count_primes(i32 upto)
+{
+	i32 c = 0;
+	for (i32 i = 2; i <= upto; i++)
+	{
+		if (is_prime(i))
+		{
+			c = c + 1;
+		}
+	}
+	return c;
+}
+
+i32 vm_eval(ConstSpan<i32> code, ConstSpan<i32> arg)
+{
+	i32[] stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]:i32;
+	i32 sp = 0;
+	for (i32 i = 0; i < code.Length; i++)
+	{
+		i32 op = code[i];
+		if (op == 0)
+		{
+			stack[sp] = arg[i];
+			sp = sp + 1;
+		}
+		else
+		{
+			i32 b = stack[sp - 1];
+			i32 a = stack[sp - 2];
+			sp = sp - 2;
+			i32 r = 0;
+			if (op == 1)
+			{
+				r = a + b;
+			}
+			if (op == 2)
+			{
+				r = a - b;
+			}
+			if (op == 3)
+			{
+				r = a * b;
+			}
+			stack[sp] = r;
+			sp = sp + 1;
+		}
+	}
+	return stack[0];
+}
+
+T fold<T>(ConstSpan<T> a, T seed, Func<T, T, T> op)
+{
+	T acc = seed;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		acc = op(acc, a[i]);
+	}
+	return acc;
+}
+
+i32 count_if<T>(ConstSpan<T> a, Func<T, bool> pred)
+{
+	i32 c = 0;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		if (pred(a[i]))
+		{
+			c = c + 1;
+		}
+	}
+	return c;
+}
+
+i32 grade_rank(Grade g)
+{
+	if (g == Grade::A)
+	{
+		return 4;
+	}
+	if (g == Grade::B)
+	{
+		return 3;
+	}
+	if (g == Grade::C)
+	{
+		return 2;
+	}
+	if (g == Grade::D)
+	{
+		return 1;
+	}
+	return 0;
+}
+
+void test()
+{
+	WriteLine("=== Orion demo_claude_3 ===");
+	i32[] data = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5, 8, 9, 7, 9, 3]:i32;
+	i32 checksum = 0;
+
+	WriteLine("[ scalar+pipeline pass ]");
+	checksum = (checksum + sc_0(7)) % 1000003;
+	checksum = (checksum + sc_1(20)) % 1000003;
+	checksum = (checksum + sc_2(33)) % 1000003;
+	checksum = (checksum + sc_3(46)) % 1000003;
+	checksum = (checksum + sc_4(59)) % 1000003;
+	checksum = (checksum + sc_5(72)) % 1000003;
+	checksum = (checksum + sc_6(85)) % 1000003;
+	checksum = (checksum + sc_7(98)) % 1000003;
+	checksum = (checksum + sc_8(111)) % 1000003;
+	checksum = (checksum + sc_9(124)) % 1000003;
+	checksum = (checksum + sc_10(137)) % 1000003;
+	checksum = (checksum + sc_11(150)) % 1000003;
+	checksum = (checksum + sc_12(163)) % 1000003;
+	checksum = (checksum + sc_13(176)) % 1000003;
+	checksum = (checksum + sc_14(189)) % 1000003;
+	checksum = (checksum + sc_15(2)) % 1000003;
+	checksum = (checksum + sc_16(15)) % 1000003;
+	checksum = (checksum + sc_17(28)) % 1000003;
+	checksum = (checksum + sc_18(41)) % 1000003;
+	checksum = (checksum + sc_19(54)) % 1000003;
+	checksum = (checksum + sc_20(67)) % 1000003;
+	checksum = (checksum + sc_21(80)) % 1000003;
+	checksum = (checksum + sc_22(93)) % 1000003;
+	checksum = (checksum + sc_23(106)) % 1000003;
+	checksum = (checksum + sc_24(119)) % 1000003;
+	checksum = (checksum + sc_25(132)) % 1000003;
+	checksum = (checksum + sc_26(145)) % 1000003;
+	checksum = (checksum + sc_27(158)) % 1000003;
+	checksum = (checksum + sc_28(171)) % 1000003;
+	checksum = (checksum + sc_29(184)) % 1000003;
+	checksum = (checksum + sc_30(197)) % 1000003;
+	checksum = (checksum + sc_31(10)) % 1000003;
+	checksum = (checksum + sc_32(23)) % 1000003;
+	checksum = (checksum + sc_33(36)) % 1000003;
+	checksum = (checksum + sc_34(49)) % 1000003;
+	checksum = (checksum + sc_35(62)) % 1000003;
+	checksum = (checksum + sc_36(75)) % 1000003;
+	checksum = (checksum + sc_37(88)) % 1000003;
+	checksum = (checksum + sc_38(101)) % 1000003;
+	checksum = (checksum + sc_39(114)) % 1000003;
+	checksum = (checksum + sc_40(127)) % 1000003;
+	checksum = (checksum + sc_41(140)) % 1000003;
+	checksum = (checksum + sc_42(153)) % 1000003;
+	checksum = (checksum + sc_43(166)) % 1000003;
+	checksum = (checksum + sc_44(179)) % 1000003;
+	checksum = (checksum + sc_45(192)) % 1000003;
+	checksum = (checksum + sc_46(5)) % 1000003;
+	checksum = (checksum + sc_47(18)) % 1000003;
+	checksum = (checksum + sc_48(31)) % 1000003;
+	checksum = (checksum + sc_49(44)) % 1000003;
+	checksum = (checksum + sc_50(57)) % 1000003;
+	checksum = (checksum + sc_51(70)) % 1000003;
+	checksum = (checksum + sc_52(83)) % 1000003;
+	checksum = (checksum + sc_53(96)) % 1000003;
+	checksum = (checksum + sc_54(109)) % 1000003;
+	checksum = (checksum + sc_55(122)) % 1000003;
+	checksum = (checksum + sc_56(135)) % 1000003;
+	checksum = (checksum + sc_57(148)) % 1000003;
+	checksum = (checksum + sc_58(161)) % 1000003;
+	checksum = (checksum + sc_59(174)) % 1000003;
+	checksum = (checksum + sc_60(187)) % 1000003;
+	checksum = (checksum + sc_61(0)) % 1000003;
+	checksum = (checksum + sc_62(13)) % 1000003;
+	checksum = (checksum + sc_63(26)) % 1000003;
+	checksum = (checksum + sc_64(39)) % 1000003;
+	checksum = (checksum + sc_65(52)) % 1000003;
+	checksum = (checksum + sc_66(65)) % 1000003;
+	checksum = (checksum + sc_67(78)) % 1000003;
+	checksum = (checksum + sc_68(91)) % 1000003;
+	checksum = (checksum + sc_69(104)) % 1000003;
+	checksum = (checksum + sc_70(117)) % 1000003;
+	checksum = (checksum + sc_71(130)) % 1000003;
+	checksum = (checksum + sc_72(143)) % 1000003;
+	checksum = (checksum + sc_73(156)) % 1000003;
+	checksum = (checksum + sc_74(169)) % 1000003;
+	checksum = (checksum + sc_75(182)) % 1000003;
+	checksum = (checksum + sc_76(195)) % 1000003;
+	checksum = (checksum + sc_77(8)) % 1000003;
+	checksum = (checksum + sc_78(21)) % 1000003;
+	checksum = (checksum + sc_79(34)) % 1000003;
+	checksum = (checksum + sc_80(47)) % 1000003;
+	checksum = (checksum + sc_81(60)) % 1000003;
+	checksum = (checksum + sc_82(73)) % 1000003;
+	checksum = (checksum + sc_83(86)) % 1000003;
+	checksum = (checksum + sc_84(99)) % 1000003;
+	checksum = (checksum + sc_85(112)) % 1000003;
+	checksum = (checksum + sc_86(125)) % 1000003;
+	checksum = (checksum + sc_87(138)) % 1000003;
+	checksum = (checksum + sc_88(151)) % 1000003;
+	checksum = (checksum + sc_89(164)) % 1000003;
+	checksum = (checksum + sc_90(177)) % 1000003;
+	checksum = (checksum + sc_91(190)) % 1000003;
+	checksum = (checksum + sc_92(3)) % 1000003;
+	checksum = (checksum + sc_93(16)) % 1000003;
+	checksum = (checksum + sc_94(29)) % 1000003;
+	checksum = (checksum + sc_95(42)) % 1000003;
+	checksum = (checksum + sc_96(55)) % 1000003;
+	checksum = (checksum + sc_97(68)) % 1000003;
+	checksum = (checksum + sc_98(81)) % 1000003;
+	checksum = (checksum + sc_99(94)) % 1000003;
+	checksum = (checksum + sc_100(107)) % 1000003;
+	checksum = (checksum + sc_101(120)) % 1000003;
+	checksum = (checksum + sc_102(133)) % 1000003;
+	checksum = (checksum + sc_103(146)) % 1000003;
+	checksum = (checksum + sc_104(159)) % 1000003;
+	checksum = (checksum + sc_105(172)) % 1000003;
+	checksum = (checksum + sc_106(185)) % 1000003;
+	checksum = (checksum + sc_107(198)) % 1000003;
+	checksum = (checksum + sc_108(11)) % 1000003;
+	checksum = (checksum + sc_109(24)) % 1000003;
+	checksum = (checksum + sc_110(37)) % 1000003;
+	checksum = (checksum + sc_111(50)) % 1000003;
+	checksum = (checksum + sc_112(63)) % 1000003;
+	checksum = (checksum + sc_113(76)) % 1000003;
+	checksum = (checksum + sc_114(89)) % 1000003;
+	checksum = (checksum + sc_115(102)) % 1000003;
+	checksum = (checksum + sc_116(115)) % 1000003;
+	checksum = (checksum + sc_117(128)) % 1000003;
+	checksum = (checksum + sc_118(141)) % 1000003;
+	checksum = (checksum + sc_119(154)) % 1000003;
+	checksum = (checksum + sc_120(167)) % 1000003;
+	checksum = (checksum + sc_121(180)) % 1000003;
+	checksum = (checksum + sc_122(193)) % 1000003;
+	checksum = (checksum + sc_123(6)) % 1000003;
+	checksum = (checksum + sc_124(19)) % 1000003;
+	checksum = (checksum + sc_125(32)) % 1000003;
+	checksum = (checksum + sc_126(45)) % 1000003;
+	checksum = (checksum + sc_127(58)) % 1000003;
+	checksum = (checksum + sc_128(71)) % 1000003;
+	checksum = (checksum + sc_129(84)) % 1000003;
+	checksum = (checksum + sc_130(97)) % 1000003;
+	checksum = (checksum + sc_131(110)) % 1000003;
+	checksum = (checksum + sc_132(123)) % 1000003;
+	checksum = (checksum + sc_133(136)) % 1000003;
+	checksum = (checksum + sc_134(149)) % 1000003;
+	checksum = (checksum + sc_135(162)) % 1000003;
+	checksum = (checksum + sc_136(175)) % 1000003;
+	checksum = (checksum + sc_137(188)) % 1000003;
+	checksum = (checksum + sc_138(1)) % 1000003;
+	checksum = (checksum + sc_139(14)) % 1000003;
+	checksum = (checksum + sc_140(27)) % 1000003;
+	checksum = (checksum + sc_141(40)) % 1000003;
+	checksum = (checksum + sc_142(53)) % 1000003;
+	checksum = (checksum + sc_143(66)) % 1000003;
+	checksum = (checksum + sc_144(79)) % 1000003;
+	checksum = (checksum + sc_145(92)) % 1000003;
+	checksum = (checksum + sc_146(105)) % 1000003;
+	checksum = (checksum + sc_147(118)) % 1000003;
+	checksum = (checksum + sc_148(131)) % 1000003;
+	checksum = (checksum + sc_149(144)) % 1000003;
+	checksum = (checksum + sc_150(157)) % 1000003;
+	checksum = (checksum + sc_151(170)) % 1000003;
+	checksum = (checksum + sc_152(183)) % 1000003;
+	checksum = (checksum + sc_153(196)) % 1000003;
+	checksum = (checksum + sc_154(9)) % 1000003;
+	checksum = (checksum + sc_155(22)) % 1000003;
+	checksum = (checksum + sc_156(35)) % 1000003;
+	checksum = (checksum + sc_157(48)) % 1000003;
+	checksum = (checksum + sc_158(61)) % 1000003;
+	checksum = (checksum + sc_159(74)) % 1000003;
+	checksum = (checksum + sc_160(87)) % 1000003;
+	checksum = (checksum + sc_161(100)) % 1000003;
+	checksum = (checksum + sc_162(113)) % 1000003;
+	checksum = (checksum + sc_163(126)) % 1000003;
+	checksum = (checksum + sc_164(139)) % 1000003;
+	checksum = (checksum + sc_165(152)) % 1000003;
+	checksum = (checksum + sc_166(165)) % 1000003;
+	checksum = (checksum + sc_167(178)) % 1000003;
+	checksum = (checksum + sc_168(191)) % 1000003;
+	checksum = (checksum + sc_169(4)) % 1000003;
+	checksum = (checksum + sc_170(17)) % 1000003;
+	checksum = (checksum + sc_171(30)) % 1000003;
+	checksum = (checksum + sc_172(43)) % 1000003;
+	checksum = (checksum + sc_173(56)) % 1000003;
+	checksum = (checksum + sc_174(69)) % 1000003;
+	checksum = (checksum + sc_175(82)) % 1000003;
+	checksum = (checksum + sc_176(95)) % 1000003;
+	checksum = (checksum + sc_177(108)) % 1000003;
+	checksum = (checksum + sc_178(121)) % 1000003;
+	checksum = (checksum + sc_179(134)) % 1000003;
+	checksum = (checksum + sc_180(147)) % 1000003;
+	checksum = (checksum + sc_181(160)) % 1000003;
+	checksum = (checksum + sc_182(173)) % 1000003;
+	checksum = (checksum + sc_183(186)) % 1000003;
+	checksum = (checksum + sc_184(199)) % 1000003;
+	checksum = (checksum + sc_185(12)) % 1000003;
+	checksum = (checksum + sc_186(25)) % 1000003;
+	checksum = (checksum + sc_187(38)) % 1000003;
+	checksum = (checksum + sc_188(51)) % 1000003;
+	checksum = (checksum + sc_189(64)) % 1000003;
+	checksum = (checksum + sc_190(77)) % 1000003;
+	checksum = (checksum + sc_191(90)) % 1000003;
+	checksum = (checksum + sc_192(103)) % 1000003;
+	checksum = (checksum + sc_193(116)) % 1000003;
+	checksum = (checksum + sc_194(129)) % 1000003;
+	checksum = (checksum + sc_195(142)) % 1000003;
+	checksum = (checksum + sc_196(155)) % 1000003;
+	checksum = (checksum + sc_197(168)) % 1000003;
+	checksum = (checksum + sc_198(181)) % 1000003;
+	checksum = (checksum + sc_199(194)) % 1000003;
+	checksum = (checksum + sc_200(7)) % 1000003;
+	checksum = (checksum + sc_201(20)) % 1000003;
+	checksum = (checksum + sc_202(33)) % 1000003;
+	checksum = (checksum + sc_203(46)) % 1000003;
+	checksum = (checksum + sc_204(59)) % 1000003;
+	checksum = (checksum + sc_205(72)) % 1000003;
+	checksum = (checksum + sc_206(85)) % 1000003;
+	checksum = (checksum + sc_207(98)) % 1000003;
+	checksum = (checksum + sc_208(111)) % 1000003;
+	checksum = (checksum + sc_209(124)) % 1000003;
+	checksum = (checksum + pipe_0(11)) % 1000003;
+	checksum = (checksum + pipe_1(18)) % 1000003;
+	checksum = (checksum + pipe_2(25)) % 1000003;
+	checksum = (checksum + pipe_3(32)) % 1000003;
+	checksum = (checksum + pipe_4(39)) % 1000003;
+	checksum = (checksum + pipe_5(46)) % 1000003;
+	checksum = (checksum + pipe_6(53)) % 1000003;
+	checksum = (checksum + pipe_7(60)) % 1000003;
+	checksum = (checksum + pipe_8(67)) % 1000003;
+	checksum = (checksum + pipe_9(74)) % 1000003;
+	checksum = (checksum + pipe_10(81)) % 1000003;
+	checksum = (checksum + pipe_11(88)) % 1000003;
+	checksum = (checksum + pipe_12(95)) % 1000003;
+	checksum = (checksum + pipe_13(102)) % 1000003;
+	checksum = (checksum + pipe_14(109)) % 1000003;
+	checksum = (checksum + pipe_15(116)) % 1000003;
+	checksum = (checksum + pipe_16(123)) % 1000003;
+	checksum = (checksum + pipe_17(130)) % 1000003;
+	checksum = (checksum + pipe_18(137)) % 1000003;
+	checksum = (checksum + pipe_19(144)) % 1000003;
+	checksum = (checksum + pipe_20(151)) % 1000003;
+	checksum = (checksum + pipe_21(158)) % 1000003;
+	checksum = (checksum + pipe_22(165)) % 1000003;
+	checksum = (checksum + pipe_23(172)) % 1000003;
+	checksum = (checksum + pipe_24(179)) % 1000003;
+	checksum = (checksum + pipe_25(186)) % 1000003;
+	checksum = (checksum + pipe_26(193)) % 1000003;
+	checksum = (checksum + pipe_27(0)) % 1000003;
+	checksum = (checksum + pipe_28(7)) % 1000003;
+	checksum = (checksum + pipe_29(14)) % 1000003;
+	checksum = (checksum + pipe_30(21)) % 1000003;
+	checksum = (checksum + pipe_31(28)) % 1000003;
+	checksum = (checksum + pipe_32(35)) % 1000003;
+	checksum = (checksum + pipe_33(42)) % 1000003;
+	checksum = (checksum + pipe_34(49)) % 1000003;
+	checksum = (checksum + pipe_35(56)) % 1000003;
+	checksum = (checksum + pipe_36(63)) % 1000003;
+	checksum = (checksum + pipe_37(70)) % 1000003;
+	checksum = (checksum + pipe_38(77)) % 1000003;
+	checksum = (checksum + pipe_39(84)) % 1000003;
+	checksum = (checksum + pipe_40(91)) % 1000003;
+	checksum = (checksum + pipe_41(98)) % 1000003;
+	checksum = (checksum + pipe_42(105)) % 1000003;
+	checksum = (checksum + pipe_43(112)) % 1000003;
+	checksum = (checksum + pipe_44(119)) % 1000003;
+	checksum = (checksum + pipe_45(126)) % 1000003;
+	checksum = (checksum + pipe_46(133)) % 1000003;
+	checksum = (checksum + pipe_47(140)) % 1000003;
+	checksum = (checksum + pipe_48(147)) % 1000003;
+	checksum = (checksum + pipe_49(154)) % 1000003;
+	checksum = (checksum + pipe_50(161)) % 1000003;
+	checksum = (checksum + pipe_51(168)) % 1000003;
+	checksum = (checksum + pipe_52(175)) % 1000003;
+	checksum = (checksum + pipe_53(182)) % 1000003;
+	checksum = (checksum + pipe_54(189)) % 1000003;
+	checksum = (checksum + pipe_55(196)) % 1000003;
+	checksum = (checksum + pipe_56(3)) % 1000003;
+	checksum = (checksum + pipe_57(10)) % 1000003;
+	checksum = (checksum + pipe_58(17)) % 1000003;
+	checksum = (checksum + pipe_59(24)) % 1000003;
+	checksum = (checksum + pipe_60(31)) % 1000003;
+	checksum = (checksum + pipe_61(38)) % 1000003;
+	checksum = (checksum + pipe_62(45)) % 1000003;
+	checksum = (checksum + pipe_63(52)) % 1000003;
+	checksum = (checksum + pipe_64(59)) % 1000003;
+	checksum = (checksum + pipe_65(66)) % 1000003;
+	checksum = (checksum + pipe_66(73)) % 1000003;
+	checksum = (checksum + pipe_67(80)) % 1000003;
+	checksum = (checksum + pipe_68(87)) % 1000003;
+	checksum = (checksum + pipe_69(94)) % 1000003;
+	checksum = (checksum + pipe_70(101)) % 1000003;
+	checksum = (checksum + pipe_71(108)) % 1000003;
+	checksum = (checksum + pipe_72(115)) % 1000003;
+	checksum = (checksum + pipe_73(122)) % 1000003;
+	checksum = (checksum + pipe_74(129)) % 1000003;
+	checksum = (checksum + pipe_75(136)) % 1000003;
+	checksum = (checksum + pipe_76(143)) % 1000003;
+	checksum = (checksum + pipe_77(150)) % 1000003;
+	checksum = (checksum + pipe_78(157)) % 1000003;
+	checksum = (checksum + pipe_79(164)) % 1000003;
+	checksum = (checksum + pipe_80(171)) % 1000003;
+	checksum = (checksum + pipe_81(178)) % 1000003;
+	checksum = (checksum + pipe_82(185)) % 1000003;
+	checksum = (checksum + pipe_83(192)) % 1000003;
+	checksum = (checksum + pipe_84(199)) % 1000003;
+	checksum = (checksum + pipe_85(6)) % 1000003;
+	checksum = (checksum + pipe_86(13)) % 1000003;
+	checksum = (checksum + pipe_87(20)) % 1000003;
+	checksum = (checksum + pipe_88(27)) % 1000003;
+	checksum = (checksum + pipe_89(34)) % 1000003;
+	checksum = (checksum + pipe_90(41)) % 1000003;
+	checksum = (checksum + pipe_91(48)) % 1000003;
+	checksum = (checksum + pipe_92(55)) % 1000003;
+	checksum = (checksum + pipe_93(62)) % 1000003;
+	checksum = (checksum + pipe_94(69)) % 1000003;
+	checksum = (checksum + pipe_95(76)) % 1000003;
+	checksum = (checksum + pipe_96(83)) % 1000003;
+	checksum = (checksum + pipe_97(90)) % 1000003;
+	checksum = (checksum + pipe_98(97)) % 1000003;
+	checksum = (checksum + pipe_99(104)) % 1000003;
+	checksum = (checksum + pipe_100(111)) % 1000003;
+	checksum = (checksum + pipe_101(118)) % 1000003;
+	checksum = (checksum + pipe_102(125)) % 1000003;
+	checksum = (checksum + pipe_103(132)) % 1000003;
+	checksum = (checksum + pipe_104(139)) % 1000003;
+	checksum = (checksum + pipe_105(146)) % 1000003;
+	checksum = (checksum + pipe_106(153)) % 1000003;
+	checksum = (checksum + pipe_107(160)) % 1000003;
+	checksum = (checksum + pipe_108(167)) % 1000003;
+	checksum = (checksum + pipe_109(174)) % 1000003;
+	checksum = (checksum + pipe_110(181)) % 1000003;
+	checksum = (checksum + pipe_111(188)) % 1000003;
+	checksum = (checksum + pipe_112(195)) % 1000003;
+	checksum = (checksum + pipe_113(2)) % 1000003;
+	checksum = (checksum + pipe_114(9)) % 1000003;
+	checksum = (checksum + pipe_115(16)) % 1000003;
+	checksum = (checksum + pipe_116(23)) % 1000003;
+	checksum = (checksum + pipe_117(30)) % 1000003;
+	checksum = (checksum + pipe_118(37)) % 1000003;
+	checksum = (checksum + pipe_119(44)) % 1000003;
+	checksum = (checksum + pipe_120(51)) % 1000003;
+	checksum = (checksum + pipe_121(58)) % 1000003;
+	checksum = (checksum + pipe_122(65)) % 1000003;
+	checksum = (checksum + pipe_123(72)) % 1000003;
+	checksum = (checksum + pipe_124(79)) % 1000003;
+	checksum = (checksum + pipe_125(86)) % 1000003;
+	checksum = (checksum + pipe_126(93)) % 1000003;
+	checksum = (checksum + pipe_127(100)) % 1000003;
+	checksum = (checksum + pipe_128(107)) % 1000003;
+	checksum = (checksum + pipe_129(114)) % 1000003;
+	checksum = (checksum + pipe_130(121)) % 1000003;
+	checksum = (checksum + pipe_131(128)) % 1000003;
+	checksum = (checksum + pipe_132(135)) % 1000003;
+	checksum = (checksum + pipe_133(142)) % 1000003;
+	checksum = (checksum + pipe_134(149)) % 1000003;
+	checksum = (checksum + pipe_135(156)) % 1000003;
+	checksum = (checksum + pipe_136(163)) % 1000003;
+	checksum = (checksum + pipe_137(170)) % 1000003;
+	checksum = (checksum + pipe_138(177)) % 1000003;
+	checksum = (checksum + pipe_139(184)) % 1000003;
+	checksum = (checksum + pipe_140(191)) % 1000003;
+	checksum = (checksum + pipe_141(198)) % 1000003;
+	checksum = (checksum + pipe_142(5)) % 1000003;
+	checksum = (checksum + pipe_143(12)) % 1000003;
+	checksum = (checksum + pipe_144(19)) % 1000003;
+	checksum = (checksum + pipe_145(26)) % 1000003;
+	checksum = (checksum + pipe_146(33)) % 1000003;
+	checksum = (checksum + pipe_147(40)) % 1000003;
+	checksum = (checksum + pipe_148(47)) % 1000003;
+	checksum = (checksum + pipe_149(54)) % 1000003;
+	WriteLine($"  after scalar/pipeline checksum = {checksum}");
+
+	WriteLine("[ reducer pass ]");
+	checksum = (checksum + red_0(data)) % 1000003;
+	checksum = (checksum + red_1(data)) % 1000003;
+	checksum = (checksum + red_2(data)) % 1000003;
+	checksum = (checksum + red_3(data)) % 1000003;
+	checksum = (checksum + red_4(data)) % 1000003;
+	checksum = (checksum + red_5(data)) % 1000003;
+	checksum = (checksum + red_6(data)) % 1000003;
+	checksum = (checksum + red_7(data)) % 1000003;
+	checksum = (checksum + red_8(data)) % 1000003;
+	checksum = (checksum + red_9(data)) % 1000003;
+	checksum = (checksum + red_10(data)) % 1000003;
+	checksum = (checksum + red_11(data)) % 1000003;
+	checksum = (checksum + red_12(data)) % 1000003;
+	checksum = (checksum + red_13(data)) % 1000003;
+	checksum = (checksum + red_14(data)) % 1000003;
+	checksum = (checksum + red_15(data)) % 1000003;
+	checksum = (checksum + red_16(data)) % 1000003;
+	checksum = (checksum + red_17(data)) % 1000003;
+	checksum = (checksum + red_18(data)) % 1000003;
+	checksum = (checksum + red_19(data)) % 1000003;
+	checksum = (checksum + red_20(data)) % 1000003;
+	checksum = (checksum + red_21(data)) % 1000003;
+	checksum = (checksum + red_22(data)) % 1000003;
+	checksum = (checksum + red_23(data)) % 1000003;
+	checksum = (checksum + red_24(data)) % 1000003;
+	checksum = (checksum + red_25(data)) % 1000003;
+	checksum = (checksum + red_26(data)) % 1000003;
+	checksum = (checksum + red_27(data)) % 1000003;
+	checksum = (checksum + red_28(data)) % 1000003;
+	checksum = (checksum + red_29(data)) % 1000003;
+	checksum = (checksum + red_30(data)) % 1000003;
+	checksum = (checksum + red_31(data)) % 1000003;
+	checksum = (checksum + red_32(data)) % 1000003;
+	checksum = (checksum + red_33(data)) % 1000003;
+	checksum = (checksum + red_34(data)) % 1000003;
+	checksum = (checksum + red_35(data)) % 1000003;
+	checksum = (checksum + red_36(data)) % 1000003;
+	checksum = (checksum + red_37(data)) % 1000003;
+	checksum = (checksum + red_38(data)) % 1000003;
+	checksum = (checksum + red_39(data)) % 1000003;
+	checksum = (checksum + red_40(data)) % 1000003;
+	checksum = (checksum + red_41(data)) % 1000003;
+	checksum = (checksum + red_42(data)) % 1000003;
+	checksum = (checksum + red_43(data)) % 1000003;
+	checksum = (checksum + red_44(data)) % 1000003;
+	checksum = (checksum + red_45(data)) % 1000003;
+	checksum = (checksum + red_46(data)) % 1000003;
+	checksum = (checksum + red_47(data)) % 1000003;
+	checksum = (checksum + red_48(data)) % 1000003;
+	checksum = (checksum + red_49(data)) % 1000003;
+	checksum = (checksum + red_50(data)) % 1000003;
+	checksum = (checksum + red_51(data)) % 1000003;
+	checksum = (checksum + red_52(data)) % 1000003;
+	checksum = (checksum + red_53(data)) % 1000003;
+	checksum = (checksum + red_54(data)) % 1000003;
+	checksum = (checksum + red_55(data)) % 1000003;
+	checksum = (checksum + red_56(data)) % 1000003;
+	checksum = (checksum + red_57(data)) % 1000003;
+	checksum = (checksum + red_58(data)) % 1000003;
+	checksum = (checksum + red_59(data)) % 1000003;
+	checksum = (checksum + red_60(data)) % 1000003;
+	checksum = (checksum + red_61(data)) % 1000003;
+	checksum = (checksum + red_62(data)) % 1000003;
+	checksum = (checksum + red_63(data)) % 1000003;
+	checksum = (checksum + red_64(data)) % 1000003;
+	checksum = (checksum + red_65(data)) % 1000003;
+	checksum = (checksum + red_66(data)) % 1000003;
+	checksum = (checksum + red_67(data)) % 1000003;
+	checksum = (checksum + red_68(data)) % 1000003;
+	checksum = (checksum + red_69(data)) % 1000003;
+	checksum = (checksum + red_70(data)) % 1000003;
+	checksum = (checksum + red_71(data)) % 1000003;
+	checksum = (checksum + red_72(data)) % 1000003;
+	checksum = (checksum + red_73(data)) % 1000003;
+	checksum = (checksum + red_74(data)) % 1000003;
+	checksum = (checksum + red_75(data)) % 1000003;
+	checksum = (checksum + red_76(data)) % 1000003;
+	checksum = (checksum + red_77(data)) % 1000003;
+	checksum = (checksum + red_78(data)) % 1000003;
+	checksum = (checksum + red_79(data)) % 1000003;
+	checksum = (checksum + red_80(data)) % 1000003;
+	checksum = (checksum + red_81(data)) % 1000003;
+	checksum = (checksum + red_82(data)) % 1000003;
+	checksum = (checksum + red_83(data)) % 1000003;
+	checksum = (checksum + red_84(data)) % 1000003;
+	checksum = (checksum + red_85(data)) % 1000003;
+	checksum = (checksum + red_86(data)) % 1000003;
+	checksum = (checksum + red_87(data)) % 1000003;
+	checksum = (checksum + red_88(data)) % 1000003;
+	checksum = (checksum + red_89(data)) % 1000003;
+	checksum = (checksum + red_90(data)) % 1000003;
+	checksum = (checksum + red_91(data)) % 1000003;
+	checksum = (checksum + red_92(data)) % 1000003;
+	checksum = (checksum + red_93(data)) % 1000003;
+	checksum = (checksum + red_94(data)) % 1000003;
+	checksum = (checksum + red_95(data)) % 1000003;
+	checksum = (checksum + red_96(data)) % 1000003;
+	checksum = (checksum + red_97(data)) % 1000003;
+	checksum = (checksum + red_98(data)) % 1000003;
+	checksum = (checksum + red_99(data)) % 1000003;
+	checksum = (checksum + red_100(data)) % 1000003;
+	checksum = (checksum + red_101(data)) % 1000003;
+	checksum = (checksum + red_102(data)) % 1000003;
+	checksum = (checksum + red_103(data)) % 1000003;
+	checksum = (checksum + red_104(data)) % 1000003;
+	checksum = (checksum + red_105(data)) % 1000003;
+	checksum = (checksum + red_106(data)) % 1000003;
+	checksum = (checksum + red_107(data)) % 1000003;
+	checksum = (checksum + red_108(data)) % 1000003;
+	checksum = (checksum + red_109(data)) % 1000003;
+	checksum = (checksum + red_110(data)) % 1000003;
+	checksum = (checksum + red_111(data)) % 1000003;
+	checksum = (checksum + red_112(data)) % 1000003;
+	checksum = (checksum + red_113(data)) % 1000003;
+	checksum = (checksum + red_114(data)) % 1000003;
+	checksum = (checksum + red_115(data)) % 1000003;
+	checksum = (checksum + red_116(data)) % 1000003;
+	checksum = (checksum + red_117(data)) % 1000003;
+	checksum = (checksum + red_118(data)) % 1000003;
+	checksum = (checksum + red_119(data)) % 1000003;
+	checksum = (checksum + red_120(data)) % 1000003;
+	checksum = (checksum + red_121(data)) % 1000003;
+	checksum = (checksum + red_122(data)) % 1000003;
+	checksum = (checksum + red_123(data)) % 1000003;
+	checksum = (checksum + red_124(data)) % 1000003;
+	checksum = (checksum + red_125(data)) % 1000003;
+	checksum = (checksum + red_126(data)) % 1000003;
+	checksum = (checksum + red_127(data)) % 1000003;
+	checksum = (checksum + red_128(data)) % 1000003;
+	checksum = (checksum + red_129(data)) % 1000003;
+	checksum = (checksum + red_130(data)) % 1000003;
+	checksum = (checksum + red_131(data)) % 1000003;
+	checksum = (checksum + red_132(data)) % 1000003;
+	checksum = (checksum + red_133(data)) % 1000003;
+	checksum = (checksum + red_134(data)) % 1000003;
+	checksum = (checksum + red_135(data)) % 1000003;
+	checksum = (checksum + red_136(data)) % 1000003;
+	checksum = (checksum + red_137(data)) % 1000003;
+	checksum = (checksum + red_138(data)) % 1000003;
+	checksum = (checksum + red_139(data)) % 1000003;
+	checksum = (checksum + red_140(data)) % 1000003;
+	checksum = (checksum + red_141(data)) % 1000003;
+	checksum = (checksum + red_142(data)) % 1000003;
+	checksum = (checksum + red_143(data)) % 1000003;
+	checksum = (checksum + red_144(data)) % 1000003;
+	checksum = (checksum + red_145(data)) % 1000003;
+	checksum = (checksum + red_146(data)) % 1000003;
+	checksum = (checksum + red_147(data)) % 1000003;
+	checksum = (checksum + red_148(data)) % 1000003;
+	checksum = (checksum + red_149(data)) % 1000003;
+	WriteLine($"  after reducers checksum = {checksum}");
+
+	WriteLine("[ recursive pass ]");
+	checksum = (checksum + rec_0(8)) % 1000003;
+	checksum = (checksum + rec_1(9)) % 1000003;
+	checksum = (checksum + rec_2(10)) % 1000003;
+	checksum = (checksum + rec_3(11)) % 1000003;
+	checksum = (checksum + rec_4(12)) % 1000003;
+	checksum = (checksum + rec_5(13)) % 1000003;
+	checksum = (checksum + rec_6(14)) % 1000003;
+	checksum = (checksum + rec_7(15)) % 1000003;
+	checksum = (checksum + rec_8(16)) % 1000003;
+	checksum = (checksum + rec_9(17)) % 1000003;
+	checksum = (checksum + rec_10(18)) % 1000003;
+	checksum = (checksum + rec_11(19)) % 1000003;
+	checksum = (checksum + rec_12(8)) % 1000003;
+	checksum = (checksum + rec_13(9)) % 1000003;
+	checksum = (checksum + rec_14(10)) % 1000003;
+	checksum = (checksum + rec_15(11)) % 1000003;
+	checksum = (checksum + rec_16(12)) % 1000003;
+	checksum = (checksum + rec_17(13)) % 1000003;
+	checksum = (checksum + rec_18(14)) % 1000003;
+	checksum = (checksum + rec_19(15)) % 1000003;
+	checksum = (checksum + rec_20(16)) % 1000003;
+	checksum = (checksum + rec_21(17)) % 1000003;
+	checksum = (checksum + rec_22(18)) % 1000003;
+	checksum = (checksum + rec_23(19)) % 1000003;
+	checksum = (checksum + rec_24(8)) % 1000003;
+	checksum = (checksum + rec_25(9)) % 1000003;
+	checksum = (checksum + rec_26(10)) % 1000003;
+	checksum = (checksum + rec_27(11)) % 1000003;
+	checksum = (checksum + rec_28(12)) % 1000003;
+	checksum = (checksum + rec_29(13)) % 1000003;
+	checksum = (checksum + rec_30(14)) % 1000003;
+	checksum = (checksum + rec_31(15)) % 1000003;
+	checksum = (checksum + rec_32(16)) % 1000003;
+	checksum = (checksum + rec_33(17)) % 1000003;
+	checksum = (checksum + rec_34(18)) % 1000003;
+	checksum = (checksum + rec_35(19)) % 1000003;
+	checksum = (checksum + rec_36(8)) % 1000003;
+	checksum = (checksum + rec_37(9)) % 1000003;
+	checksum = (checksum + rec_38(10)) % 1000003;
+	checksum = (checksum + rec_39(11)) % 1000003;
+	checksum = (checksum + rec_40(12)) % 1000003;
+	checksum = (checksum + rec_41(13)) % 1000003;
+	checksum = (checksum + rec_42(14)) % 1000003;
+	checksum = (checksum + rec_43(15)) % 1000003;
+	checksum = (checksum + rec_44(16)) % 1000003;
+	checksum = (checksum + rec_45(17)) % 1000003;
+	checksum = (checksum + rec_46(18)) % 1000003;
+	checksum = (checksum + rec_47(19)) % 1000003;
+	checksum = (checksum + rec_48(8)) % 1000003;
+	checksum = (checksum + rec_49(9)) % 1000003;
+	checksum = (checksum + rec_50(10)) % 1000003;
+	checksum = (checksum + rec_51(11)) % 1000003;
+	checksum = (checksum + rec_52(12)) % 1000003;
+	checksum = (checksum + rec_53(13)) % 1000003;
+	checksum = (checksum + rec_54(14)) % 1000003;
+	checksum = (checksum + rec_55(15)) % 1000003;
+	checksum = (checksum + rec_56(16)) % 1000003;
+	checksum = (checksum + rec_57(17)) % 1000003;
+	checksum = (checksum + rec_58(18)) % 1000003;
+	checksum = (checksum + rec_59(19)) % 1000003;
+	checksum = (checksum + rec_60(8)) % 1000003;
+	checksum = (checksum + rec_61(9)) % 1000003;
+	checksum = (checksum + rec_62(10)) % 1000003;
+	checksum = (checksum + rec_63(11)) % 1000003;
+	checksum = (checksum + rec_64(12)) % 1000003;
+	checksum = (checksum + rec_65(13)) % 1000003;
+	checksum = (checksum + rec_66(14)) % 1000003;
+	checksum = (checksum + rec_67(15)) % 1000003;
+	checksum = (checksum + rec_68(16)) % 1000003;
+	checksum = (checksum + rec_69(17)) % 1000003;
+	WriteLine($"  after recursive checksum = {checksum}");
+
+	WriteLine("[ classify pass ]");
+	i32 grank = 0;
+	grank = grank + grade_rank(grade_0(0));
+	grank = grank + grade_rank(grade_1(17));
+	grank = grank + grade_rank(grade_2(34));
+	grank = grank + grade_rank(grade_3(51));
+	grank = grank + grade_rank(grade_4(68));
+	grank = grank + grade_rank(grade_5(85));
+	grank = grank + grade_rank(grade_6(2));
+	grank = grank + grade_rank(grade_7(19));
+	grank = grank + grade_rank(grade_8(36));
+	grank = grank + grade_rank(grade_9(53));
+	grank = grank + grade_rank(grade_10(70));
+	grank = grank + grade_rank(grade_11(87));
+	grank = grank + grade_rank(grade_12(4));
+	grank = grank + grade_rank(grade_13(21));
+	grank = grank + grade_rank(grade_14(38));
+	grank = grank + grade_rank(grade_15(55));
+	grank = grank + grade_rank(grade_16(72));
+	grank = grank + grade_rank(grade_17(89));
+	grank = grank + grade_rank(grade_18(6));
+	grank = grank + grade_rank(grade_19(23));
+	grank = grank + grade_rank(grade_20(40));
+	grank = grank + grade_rank(grade_21(57));
+	grank = grank + grade_rank(grade_22(74));
+	grank = grank + grade_rank(grade_23(91));
+	grank = grank + grade_rank(grade_24(8));
+	grank = grank + grade_rank(grade_25(25));
+	grank = grank + grade_rank(grade_26(42));
+	grank = grank + grade_rank(grade_27(59));
+	grank = grank + grade_rank(grade_28(76));
+	grank = grank + grade_rank(grade_29(93));
+	grank = grank + grade_rank(grade_30(10));
+	grank = grank + grade_rank(grade_31(27));
+	grank = grank + grade_rank(grade_32(44));
+	grank = grank + grade_rank(grade_33(61));
+	grank = grank + grade_rank(grade_34(78));
+	grank = grank + grade_rank(grade_35(95));
+	grank = grank + grade_rank(grade_36(12));
+	grank = grank + grade_rank(grade_37(29));
+	grank = grank + grade_rank(grade_38(46));
+	grank = grank + grade_rank(grade_39(63));
+	grank = grank + grade_rank(grade_40(80));
+	grank = grank + grade_rank(grade_41(97));
+	grank = grank + grade_rank(grade_42(14));
+	grank = grank + grade_rank(grade_43(31));
+	grank = grank + grade_rank(grade_44(48));
+	grank = grank + grade_rank(grade_45(65));
+	grank = grank + grade_rank(grade_46(82));
+	grank = grank + grade_rank(grade_47(99));
+	grank = grank + grade_rank(grade_48(16));
+	grank = grank + grade_rank(grade_49(33));
+	grank = grank + grade_rank(grade_50(50));
+	grank = grank + grade_rank(grade_51(67));
+	grank = grank + grade_rank(grade_52(84));
+	grank = grank + grade_rank(grade_53(1));
+	grank = grank + grade_rank(grade_54(18));
+	grank = grank + grade_rank(grade_55(35));
+	grank = grank + grade_rank(grade_56(52));
+	grank = grank + grade_rank(grade_57(69));
+	grank = grank + grade_rank(grade_58(86));
+	grank = grank + grade_rank(grade_59(3));
+	grank = grank + grade_rank(grade_60(20));
+	grank = grank + grade_rank(grade_61(37));
+	grank = grank + grade_rank(grade_62(54));
+	grank = grank + grade_rank(grade_63(71));
+	grank = grank + grade_rank(grade_64(88));
+	grank = grank + grade_rank(grade_65(5));
+	grank = grank + grade_rank(grade_66(22));
+	grank = grank + grade_rank(grade_67(39));
+	grank = grank + grade_rank(grade_68(56));
+	grank = grank + grade_rank(grade_69(73));
+	WriteLine($"  grade rank total = {grank}");
+
+	WriteLine("[ struct processors ]");
+	i32 accsum = 0;
+	Acc atmp = Acc{};
+	atmp = acc_0(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_1(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_2(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_3(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_4(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_5(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_6(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_7(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_8(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_9(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_10(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_11(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_12(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_13(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_14(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_15(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_16(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_17(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_18(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_19(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_20(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_21(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_22(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_23(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_24(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_25(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_26(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_27(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_28(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_29(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_30(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_31(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_32(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_33(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_34(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_35(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_36(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_37(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_38(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_39(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_40(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_41(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_42(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_43(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_44(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_45(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_46(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_47(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_48(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_49(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_50(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_51(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_52(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_53(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_54(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_55(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_56(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_57(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_58(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_59(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_60(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_61(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_62(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_63(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_64(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_65(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_66(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_67(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_68(data);
+	accsum = accsum + atmp.Sum;
+	atmp = acc_69(data);
+	accsum = accsum + atmp.Sum;
+	WriteLine($"  acc sum total = {accsum}");
+
+	WriteLine("[ string builders ]");
+	u32 slen = 0:u32;
+	slen = slen + str_len(fmt_0(1));
+	slen = slen + str_len(fmt_1(4));
+	slen = slen + str_len(fmt_2(7));
+	slen = slen + str_len(fmt_3(10));
+	slen = slen + str_len(fmt_4(13));
+	slen = slen + str_len(fmt_5(16));
+	slen = slen + str_len(fmt_6(19));
+	slen = slen + str_len(fmt_7(22));
+	slen = slen + str_len(fmt_8(25));
+	slen = slen + str_len(fmt_9(28));
+	slen = slen + str_len(fmt_10(31));
+	slen = slen + str_len(fmt_11(34));
+	slen = slen + str_len(fmt_12(37));
+	slen = slen + str_len(fmt_13(40));
+	slen = slen + str_len(fmt_14(43));
+	slen = slen + str_len(fmt_15(46));
+	slen = slen + str_len(fmt_16(49));
+	slen = slen + str_len(fmt_17(52));
+	slen = slen + str_len(fmt_18(55));
+	slen = slen + str_len(fmt_19(58));
+	slen = slen + str_len(fmt_20(61));
+	slen = slen + str_len(fmt_21(64));
+	slen = slen + str_len(fmt_22(67));
+	slen = slen + str_len(fmt_23(70));
+	slen = slen + str_len(fmt_24(73));
+	slen = slen + str_len(fmt_25(76));
+	slen = slen + str_len(fmt_26(79));
+	slen = slen + str_len(fmt_27(82));
+	slen = slen + str_len(fmt_28(85));
+	slen = slen + str_len(fmt_29(88));
+	slen = slen + str_len(fmt_30(91));
+	slen = slen + str_len(fmt_31(94));
+	slen = slen + str_len(fmt_32(97));
+	slen = slen + str_len(fmt_33(100));
+	slen = slen + str_len(fmt_34(103));
+	slen = slen + str_len(fmt_35(106));
+	slen = slen + str_len(fmt_36(109));
+	slen = slen + str_len(fmt_37(112));
+	slen = slen + str_len(fmt_38(115));
+	slen = slen + str_len(fmt_39(118));
+	slen = slen + str_len(fmt_40(121));
+	slen = slen + str_len(fmt_41(124));
+	slen = slen + str_len(fmt_42(127));
+	slen = slen + str_len(fmt_43(130));
+	slen = slen + str_len(fmt_44(133));
+	slen = slen + str_len(fmt_45(136));
+	slen = slen + str_len(fmt_46(139));
+	slen = slen + str_len(fmt_47(142));
+	slen = slen + str_len(fmt_48(145));
+	slen = slen + str_len(fmt_49(148));
+	slen = slen + str_len(fmt_50(151));
+	slen = slen + str_len(fmt_51(154));
+	slen = slen + str_len(fmt_52(157));
+	slen = slen + str_len(fmt_53(160));
+	slen = slen + str_len(fmt_54(163));
+	slen = slen + str_len(fmt_55(166));
+	slen = slen + str_len(fmt_56(169));
+	slen = slen + str_len(fmt_57(172));
+	slen = slen + str_len(fmt_58(175));
+	slen = slen + str_len(fmt_59(178));
+	slen = slen + str_len(fmt_60(181));
+	slen = slen + str_len(fmt_61(184));
+	slen = slen + str_len(fmt_62(187));
+	slen = slen + str_len(fmt_63(190));
+	slen = slen + str_len(fmt_64(193));
+	slen = slen + str_len(fmt_65(196));
+	slen = slen + str_len(fmt_66(199));
+	slen = slen + str_len(fmt_67(202));
+	slen = slen + str_len(fmt_68(205));
+	slen = slen + str_len(fmt_69(208));
+	slen = slen + str_len(fmt_70(211));
+	slen = slen + str_len(fmt_71(214));
+	slen = slen + str_len(fmt_72(217));
+	slen = slen + str_len(fmt_73(220));
+	slen = slen + str_len(fmt_74(223));
+	slen = slen + str_len(fmt_75(226));
+	slen = slen + str_len(fmt_76(229));
+	slen = slen + str_len(fmt_77(232));
+	slen = slen + str_len(fmt_78(235));
+	slen = slen + str_len(fmt_79(238));
+	slen = slen + str_len(fmt_80(241));
+	slen = slen + str_len(fmt_81(244));
+	slen = slen + str_len(fmt_82(247));
+	slen = slen + str_len(fmt_83(250));
+	slen = slen + str_len(fmt_84(253));
+	slen = slen + str_len(fmt_85(256));
+	slen = slen + str_len(fmt_86(259));
+	slen = slen + str_len(fmt_87(262));
+	slen = slen + str_len(fmt_88(265));
+	slen = slen + str_len(fmt_89(268));
+	slen = slen + str_len(fmt_90(271));
+	slen = slen + str_len(fmt_91(274));
+	slen = slen + str_len(fmt_92(277));
+	slen = slen + str_len(fmt_93(280));
+	slen = slen + str_len(fmt_94(283));
+	slen = slen + str_len(fmt_95(286));
+	slen = slen + str_len(fmt_96(289));
+	slen = slen + str_len(fmt_97(292));
+	slen = slen + str_len(fmt_98(295));
+	slen = slen + str_len(fmt_99(298));
+	slen = slen + str_len(fmt_100(301));
+	slen = slen + str_len(fmt_101(304));
+	slen = slen + str_len(fmt_102(307));
+	slen = slen + str_len(fmt_103(310));
+	slen = slen + str_len(fmt_104(313));
+	slen = slen + str_len(fmt_105(316));
+	slen = slen + str_len(fmt_106(319));
+	slen = slen + str_len(fmt_107(322));
+	slen = slen + str_len(fmt_108(325));
+	slen = slen + str_len(fmt_109(328));
+	WriteLine($"  total formatted length = {slen}");
+
+	WriteLine("[ core checks ]");
+	WriteLine($"  factorial(6) = {factorial(6)}");
+	Assert(factorial(6) == 720);
+	WriteLine($"  fib(15) = {fib(15)}");
+	Assert(fib(15) == 610);
+	WriteLine($"  gcd(1071, 462) = {gcd<i32>(1071, 462)}");
+	Assert(gcd<i32>(1071, 462) == 21);
+	WriteLine($"  primes <= 100 = {count_primes(100)}");
+	Assert(count_primes(100) == 25);
+
+	WriteLine("[ bytecode VM ]");
+	i32[] code = [0, 0, 1, 0, 3, 0, 2]:i32;
+	i32[] argv = [2, 3, 0, 4, 0, 5, 0]:i32;
+	i32 vmres = vm_eval(code, argv);
+	WriteLine($"  ((2+3)*4)-5 = {vmres}");
+	Assert(vmres == 15);
+
+	WriteLine("[ higher-order ]");
+	Func<i32, i32, i32> add = [](i32 a, i32 b)
+	{
+		return a + b;
+	}:i32;
+	i32 folded = fold<i32>(data, 0, add);
+	WriteLine($"  fold sum of data = {folded}");
+	Func<i32, bool> odd = [](i32 x)
+	{
+		return (x % 2) != 0;
+	}:bool;
+	WriteLine($"  odd count in data = {count_if<i32>(data, odd)}");
+
+	WriteLine("[ struct arrays ]");
+	Vec3[] basis = [Vec3{X=3,Y=0,Z=0}, Vec3{X=0,Y=4,Z=0}, Vec3{X=0,Y=0,Z=5}]:Vec3;
+	i32 mag = 0;
+	for (i32 i = 0; i < basis.Length; i++)
+	{
+		Vec3 bv = basis[i];
+		mag = (mag + (bv.X * bv.X)) + ((bv.Y * bv.Y) + (bv.Z * bv.Z));
+	}
+	WriteLine($"  sum |v|^2 = {mag}");
+	Assert(mag == 50);
+
+	// Floats (f32/f64) reduced with the generic fold, and a typed i64 literal.
+	WriteLine("[ floats + typed literals ]");
+	f64[] weights = [0.25, 0.5, 1.25, 2.0]:f64;
+	f64 wsum = weights[0];
+	for (i32 i = 1; i < weights.Length; i++)
+	{
+		wsum = wsum + weights[i];
+	}
+	WriteLine($"  f64 weight sum = {wsum}");
+	f32 half = 0.5:f32;
+	WriteLine($"  f32 half + half = {half + half}");
+	i64 big = 9000000000:i64;
+	WriteLine($"  i64 literal = {big}");
+
+	WriteLine($"  final checksum = {checksum}");
+	WriteLine("=== done ===");
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}
+

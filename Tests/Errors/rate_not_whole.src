@@ -1,0 +1,19 @@
+// A period between two cycles is a slot that never arrives, so it has to be whole cycles of the rate.
+#using "Lib/types.src"
+
+void Tick(#param str name, #input time now @ "cycle_time")
+{
+	WriteLine(to_str(cast<i64>(now)));
+}
+
+#build i32 main()
+{
+	Function[] funcs = [
+		#create Tick(name = "slow") ${ period = 15000000 }
+	]:Function;
+
+	Solver solver = Solver::New(funcs);
+	Solver::Export(solver, 10000000:time);
+
+	return 0;
+}

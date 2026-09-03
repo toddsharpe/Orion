@@ -1,0 +1,169 @@
+// A list comprehension is sugar over the build-time List<T>: `[body for T x in src if cond]:List<U>`
+// lowers to List::New plus a counted loop of Add, which is exactly what build_list.src writes by
+// hand. Element-first order (Python's), the element type spelled out because Orion infers nothing, and
+// the `:List<U>` suffix typing the result the same way it types an array literal.
+//
+// The body is an ordinary inline expression, so it reads enclosing locals (`scale`, `prefix`) with no
+// capture machinery -- the reason a comprehension fits Orion where a LINQ-style lambda chain does not.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+//A nanosecond timestamp.
+typedef i64 time;
+
+// Map: one output per input, over a fixed array.
+#build List<i32> squares(i32 n)
+{
+	List<i32> src = List::New<i32>();
+	for (i32 i = 0; i < n; i++)
+	{
+		src.Add(i);
+	}
+
+	List<i32> out = [v * v for i32 v in src]:List<i32>;
+	return out;
+}
+
+// Filter: the `if` drops elements, so the result is shorter than the source.
+#build List<i32> evens(i32 n)
+{
+	List<i32> src = List::New<i32>();
+	for (i32 i = 0; i < n; i++)
+	{
+		src.Add(i);
+	}
+
+	List<i32> out = [v for i32 v in src if v % 2 == 0]:List<i32>;
+	return out;
+}
+
+// The body closes over enclosing locals -- no lambda, so no capture needed.
+#build List<i32> scaled(i32 n, i32 scale)
+{
+	List<i32> src = List::New<i32>();
+	for (i32 i = 1; i <= n; i++)
+	{
+		src.Add(i);
+	}
+
+	List<i32> out = [v * scale for i32 v in src]:List<i32>;
+	return out;
+}
+
+// Map to a DIFFERENT element type (i32 -> str), and iterate a fixed array rather than a List.
+#build List<str> labels()
+{
+	i32[] codes = [1, 2, 3]:i32;
+	str prefix = "ch";
+	const List<str> out = [prefix + to_str(c) for const i32 c in codes]:List<str>;
+	return out;
+}
+
+// Over a struct array, filtering on one field and projecting another -- the config-generation shape.
+#build List<str> u16_names()
+{
+	Device[] devices = [
+		Device{ name = "adc_0", type = Type::Of<u16>() },
+		Device{ name = "temp", type = Type::Of<f64>() },
+		Device{ name = "adc_1", type = Type::Of<u16>() }
+	]:Device;
+
+	List<str> out = [d.name for const Device d in devices if d.type == Type::Of<u16>()]:List<str>;
+	return out;
+}
+
+// Nested: two comprehensions in one function must not collide on their loop temps.
+#build List<i32> nested()
+{
+	i32[] raw = [1, 2, 3, 4, 5, 6]:i32;
+	List<i32> big = [v for i32 v in raw if v > 3]:List<i32>;
+	List<i32> doubled = [v * 2 for i32 v in big]:List<i32>;
+	return doubled;
+}
+
+// Nested statement positions: the expansion is spliced by the generic statement-list walk, so a
+// comprehension inside an if / for / scope body must lower exactly as one at the top level does.
+#build List<i32> in_blocks(i32 n)
+{
+	i32[] raw = [1, 2, 3, 4]:i32;
+	List<i32> acc = List::New<i32>();
+
+	if (n > 0)
+	{
+		List<i32> inner = [v * 10 for i32 v in raw]:List<i32>;
+		for (const i32 v in inner.ToArray())
+		{
+			acc.Add(v);
+		}
+	}
+
+	for (i32 i = 0; i < 2; i++)
+	{
+		List<i32> loop = [v + i for i32 v in raw if v > 2]:List<i32>;
+		for (const i32 v in loop.ToArray())
+		{
+			acc.Add(v);
+		}
+	}
+
+	{
+		List<i32> scoped = [v for i32 v in raw if v == 1]:List<i32>;
+		for (const i32 v in scoped.ToArray())
+		{
+			acc.Add(v);
+		}
+	}
+
+	return acc;
+}
+
+i32 sum(ConstSpan<i32> data)
+{
+	i32 total = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		total += data[i];
+	}
+	return total;
+}
+
+void show(str tag, ConstSpan<i32> data)
+{
+	WriteLine(tag + ".len=" + to_str(data.Length));
+	WriteLine(tag + ".sum=" + to_str(sum(data)));
+}
+
+void test()
+{
+	show("squares", #run squares(6));
+	show("evens", #run evens(10));
+	show("scaled", #run scaled(4, 10));
+	show("nested", #run nested());
+	show("blocks", #run in_blocks(1));
+
+	str[] names = #run labels();
+	WriteLine("labels.len=" + to_str(names.Length));
+	for (const str name in names)
+	{
+		WriteLine("label=" + name);
+	}
+
+	str[] u16s = #run u16_names();
+	WriteLine("u16.len=" + to_str(u16s.Length));
+	for (const str name in u16s)
+	{
+		WriteLine("u16=" + name);
+	}
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

@@ -1,0 +1,71 @@
+//Enum::Value reaches a build-generated enum member from inside a fragment, where a hole is an
+//expression and `Phase::Idle` is not a name the enclosing scope can see when the fragment is written.
+
+struct Step
+{
+	str name;
+	str next;
+	str op;
+	i32 gate;
+}
+
+#build List<Step> plan()
+{
+	return [
+		Step{ name = "Idle", next = "Busy", op = ">=", gate = 0 },
+		Step{ name = "Busy", next = "Done", op = "==", gate = 1 },
+		Step{ name = "Done", next = "Idle", op = "==", gate = 5 }
+	]:List<Step>;
+}
+
+//One step, returned as a switch arm rather than accumulated as text.
+#build Code Advance(str type, Step s)
+{
+	//The comparison's operator comes from the data too, so nothing here is spelled in source.
+	return Code::Case<Enum>(Enum::Value(type, s.name), #code
+	{
+		if (i ${s.op} ${s.gate})
+		{
+			WriteLine(${s.name} + " -> " + ${s.next});
+			phase = ${Enum::Value(type, s.next)};
+		}
+	});
+}
+
+void main()
+{
+	#run
+	{
+		const List<Step> steps = plan();
+		List<str> names = List::New<str>();
+		for (const Step s in steps)
+		{
+			names.Add(s.name);
+		}
+		Build::Enum("Phase", names);
+
+		//The declared type is a hole too, so the enum need not be nameable when the fragment is written.
+		#insert { #state ${Type::Parse("Phase")} phase = ${Enum::Value("Phase", "Idle")}; }
+
+		List<Code> cases = List::New<Code>();
+		for (const Step s in steps)
+		{
+			cases.Add(Advance("Phase", s));
+		}
+
+		cases.Add(Code::Default(Code::Parse("WriteLine(\"unreachable\");")));
+
+		//The arms are spliced where they are written, so this stays a real switch.
+		#insert { for (i32 i = 0; i < 4; i++) { switch (phase) { ${Code::Combine(cases)} } } }
+
+		//A hole is legal as a case label, so a generated member can select a branch.
+		#insert
+		{
+			switch (phase)
+			{
+				case ${Enum::Value("Phase", "Idle")}: { WriteLine("ended idle"); }
+				default: { WriteLine("ended elsewhere"); }
+			}
+		}
+	}
+}

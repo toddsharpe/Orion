@@ -1,0 +1,30 @@
+
+//A config carries its limits as text. Str::To reads each at the device's own type, so what it splices
+//is a literal of that type -- 40000 fits a u16 but not an i16, and 1.5 is not an integer at all.
+#build struct Gauge
+{
+	str name;
+	Type type;
+	str limit;
+}
+
+#build List<Gauge> gauges()
+{
+	return [
+		Gauge{ name = "small", type = Type::Of<u8>(),  limit = "200" },
+		Gauge{ name = "wide",  type = Type::Of<u16>(), limit = "40000" },
+		Gauge{ name = "count", type = Type::Of<i64>(), limit = "5000000000" },
+		Gauge{ name = "real",  type = Type::Of<f64>(), limit = "1.5" }
+	]:List<Gauge>;
+}
+
+void main()
+{
+	#run
+	{
+		for (const Gauge g in gauges())
+		{
+			#insert { WriteLine(${g.name} + " limit " + to_str(${Str::To(g.limit, g.type)})); }
+		}
+	}
+}

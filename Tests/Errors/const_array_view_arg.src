@@ -1,0 +1,13 @@
+// The same laundering through a call: a sized array parameter is checked, a view parameter must be too.
+void bump(Span<i32> xs)
+{
+	xs[0] = 99;
+}
+
+i32 main()
+{
+	const i32[4] a = [1, 2, 3, 4]:i32;
+	bump(a);
+	WriteLine(to_str(a[0]));
+	return 0;
+}

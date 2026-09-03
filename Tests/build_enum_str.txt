@@ -1,0 +1,7 @@
+Red -> Red
+Blue -> Blue
+Gree -> Gree
+Yellow -> Yellow
+held Gree
+held Yellow
+last Red

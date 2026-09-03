@@ -1,0 +1,25 @@
+// A net's dots are written '_' in the field it becomes, so two nets can arrive at one cell. Reported
+// rather than suffixed: the names are the author's, and a generated one would read back out of the
+// schema as a name nobody wrote.
+void A(#param str name, #output i32 x @ "a.b")
+{
+	x = 1;
+}
+
+void B(#param str name, #output i32 y @ "a_b")
+{
+	y = 2;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [#create A(name = "a"), #create B(name = "b")]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

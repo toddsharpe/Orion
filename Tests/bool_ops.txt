@@ -1,0 +1,6 @@
+both=true
+either=true
+not=true
+count=2
+t&&f=false
+t||f=true

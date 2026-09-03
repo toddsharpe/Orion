@@ -1,0 +1,43 @@
+// `span_slice<T>` is a sub-view: it shares the source buffer, so writing through it is visible there.
+
+// A slice handed straight to a call is still a view: the temp holding it must not copy.
+void bump(Span<u8> buf)
+{
+	buf[0] = buf[0] + 1:u8;
+}
+
+i32 main()
+{
+	u8[] b = [1, 2, 3, 4, 5, 6]:u8;
+
+	Span<u8> mid = span_slice<u8>(b, 2:u32, 3:u32);
+	WriteLine("mid=" + to_str(mid[0]) + to_str(mid[1]) + to_str(mid[2]));
+
+	mid[0] = 9:u8;
+	WriteLine("source sees " + to_str(b[2]));
+
+	// A slice of a slice is relative to the slice, not the original.
+	Span<u8> tail = span_slice<u8>(mid, 1:u32, 2:u32);
+	WriteLine("tail=" + to_str(tail[0]) + to_str(tail[1]));
+
+	// Copying a slice out gives storage of its own.
+	u8[3] owned = mid;
+	owned[0] = 0:u8;
+	WriteLine("owned=" + to_str(owned[0]) + " source=" + to_str(b[2]));
+
+	bump(span_slice<u8>(b, 4:u32, 1:u32));
+	WriteLine("bumped=" + to_str(b[4]));
+
+	// A slice is bounded by its own length, not the storage it shares.
+	i32[] ns = [10, 20, 30, 40, 50]:i32;
+	WriteInts(span_slice<i32>(ns, 1:u32, 2:u32));
+
+	// At build time there is no sub-array view, so a slice copies. Read through it and the two agree.
+	const u8 built = #run {
+		u8[] xs = [7, 8, 9, 10]:u8;
+		Span<u8> s = span_slice<u8>(xs, 1:u32, 2:u32);
+		return s[1];
+	};
+	WriteLine("built=" + to_str(built));
+	return 0;
+}

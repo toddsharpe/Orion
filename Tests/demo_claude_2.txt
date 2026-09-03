@@ -1,0 +1,78 @@
+====================================================
+  ORION COMPUTE SUITE v2
+====================================================
+[ Sorting & searching ]
+  unsorted: 42, 7, 13, 99, 1, 56, 23, 8, 77, 4
+  sorted:   1, 4, 7, 8, 13, 23, 42, 56, 77, 99
+  binary_search(56) -> index 7
+  contains 100? false
+  reversed: 99, 77, 56, 42, 23, 13, 8, 7, 4, 1
+[ Statistics ]
+  count=10 sum=330 min=1 max=99
+[ Higher-order ]
+  squares: 1, 4, 9, 16, 25, 36, 49, 64
+  even count in sorted data: 4
+  fold-sum of squares: 204
+    tick 10
+    tick 20
+    tick 30
+[ Vectors ]
+  va+vb = (5, 7, 9)
+  va.vb = 32
+[ Number theory ]
+  primes < 30: 2 3 5 7 11 13 17 19 23 29 
+  gcd(48, 36) = 12
+  2^10 = 1024
+  collatz steps 1..8: 0 1 7 2 5 8 16 3 
+  5! (recursive) = 120
+  6! (recursive) = 720
+[ Generics across types ]
+  min i64 = 36
+  max i64 = 91
+  contains i64 91? true
+  contains str 'suite'? true
+  contains str 'nope'? false
+[ Floating point ]
+  f64 sum=7.5 min=0.75 max=3.0
+  f32 gain doubled = 3.0
+[ Struct arrays & != ]
+  sum of |v|^2 over basis = 50
+  entries != 3: 2
+[ Matrix 3x3 ]
+  [    1    2    3 ]
+  [    4    5    6 ]
+  [    7    8    9 ]
+  trace(A) = 15
+[ RPN machine ]
+  ((2+3)*4)-5 = 15
+[ Classification ]
+   12 -> Low
+   34 -> Medium
+   78 -> High
+   55 -> Medium
+   91 -> High
+   20 -> Low
+[ Compile-time dataflow ]
+  cycle 0
+last (i32): 0
+is_even (bool): true
+squared (i32): 0
+  cycle 1
+last (i32): 1
+is_even (bool): false
+squared (i32): 1
+  cycle 2
+last (i32): 2
+is_even (bool): true
+squared (i32): 4
+  cycle 3
+last (i32): 3
+is_even (bool): false
+squared (i32): 9
+  cycle 4
+last (i32): 4
+is_even (bool): true
+squared (i32): 16
+====================================================
+  done.
+====================================================

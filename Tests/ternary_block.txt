@@ -1,0 +1,7 @@
+Pick(0)  = 10.0
+Pick(5)  = 105.0
+Grade(-4)= 8
+Grade(4) = 13
+names    = 12.5 false
+block    = x 0.0 -> y 10.0, graded 4
+block    = x 5.0 -> y 105.0, graded 10

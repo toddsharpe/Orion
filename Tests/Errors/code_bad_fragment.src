@@ -1,0 +1,13 @@
+// A #code goes through the real statement parser, so a malformed fragment is a compile-time error.
+i32 main()
+{
+	#run
+	{
+		Code broken = #code
+		{
+			i32 bad = ;
+		};
+		#insert broken;
+	}
+	return 0;
+}

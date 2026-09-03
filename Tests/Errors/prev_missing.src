@@ -1,0 +1,26 @@
+// Reading a net a LATER block drives gets the previous cycle's value, and saying so is `#prev`.
+void Late(#param str name, #output i32 value @ "shared")
+{
+	value = 1;
+}
+
+void Early(#param str name, #input i32 value @ "shared")
+{
+	WriteLine(to_str(value));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Early(name = "early"),
+			#create Late(name = "late")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

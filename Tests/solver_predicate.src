@@ -1,0 +1,43 @@
+// A bool-output predicate block reused with different divisors, exercising a #param default
+// (div = 2, used by the "by2" instance) and a bool #output net.
+
+void Const(
+	#param str name,
+	#param i32 value,
+	#output i32 output @ $"{name}_out"
+)
+{
+	output = value;
+}
+
+void CanDivide(
+	#param str name,
+	#param str source,
+	#param i32 div = 2,
+	#input i32 input @ source,
+	#output bool output @ $"{name}_div"
+)
+{
+	output = input % div == 0;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Const(name = "n", value = 12),
+			#create CanDivide(name = "by2", source = "n_out"),
+			#create CanDivide(name = "by5", source = "n_out", div = 5)
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { solver_cycle(state); }
+		#insert Solver::ViewState(solver);
+	}
+
+	return 0;
+}

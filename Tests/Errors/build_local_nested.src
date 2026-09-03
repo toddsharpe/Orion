@@ -1,0 +1,15 @@
+// The cell outlives every `#run` in the function, so nesting it under an `if` would promise a
+// lifetime the nesting does not have.
+#build i32 twice(i32 v)
+{
+	return v * 2;
+}
+
+i32 main()
+{
+	if (1 < 2)
+	{
+		#build const i32 d = twice(21);
+	}
+	return 0;
+}

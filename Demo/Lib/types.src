@@ -1,0 +1,44 @@
+//Linear calibration type
+struct Cal
+{
+	f64 a;
+	f64 b;
+}
+
+//Declared here, not in a config: a config's blocks bind into a scope of their own, only root is shared.
+enum AppState
+{
+	Init,
+	Warmup,
+	Run,
+	Fault
+}
+
+//An enum inside a struct, so a frame carrying this device has to declare both shapes.
+struct Status
+{
+	AppState state;
+	u16 held;
+	f64 mean;
+}
+
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+//The runtime shape a #src result freezes into: no Type field, so every field is a runtime type.
+struct Channel
+{
+	str name;
+	str units;
+}
+
+//A nanosecond timestamp.
+typedef i64 time;
+
+const time SECOND = 1000000000;
+const time Hz_10 = SECOND / 10:time;
+const time Hz_100 = SECOND / 100:time;

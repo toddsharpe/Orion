@@ -1,0 +1,3 @@
+scale takes 1
+input v:i32
+direct = 9

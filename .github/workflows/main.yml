@@ -1,0 +1,51 @@
+﻿name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  Orion_build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v6
+
+    # Default runner has Python 3.9
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.13'
+
+    # The golden corpus runs each program on all three backends.
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 20
+
+    # Build Orion.
+    - name: Build Orion
+      run: dotnet build ./Src/
+
+    # Fast, and the first thing to look at when CI is red: no external toolchain involved.
+    - name: Run Unit Tests
+      run: dotnet test ./Src/Orion.Tests --no-build
+
+    # Run #test directives.
+    - name: Run Orion Tests
+      run: dotnet ./Src/Orion/bin/Debug/net9.0/Orion.dll test --src-root Demo
+
+    # Every case on every backend, and ORION_REQUIRE_TOOLS makes a tool this runner should have and does not a failure rather than the skip it is elsewhere.
+    - name: Run Golden Tests
+      env:
+        ORION_REQUIRE_TOOLS: 1
+      run: dotnet test ./Src/Orion.Tests.Golden --no-build

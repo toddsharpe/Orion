@@ -1,0 +1,17 @@
+//A struct has a packed width exactly when every field does, and `str` has none.
+//Reported against the field rather than the struct, since the field is what has no answer.
+#using "Lib/types.src"
+
+struct Label
+{
+	i32 id;
+	str text;
+}
+
+i32 main()
+{
+	const i32 size = #run { return Type::Of<Label>().Size; };
+	WriteLine(to_str(size));
+
+	return 0;
+}

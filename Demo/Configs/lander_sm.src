@@ -1,0 +1,98 @@
+//The descent supervisor as a program: lander.src runs `machine` at build time and generates a block.
+#using "Lib/sm_types.src"
+
+#build StateMachine machine()
+{
+	return StateMachine
+	{
+		// Ports the machine reads and drives; altitude arrives as whole metres, a trigger comparing text.
+		inputs = [
+			Device{ name = "alt_m", type = Type::Of<i32>() }
+		]:List<Device>,
+
+		// None: `alt` is listed before this machine, so its altitude is this cycle's.
+		prev = []:List<str>,
+		outputs = [
+			Device{ name = "gear",   type = Type::Of<i32>() },
+			Device{ name = "beacon", type = Type::Of<i32>() },
+			Device{ name = "safed",  type = Type::Of<i32>() }
+		]:List<Device>,
+
+		// A trigger is only evaluated in a state that acts on its command, so the sequence cannot be skipped.
+		triggers = [
+			Trigger{ name = "touchdown", command = "DOWN", conditions = [
+				Condition{ input = "alt_m", op = "<=", threshold = "1" }
+			]:List<Condition> },
+			Trigger{ name = "flare", command = "FLARE", conditions = [
+				Condition{ input = "alt_m", op = "<=", threshold = "10" }
+			]:List<Condition> },
+			Trigger{ name = "approach", command = "NEAR", conditions = [
+				Condition{ input = "alt_m", op = "<=", threshold = "60" }
+			]:List<Condition> }
+		]:List<Trigger>,
+
+		// The first state listed is the initial one.
+		states = [
+
+			// Falling from altitude with everything stowed.
+			State{
+				name = "Descent",
+				commands = Map<str, str>{ "NEAR" = "Approach" },
+				events = [
+					Event{ cycle = 0, output = "gear", value = "0" },
+					Event{ cycle = 0, output = "beacon", value = "0" },
+					Event{ cycle = 0, output = "safed", value = "0" }
+				]:List<Event>
+			},
+
+			// Close enough to commit: the beacon lights, and the gear follows two cycles later.
+			State{
+				name = "Approach",
+				commands = Map<str, str>{ "FLARE" = "Flare" },
+				events = [
+					Event{ cycle = 0, output = "beacon", value = "1" },
+					Event{ cycle = 2, output = "gear", value = "1" }
+				]:List<Event>
+			},
+
+			// The last few metres: nothing new deploys, but the transcript shows the vehicle passing through.
+			State{
+				name = "Flare",
+				commands = Map<str, str>{ "DOWN" = "Landed" },
+				events = [
+					Event{ cycle = 0, output = "gear", value = "1" }
+				]:List<Event>
+			},
+
+			// Down: the engine safes a cycle after weight-on-skids, confirming before it acts.
+			State{
+				name = "Landed",
+				commands = Map<str, str>{ "SAFE" = "Safed" },
+				events = [
+					Event{ cycle = 0, output = "beacon", value = "0" },
+					Event{ cycle = 1, output = TIMEOUT, value = "SAFE" }
+				]:List<Event>
+			},
+
+			// Terminal: no command leaves it, so the machine stays here for the rest of the run.
+			State{
+				name = "Safed",
+				commands = Map<str, str>{},
+				events = [
+					Event{ cycle = 0, output = "safed", value = "1" }
+				]:List<Event>
+			}
+		]:List<State>,
+
+		// No phases: this machine supervises by writing outputs, so no dispatch logic is generated.
+		phases = Map<str, List<str>>{},
+
+		trace = true
+	};
+}
+
+// A config is a program, not a library: without a `main`, `orion test` would merge the configs into one.
+i32 main()
+{
+	return 0;
+}

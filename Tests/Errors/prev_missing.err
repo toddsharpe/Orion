@@ -1,0 +1,1 @@
+so it sees the PREVIOUS cycle's value. Write `#prev` instead of `#input`

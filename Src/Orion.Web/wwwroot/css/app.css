@@ -1,0 +1,675 @@
+/* Orion.Web — godbolt-style two-pane compiler explorer.
+   Monaco owns colors inside the editors; this file owns the page chrome + layout. */
+
+:root {
+	--bg: #1e1e1e;
+	--bg-panel: #252526;
+	--bg-toolbar: #333333;
+	--border: #3c3c3c;
+	--fg: #d4d4d4;
+	--fg-dim: #9a9a9a;
+	--accent: #4ec9b0;
+	--accent-btn: #0e639c;
+	--accent-btn-hover: #1177bb;
+	--toolbar-h: 44px;
+	--tabbar-h: 34px;
+	--sidebar-w: 240px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+	margin: 0;
+	height: 100%;
+	background: var(--bg);
+	color: var(--fg);
+	font-family: "Segoe UI", system-ui, sans-serif;
+	overflow: hidden;
+}
+
+/* dvh second: `vh` on a phone counts the retracted URL bar, cropping the bottom of the layout. */
+.explorer {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	height: 100dvh;
+}
+
+/* ---- Toolbar ---- */
+.toolbar {
+	height: var(--toolbar-h);
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0 14px;
+	background: var(--bg-toolbar);
+	border-bottom: 1px solid var(--border);
+}
+
+.brand { font-weight: 600; font-size: 15px; letter-spacing: 0.2px; }
+.brand .accent { color: var(--accent); }
+.subtitle { color: var(--fg-dim); font-size: 12px; }
+.spacer { flex: 1 1 auto; }
+
+.lang-label {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--fg-dim);
+}
+
+#lang-select {
+	background: var(--bg-panel);
+	color: var(--fg);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 13px;
+}
+
+#compile-btn {
+	background: var(--accent-btn);
+	color: #fff;
+	border: none;
+	border-radius: 4px;
+	padding: 6px 14px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+#compile-btn:hover:not(:disabled) { background: var(--accent-btn-hover); }
+#compile-btn:disabled { opacity: 0.5; cursor: default; }
+
+.status { font-size: 12px; color: var(--fg-dim); min-width: 80px; }
+
+/* The narrow-screen pane switch. Off entirely on desktop, where both panes are on screen at once. */
+.pane-switch { display: none; }
+
+.pane-switch button {
+	background: var(--bg-panel);
+	color: var(--fg-dim);
+	border: 1px solid var(--border);
+	border-right-width: 0;
+	padding: 6px 12px;
+	font-size: 13px;
+	cursor: pointer;
+}
+.pane-switch button:first-child { border-radius: 4px 0 0 4px; }
+.pane-switch button:last-child { border-radius: 0 4px 4px 0; border-right-width: 1px; }
+.pane-switch button.active { background: var(--accent-btn); color: #fff; border-color: var(--accent-btn); }
+
+/* ---- Panes: explorer + editor + right, with a draggable divider between the two panes ---- */
+.panes {
+	flex: 1 1 auto;
+	display: grid;
+	grid-template-columns: var(--sidebar-w) var(--main-left, 1fr) 6px 1fr;
+	min-height: 0;
+}
+
+/* Collapsed: the sidebar column goes to zero, so the editors take the whole width. */
+.explorer.files-hidden .panes { grid-template-columns: 0 var(--main-left, 1fr) 6px 1fr; }
+
+/* Divider between the editor and the right pane. */
+.h-gutter { background: var(--border); cursor: col-resize; }
+.h-gutter:hover { background: var(--accent); }
+body.resizing-h { cursor: col-resize; user-select: none; }
+
+.sidebar {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	overflow: hidden;
+	background: var(--bg-panel);
+	border-right: 1px solid var(--border);
+}
+
+.sidebar-title {
+	height: var(--tabbar-h);
+	display: flex;
+	align-items: center;
+	padding: 0 12px;
+	flex: 0 0 auto;
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--fg-dim);
+	border-bottom: 1px solid var(--border);
+	white-space: nowrap;
+}
+
+.file-tree {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	padding: 4px 0 8px;
+	font-size: 13px;
+	user-select: none;
+}
+
+.file-row {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 22px;
+	padding-right: 8px;
+	color: var(--fg);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.file-row:hover { background: rgba(255, 255, 255, 0.06); }
+.file-row.selected { background: rgba(255, 255, 255, 0.12); }
+.file-row.open .file-label { color: var(--accent); }
+
+/* Fixed-width caret keeps file and folder labels on the same left edge. */
+.file-caret {
+	flex: 0 0 auto;
+	width: 14px;
+	text-align: center;
+	color: var(--fg-dim);
+	font-size: 10px;
+}
+
+.file-label { overflow: hidden; text-overflow: ellipsis; }
+.file-row.dir .file-label { color: var(--fg); }
+
+.file-empty { padding: 8px 12px; color: var(--fg-dim); font-size: 12px; }
+
+/* Only ever shown behind the drawer on narrow screens; display:none keeps it out of the grid here. */
+.file-scrim { display: none; }
+
+.icon-btn {
+	background: transparent;
+	color: var(--fg-dim);
+	border: 1px solid transparent;
+	border-radius: 3px;
+	font-size: 15px;
+	line-height: 1;
+	padding: 4px 7px;
+	cursor: pointer;
+}
+
+.icon-btn:hover { color: var(--fg); background: rgba(255, 255, 255, 0.08); }
+
+.pane { min-width: 0; min-height: 0; overflow: hidden; }
+
+.pane-left {
+	display: flex;
+	flex-direction: column;
+}
+.editor-body { flex: 1 1 auto; min-height: 0; }
+
+/* Right column: generated code on top, build output snapped to the bottom sixth. */
+.pane-right { display: flex; flex-direction: column; }
+
+.right-code {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+/* Draggable divider between code and build output (JS sets .right-build's flex-basis). */
+.v-gutter {
+	flex: 0 0 6px;
+	height: 6px;
+	background: var(--border);
+	cursor: row-resize;
+}
+.v-gutter:hover { background: var(--accent); }
+body.resizing-v { cursor: row-resize; user-select: none; }
+
+.right-build {
+	flex: 0 0 16.5%;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.build-title {
+	height: var(--tabbar-h);
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	padding: 0 12px;
+	font-size: 11px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--fg-dim);
+	background: var(--bg-panel);
+	border-bottom: 1px solid var(--border);
+}
+
+#build-output {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	margin: 0;
+	padding: 12px 14px;
+	font-family: "Cascadia Code", "Consolas", monospace;
+	font-size: 12.5px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+	color: var(--fg);
+}
+
+/* ---- Tabs ---- */
+.tabbar {
+	height: var(--tabbar-h);
+	flex: 0 0 auto;
+	display: flex;
+	background: var(--bg-panel);
+	border-bottom: 1px solid var(--border);
+}
+
+.tab {
+	background: transparent;
+	color: var(--fg-dim);
+	border: none;
+	border-right: 1px solid var(--border);
+	border-bottom: 2px solid transparent;
+	padding: 0 16px;
+	font-size: 13px;
+	cursor: pointer;
+}
+.tab:hover { color: var(--fg); }
+.tab.hidden { display: none; }
+/* A locked tab (Run, before a successful JavaScript compile) stays visible but reads as unavailable.
+   Some browsers still match :hover on a disabled button, so the hover lift is cancelled explicitly. */
+.tab:disabled { opacity: 0.45; cursor: not-allowed; }
+.tab:disabled:hover { color: var(--fg-dim); }
+.tab.active {
+	color: var(--fg);
+	background: var(--bg);
+	border-bottom-color: var(--accent);
+}
+
+/* ---- Left document tabs ---- */
+.editor-tabbar { justify-content: flex-start; }
+
+.doc-tabs {
+	display: flex;
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.doc-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+.doc-tab .close {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	border-radius: 3px;
+	font-size: 13px;
+	line-height: 1;
+	color: var(--fg-dim);
+}
+.doc-tab .close:hover { background: rgba(255, 255, 255, 0.12); color: var(--fg); }
+
+.add-tab {
+	flex: 0 0 auto;
+	background: transparent;
+	color: var(--fg-dim);
+	border: none;
+	border-left: 1px solid var(--border);
+	width: 36px;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+}
+.add-tab:hover { color: var(--fg); background: var(--bg); }
+
+.tabbody { flex: 1 1 auto; position: relative; min-height: 0; }
+
+.tabpane {
+	position: absolute;
+	inset: 0;
+	display: none;
+	overflow: auto;
+}
+.tabpane.active { display: block; }
+
+/* Pipeline pane: a phase-timing bar above the scrolling trace. */
+#pane-output.tabpane.active { display: flex; flex-direction: column; }
+
+.phase-bar {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: stretch;
+	height: 20px;
+	margin: 8px 10px 4px;
+	border-radius: 3px;
+	overflow: hidden;
+	background: var(--bg-panel);
+}
+.phase-bar:empty { display: none; }
+
+.phase-seg {
+	min-width: 2px;
+	border-right: 1px solid var(--bg);
+}
+.phase-seg:last-child { border-right: none; }
+
+.phase-total {
+	flex: 0 0 auto;
+	margin: 0 10px 6px;
+	font-size: 11px;
+	color: var(--fg-dim);
+}
+.phase-total:empty { display: none; }
+
+/* ---- Graph tab (Mermaid SVG) ---- */
+#pane-graph {
+	overflow: auto;
+	padding: 12px;
+	background: var(--bg);
+	text-align: center;
+}
+#pane-graph.tabpane.active { display: flex; flex-direction: column; }
+#pane-graph svg { max-width: 100%; height: auto; }
+.graph-toolbar {
+	flex: 0 0 auto;
+	margin-bottom: 8px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.graph-zoom { display: inline-flex; align-items: center; gap: 6px; }
+.graph-zoom button {
+	background: var(--bg-panel);
+	color: var(--fg);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 2px 9px;
+	font-size: 13px;
+	line-height: 1.2;
+	cursor: pointer;
+}
+.graph-zoom button:hover { background: var(--bg); }
+.graph-zoom-level { font-size: 12px; color: var(--fg-dim); min-width: 42px; text-align: center; }
+.graph-select {
+	background: var(--bg-panel);
+	color: var(--fg);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 13px;
+}
+.graph-svg { flex: 1 1 auto; min-height: 0; overflow: auto; cursor: grab; }
+.graph-svg.panning { cursor: grabbing; user-select: none; }
+.graph-empty { color: var(--fg-dim); font-size: 13px; padding: 12px; text-align: left; }
+
+/* ---- Analysis tab: phase tree on the left, the selected node on the right ---- */
+#pane-analysis.tabpane.active { display: grid; }
+#pane-analysis {
+	grid-template-columns: var(--analysis-tree-w, 300px) 1fr;
+	overflow: hidden;
+}
+
+.analysis-tree {
+	min-width: 0;
+	overflow: auto;
+	padding: 4px 0 8px;
+	font-size: 13px;
+	user-select: none;
+	background: var(--bg-panel);
+	border-right: 1px solid var(--border);
+}
+
+.analysis-detail {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+	overflow: auto;
+}
+
+/* A graph detail owns the whole pane, so its canvas can scroll and pan inside it. */
+.analysis-graph {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	padding: 8px 12px;
+}
+
+.analysis-text {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	margin: 0;
+	padding: 12px 14px;
+	font-family: "Cascadia Code", "Consolas", monospace;
+	font-size: 12.5px;
+	line-height: 1.5;
+	white-space: pre;
+	color: var(--fg);
+}
+
+.analysis-rows {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 12.5px;
+	font-family: "Cascadia Code", "Consolas", monospace;
+}
+.analysis-rows th {
+	position: sticky;
+	top: 0;
+	text-align: left;
+	padding: 6px 10px;
+	background: var(--bg-panel);
+	border-bottom: 1px solid var(--border);
+	color: var(--fg-dim);
+	font-weight: 600;
+}
+.analysis-rows td {
+	padding: 3px 10px;
+	border-bottom: 1px solid var(--border);
+	vertical-align: top;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+.analysis-rows td:first-child { white-space: nowrap; color: var(--accent); }
+
+/* The per-function view strip (StructuredIR / Tacs / CFG). */
+.analysis-subtabs { flex: 0 0 auto; }
+.analysis-subbody {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+}
+
+/* ---- Run tab (JavaScript program output) ---- */
+#run-output {
+	margin: 0;
+	padding: 12px 14px;
+	font-family: "Cascadia Code", "Consolas", monospace;
+	font-size: 12.5px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+	color: var(--fg);
+}
+
+#output-text {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	margin: 0;
+	padding: 12px 14px;
+	font-family: "Cascadia Code", "Consolas", monospace;
+	font-size: 12.5px;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	word-break: break-word;
+	color: var(--fg);
+}
+
+/* ---- Boot overlay ---- */
+.boot {
+	position: fixed;
+	inset: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--bg);
+	transition: opacity 0.3s ease;
+}
+.boot.hidden { opacity: 0; pointer-events: none; }
+.boot-inner { text-align: center; }
+.boot .brand { font-size: 28px; display: block; margin-bottom: 14px; }
+.boot-msg { color: var(--fg-dim); font-size: 13px; margin-top: 12px; }
+
+.boot-bar {
+	width: 220px;
+	height: 4px;
+	margin: 0 auto;
+	border-radius: 2px;
+	background: var(--bg-panel);
+	overflow: hidden;
+}
+.boot-bar-fill {
+	width: 40%;
+	height: 100%;
+	border-radius: 2px;
+	background: var(--accent);
+	animation: boot-slide 1.2s ease-in-out infinite;
+}
+@keyframes boot-slide {
+	0%   { transform: translateX(-120%); }
+	100% { transform: translateX(320%); }
+}
+
+/* ---- Shortcut help overlay ---- */
+.help-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 20;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.5);
+}
+.help-overlay.hidden { display: none; }
+
+.help-card {
+	background: var(--bg-panel);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 18px 22px;
+	min-width: 320px;
+	max-width: 90vw;
+	box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+.help-head {
+	font-weight: 600;
+	margin-bottom: 12px;
+	font-size: 14px;
+}
+.help-card table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.help-card td { padding: 5px 10px 5px 0; color: var(--fg); }
+.help-card td.k {
+	white-space: nowrap;
+	color: var(--accent);
+	font-family: "Cascadia Code", "Consolas", monospace;
+}
+
+/* ---- Narrow: one pane at a time, samples in a drawer. 820px is also explorer.js's NARROW_QUERY. ---- */
+@media (max-width: 820px) {
+
+	/* One column, one row: the pane switch decides which of the two is in it. */
+	.explorer .panes,
+	.explorer.files-hidden .panes {
+		position: relative;
+		grid-template-columns: 1fr;
+		grid-template-rows: 1fr;
+	}
+
+	.pane-right { display: none; }
+	.explorer.show-output .pane-left { display: none; }
+	.explorer.show-output .pane-right { display: flex; }
+
+	/* Both gutters are mouse-only, and a handle that cannot be dragged is worse than no handle. */
+	.h-gutter, .v-gutter { display: none; }
+
+	/* The samples tree slides over the editor rather than taking a column there is no room for. */
+	.sidebar {
+		position: absolute;
+		inset: 0 auto 0 0;
+		z-index: 5;
+		width: min(80vw, 300px);
+		border-right: 1px solid var(--border);
+		box-shadow: 2px 0 12px rgba(0, 0, 0, 0.35);
+		transition: transform 0.18s ease;
+	}
+	.explorer.files-hidden .sidebar { transform: translateX(-100%); }
+
+	.explorer:not(.files-hidden) .file-scrim {
+		display: block;
+		position: absolute;
+		inset: 0;
+		z-index: 4;
+		background: rgba(0, 0, 0, 0.45);
+	}
+
+	.pane-switch { display: inline-flex; }
+
+	/* Ten toolbar items do not fit one phone-width row, so let it wrap rather than overflow. */
+	.toolbar {
+		height: auto;
+		min-height: var(--toolbar-h);
+		flex-wrap: wrap;
+		gap: 8px;
+		padding: 6px 10px;
+	}
+
+	.subtitle { display: none; }
+
+	/* The spacer grows to fill the first wrapped row, pushing everything after it onto a third one. */
+	.spacer { display: none; }
+
+	.brand { font-size: 13px; }
+	.lang-label { font-size: 0; gap: 0; }        /* the select says what it is; the word "Target" does not fit */
+	.lang-label #lang-select { font-size: 13px; max-width: 104px; }
+	#compile-btn { padding: 6px 10px; }
+	.pane-switch button { padding: 6px 10px; }
+	.status { flex: 1 1 auto; min-width: 0; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* A keyboard-shortcut card has nothing to say on a phone. */
+@media (max-width: 480px) {
+	#help-btn { display: none; }
+}
+
+/* ---- Touch: a finger is not a mouse pointer, whatever the screen is wide ---- */
+@media (pointer: coarse) {
+	.file-row { height: 34px; }
+	.tab { min-height: 40px; padding: 0 14px; }
+	.icon-btn { padding: 8px 10px; }
+	.doc-tab .close { width: 22px; height: 22px; }
+}
+
+@media (prefers-color-scheme: light) {
+	:root {
+		--bg: #ffffff;
+		--bg-panel: #f3f3f3;
+		--bg-toolbar: #e7e7e7;
+		--border: #d0d0d0;
+		--fg: #1e1e1e;
+		--fg-dim: #6a6a6a;
+		--accent: #267f6f;
+	}
+}

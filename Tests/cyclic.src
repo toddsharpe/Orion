@@ -1,0 +1,67 @@
+// A cyclic executive: no cycle count in the source, because the platform decides when it stops.
+//The platform surface and the two blocks this needs, spelled here so the test stands alone. The
+//extern is what a platform supplies; `StartCycle` turns its own counter into a net every block
+//shares. A paced, platform-stamped loop is `Solver::Export`'s business, where the stamp arrives
+//as `solver_cycle`'s argument.
+typedef i64 time;
+
+const time SECOND = 1000000000;
+const time Hz_100 = SECOND / 100:time;
+
+extern bool Platform_Running();
+
+//The cycle's timestamp as a net: a counter of the declared rate, so every block reads one stamp per cycle and no stamp depends on when a platform ran.
+void StartCycle(#param str name, #param time dt_ns, #state time now = 0:time, #output time cycle_time)
+{
+	cycle_time = now;
+	now = now + dt_ns;
+}
+
+void Watch(#param str name, #input i32 level @ "level", #input time cycle_time)
+{
+	WriteLine("cycle: t = " + to_str(cycle_time) + "ns level = " + to_str(level));
+}
+
+// Drives a ramp and reports it, so each cycle is visibly different.
+void Ramp(#param str name, #state i32 t = 0, #output i32 level @ "level")
+{
+	//Startup runs once before the first cycle; false here stops the executive from ever starting.
+	#init
+	{
+		t = 1;
+		return true;
+	}
+
+	level = t * 3;
+	t = t + 1;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks =
+		[
+			#create StartCycle(name = "clock", dt_ns=Hz_100),
+			#create Ramp(name = "ramp"),
+			#create Watch(name = "watch")
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		//The loop has no bound of its own: the platform decides when the executive stops.
+		#insert
+		{
+			${Solver::Struct(solver)};
+			if (solver_init(state) == false) { return -1; }
+
+			while (Platform_Running())
+			{
+				solver_cycle(state);
+			}
+		}
+	}
+
+	WriteLine("stopped");
+	return 0;
+}

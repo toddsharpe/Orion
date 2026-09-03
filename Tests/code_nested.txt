@@ -1,0 +1,4 @@
+counting
+  step 1
+  step 2
+total = 2

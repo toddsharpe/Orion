@@ -1,0 +1,25 @@
+// Two different blocks under one instance name. The name IS the emitted name, so the specialization
+// cache answered the second `#create` with the FIRST block's function -- its ports, its cells -- and
+// nothing downstream could tell, because by then the call site was bound and gone.
+
+void Scale(#param str name, #input i32 raw, #output i32 scaled)
+{
+	scaled = raw * 2;
+}
+
+void Offset(#param str name, #input i32 raw, #output i32 shifted)
+{
+	shifted = raw + 2;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function a = #create Scale(name = "calc");
+		Function b = #create Offset(name = "calc");
+		#assert(Function::Out<i32>(b, ${raw = 1}, "shifted") == 3, "unreachable: the second #create is refused");
+	}
+
+	return 0;
+}

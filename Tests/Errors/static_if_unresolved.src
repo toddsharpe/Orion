@@ -1,0 +1,25 @@
+// A `#if` condition is folded from #params and literals. A port is a runtime value, so it is neither.
+
+void Bad(#param str name, #output i32 out @ $"{name}_out")
+{
+	#if (out > 0)
+	{
+		out = 1;
+	}
+	else
+	{
+		out = 2;
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [#create Bad(name = "a")]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+	}
+
+	return 0;
+}

@@ -1,0 +1,118 @@
+// Coast: thrust has ended, seen on the accelerometer's MAGNITUDE so orientation does not matter.
+#using "Lib/types.src"
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Types.src"
+#using "Lib/Calcs/Flight/Debounce.src"
+
+// Above 1 g so ordinary flight loads do not read as thrust, below what any motor produces.
+const f32<g> CoastThreshold = 1.5:f32<g>;
+
+const time CoastHold = 500000000:time;
+
+// One tick over the magnitude; `updated` gates it, or a stale sample would let the hold elapse.
+void CoastDetect(
+	#param str name,
+	#param f32<g> threshold = 1.5:f32<g>,
+	#param time hold = 500000000:time,
+	#param str time_src = "cycle_time",
+	#state Debounce debounce,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<g> accX @ "Imu.AccX",
+	#input f32<g> accY @ "Imu.AccY",
+	#input f32<g> accZ @ "Imu.AccZ",
+	#input bool updated @ "Imu.Updated",
+	#input time now @ time_src,
+	#output bool detected @ "Coast.Detected"
+)
+{
+	// Not dispatched: the run and the latch hold -- ungated, 1 g on the pad coasts 500 ms after power-on.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// A stale reading is not a new measurement, so neither the run nor the answer moves.
+	if (updated == false)
+	{
+		return;
+	}
+
+	const f32<g> magnitude = Flight_Magnitude(accX, accY, accZ);
+	detected = Debounce_Update(debounce, magnitude < threshold, now, hold);
+}
+
+// ---- self-test ----
+
+// `Function::Start` allocates the cells and runs `#init`, as `solver_init` does; every tick writes them.
+#build bool CoastDetect_SelfTest()
+{
+	const time step = 100000000:time;
+
+	Instance coast = Function::Start(#create CoastDetect(name = "coastdetect_selftest"));
+	#assert(Instance::Get<Debounce>(coast, "debounce").start == 0:time, "Coast: a cold start has no run in progress");
+	#assert(Instance::Get<Debounce>(coast, "debounce").latched == false, "Coast: and nothing latched");
+
+	// Under thrust: many g, so no coast and no run started.
+	Function::Tick(coast, ${enabled = true, accX = 8.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step});
+	#assert(Instance::Get<bool>(coast, "detected") == false, "Coast: a burning motor is not a coast");
+	#assert(Instance::Get<Debounce>(coast, "debounce").start == 0:time, "Coast: and starts no run");
+
+	// Burnout: the reading falls to gravity alone, and the first low sample starts the run.
+	Function::Tick(coast, ${enabled = true, accX = 1.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step * 2:time});
+	#assert(Instance::Get<bool>(coast, "detected") == false, "Coast: one low sample is not a burnout");
+	#assert(Instance::Get<Debounce>(coast, "debounce").start == step * 2:time, "Coast: but it does start the run");
+
+	// A stale sample is one measurement however many cycles it spans: neither the run nor the answer moves.
+	Function::Tick(coast, ${enabled = true, accX = 1.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = false, now = step * 100:time});
+	#assert(Instance::Get<Debounce>(coast, "debounce").start == step * 2:time, "Coast: an un-updated IMU must not move the run");
+	#assert(Instance::Get<bool>(coast, "detected") == false, "Coast: nor write an answer");
+
+	// Hold it low until the run elapses. It began at step 2, so 500ms later is step 7.
+	for (i32 i = 3; i <= 7; i++)
+	{
+		Function::Tick(coast, ${enabled = true, accX = 1.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(coast, "detected") == (i == 7), "Coast: fires on the sixth tick of the run");
+	}
+	#assert(Instance::Get<Debounce>(coast, "debounce").latched, "Coast: and latches, so the state carries it");
+
+	// Latched: a parachute snatch after burnout does not put the motor back.
+	Function::Tick(coast, ${enabled = true, accX = 9.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step * 100:time});
+	#assert(Instance::Get<bool>(coast, "detected"), "Coast: burnout happens once");
+
+	// And it survives a stale sample too, which is the other way an answer could be lost.
+	Function::Tick(coast, ${enabled = true, accX = 9.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = false, now = step * 200:time});
+	#assert(Instance::Get<bool>(coast, "detected"), "Coast: a latch survives a tick that writes nothing");
+
+	// The axes combine rather than compete: three at 1 g is 1.73 g, above the threshold and not a coast.
+	Instance tilted = Function::Start(#create CoastDetect(name = "coastdetect_tilted"));
+	Function::Tick(tilted, ${enabled = true, accX = 1.0:f32, accY = 1.0:f32, accZ = 1.0:f32, updated = true, now = step});
+	#assert(Instance::Get<Debounce>(tilted, "debounce").start == 0:time, "Coast: 1g on three axes is 1.73g of magnitude");
+
+	// Free fall reads near zero, which is below the threshold just as burnout is.
+	Function::Tick(tilted, ${enabled = true, accX = 0.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step * 2:time});
+	#assert(Instance::Get<Debounce>(tilted, "debounce").start == step * 2:time, "Coast: free fall is below the threshold too");
+
+	// A `#param` folds into the instance, so a tighter threshold is a different block, not an argument.
+	Instance strict = Function::Start(#create CoastDetect(name = "coastdetect_strict", threshold = 0.5:f32<g>));
+	Function::Tick(strict, ${enabled = true, accX = 1.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step});
+	#assert(Instance::Get<Debounce>(strict, "debounce").start == 0:time, "Coast: a tighter threshold rejects what the default accepts");
+
+	// Disabled: the run is preserved rather than restarted, and the clock is not consulted at all.
+	Instance held = Function::Start(#create CoastDetect(name = "coastdetect_held"));
+	Function::Tick(held, ${enabled = true, accX = 1.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step});
+	#assert(Instance::Get<Debounce>(held, "debounce").start == step, "Coast: the run starts while enabled");
+
+	// A tick that would have fired it: low reading, fresh sample, well past the hold. Nothing happens.
+	Function::Tick(held, ${enabled = false, accX = 1.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step * 100:time});
+	#assert(Instance::Get<Debounce>(held, "debounce").start == step, "Coast: a disabled tick must not move the run");
+	#assert(Instance::Get<bool>(held, "detected") == false, "Coast: nor latch a detection it was not dispatched for");
+
+	// And the gap counts on re-entry: a dispatch gap is elapsed time, not paused time.
+	Function::Tick(held, ${enabled = true, accX = 1.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true, now = step * 101:time});
+	#assert(Instance::Get<bool>(held, "detected"), "Coast: re-entry sees the whole gap as elapsed");
+
+	return true;
+}
+
+#test CoastDetect_SelfTest "Coast detection"

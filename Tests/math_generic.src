@@ -1,0 +1,36 @@
+// The math intrinsics dispatch on an explicit type argument: sqrt<f64> and sqrt<f32> are different
+// builtins, and T is the operand type as well as the result type.
+#build str at_build()
+{
+	return "build " + to_str(sqrt<f64>(2.0)) + " " + to_str(popcount<u32>(255:u32));
+}
+
+// A generic wrapper, which is the point of the type argument: T reaches the intrinsic unresolved and
+// monomorphization substitutes it before binding.
+T hypot2<T>(const T a, const T b)
+{
+	return sqrt<T>(a * a + b * b);
+}
+
+i32 main()
+{
+	WriteLine(#run at_build());
+
+	// The same intrinsic at both widths. Values differ per width: see the interning TODO.
+	WriteLine(to_str(sqrt<f64>(2.0)) + " " + to_str(sqrt<f32>(9.0:f32)));
+	WriteLine(to_str(floor<f64>(-2.7)) + " " + to_str(floor<f32>(-4.7:f32)));
+	WriteLine(to_str(round<f64>(-2.5)) + " " + to_str(round<f32>(-4.5:f32)));
+	WriteLine(to_str(fmin<f64>(1.0, 2.0)) + " " + to_str(fmax<f32>(6.0:f32, 7.0:f32)));
+	WriteLine(to_str(fmod<f64>(5.5, 2.0)) + " " + to_str(fabs<f32>(-3.25:f32)));
+
+	// Constants reach f32 only because the type argument is explicit.
+	WriteLine(to_str(is_inf<f32>(inf<f32>())) + " " + to_str(is_nan<f64>(nan<f64>())) + " " + to_str(is_finite<f32>(11.0:f32)));
+
+	// Integer intrinsics take their width the same way.
+	WriteLine(to_str(popcount<u32>(255:u32)) + " " + to_str(clz<u32>(1:u32)) + " " + to_str(ctz<u32>(8:u32)));
+
+	// Through a generic wrapper, at both widths.
+	WriteLine(to_str(hypot2<f64>(3.0, 4.0)) + " " + to_str(hypot2<f32>(8.0:f32, 15.0:f32)));
+
+	return 0;
+}

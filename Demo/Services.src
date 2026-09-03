@@ -1,0 +1,50 @@
+//Every service on the bus, once: POSITION is the address, so appending is safe and reordering is not.
+#using "Lib/types.src"
+#using "Lib/Channel.src"
+
+//One entry per service. Order is the address; see the note above.
+#build List<str> ServiceNames()
+{
+	return [
+		//---- vehicle -> ground ----
+		"Vehicle.Telemetry",
+		"Vehicle.Attitude",
+		"Vehicle.Health",
+
+		//---- ground -> vehicle ----
+		"Ground.Commands"
+	]:List<str>;
+}
+
+//A name resolved to its place on the bus; an undeclared one is an error, not an address nobody hears.
+#build i32 ServiceOf(str name)
+{
+	const List<str> names = ServiceNames();
+
+	i32 index = 0;
+	for (const str candidate in names)
+	{
+		if (candidate == name)
+		{
+			return index;
+		}
+
+		index = index + 1;
+	}
+
+	#assert(false, "no service named '" + name + "' -- add it to ServiceNames in Demo/Services.src");
+	return -1;
+}
+
+//What a service number means on the wire: the one index-to-address map, `#export`ed for the platform.
+#export ChannelEndpoint ServiceEndpoint(i32 index)
+{
+	const u32 BaseGroup = 0xEF010101:u32;   //239.1.1.1, in the admin-scoped block: private, never routed off site.
+	const u16 BasePort = 8000:u16;
+
+	return ChannelEndpoint
+	{
+		group = BaseGroup + cast<u32>(index),
+		port = BasePort + cast<u16>(index)
+	};
+}

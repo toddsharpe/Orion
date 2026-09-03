@@ -1,0 +1,19 @@
+// A schedule bag takes `period` and `phase`; anything else the solver would drop silently.
+#using "Lib/types.src"
+
+void Tick(#param str name, #input time now @ "cycle_time")
+{
+	WriteLine(to_str(cast<i64>(now)));
+}
+
+#build i32 main()
+{
+	Function[] funcs = [
+		#create Tick(name = "slow") ${ period = 100000000:time, evrey = 3 }
+	]:Function;
+
+	Solver solver = Solver::New(funcs);
+	Solver::Export(solver, 10000000:time);
+
+	return 0;
+}

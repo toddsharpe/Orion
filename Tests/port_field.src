@@ -1,0 +1,66 @@
+// `Port::Field(p, path)` reads inside a port, so a generated field read is a hole and not text.
+
+struct Inner
+{
+	i32 tag;
+	u16[3] counts;
+}
+
+struct Outer
+{
+	Inner mid;
+	i32[2,2] grid;
+	f64 scale;
+}
+
+void Source(#param str name, #output Outer out @ "wide")
+{
+	out.mid.tag = 7;
+	out.mid.counts[1] = 22:u16;
+	out.grid[1,0] = 5;
+	out.scale = 0.5;
+}
+
+// Every read below is spliced as AST: the port is a hole and so is the path it reaches through.
+void Show(#param str name, #param str net)
+{
+	#run
+	{
+		const Port p = Port::In(Type::Of<Outer>(), net);
+
+		// An empty path is the port itself, which is what a scalar device gets from a `Slots` walk.
+		#insert { WriteLine("scale " + to_str(${Port::Field(p, "")}.scale)); }
+
+		#insert { WriteLine("tag   " + to_str(${Port::Field(p, ".mid.tag")})); }
+		#insert { WriteLine("count " + to_str(${Port::Field(p, ".mid.counts[1]")})); }
+		#insert { WriteLine("grid  " + to_str(${Port::Field(p, ".grid[1,0]")})); }
+
+		// A bare leading name means the same as a leading dot.
+		#insert { WriteLine("bare  " + to_str(${Port::Field(p, "scale")})); }
+
+		// The step's type comes back on the handle, so a generator can pick what to pack it as.
+		const Port tag = Port::Field(p, ".mid.tag");
+		#assert(tag.Type == Type::Of<i32>(), "Port::Field answers with the field's own type");
+		#assert(tag.Name == p.Name, "and keeps the port's name, since that is what it reads");
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Source(name = "src"),
+			#create Show(name = "show", net = "wide")
+		]:Function;
+
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { solver_cycle(state); }
+	}
+
+	return 0;
+}

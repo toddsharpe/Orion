@@ -1,0 +1,17 @@
+// Const-ness is transitive: a const buffer cannot be laundered through a call that takes a mutable one.
+void fill(Span<u8> buf)
+{
+	buf[0] = 7:u8;
+}
+
+void launder(ConstSpan<u8> buf)
+{
+	fill(buf);
+}
+
+i32 main()
+{
+	u8[4] b;
+	launder(b);
+	return 0;
+}

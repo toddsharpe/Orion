@@ -1,0 +1,26 @@
+//The shapes a test shares with a `#src` config, and nothing else.
+//
+//A fixture rather than an inline copy: `#src` freezes the config's result into the caller, so the two
+//must name ONE type. Two identical declarations in two files are two types, and the freeze then fails
+//with "invalid argument type Channel{...}, expected Channel" -- which is the whole reason this file
+//exists instead of a few lines pasted into each test.
+//
+//Under Tests/, not Lib/: the library is what a consumer builds against, and none of this is part of
+//it. A test needing a type nothing else needs should carry it, and that is what this is.
+
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+//The runtime shape a #src result freezes into: no Type field, so every field is a runtime type.
+struct Channel
+{
+	str name;
+	str units;
+}
+
+//A nanosecond timestamp.
+typedef i64 time;

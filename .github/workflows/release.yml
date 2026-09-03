@@ -1,0 +1,53 @@
+name: Release
+
+# A v* tag releases the self-contained linux-x64 compiler bundled with Runtimes, pinnable by consumers.
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  Release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 9.0.x
+
+    # Partial trim: a full trim drops builtins the binder finds by name, and AOT cannot host #run's Reflection.Emit.
+    - name: Publish
+      run: dotnet publish Src/Orion/Orion.csproj -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -p:PublishTrimmed=true -p:TrimMode=partial -p:SatelliteResourceLanguages=en -p:DebugType=none -o publish
+
+    # The bundle mirrors a source checkout: bin/Orion beside Runtimes/, so either layout serves as ORION_ROOT.
+    - name: Stage bundle
+      run: |
+        mkdir -p bundle/bin
+        cp publish/Orion bundle/bin/
+        cp -r Runtimes bundle/Runtimes
+        echo "$GITHUB_REF_NAME" > bundle/VERSION
+
+    # The artifact is what gets smoked: the test sweep, then a transpile compiled against ONLY bundle headers.
+    - name: Smoke the bundle
+      run: |
+        bundle/bin/Orion test --src-root Demo
+        mkdir smoke
+        bundle/bin/Orion compile Demo/Apps/rocket.src -o smoke/rocket.cpp -l cpp
+        g++ -std=c++20 -fsyntax-only -I bundle/Runtimes/Cpp -I smoke smoke/rocket.cpp
+
+    - name: Pack
+      run: tar -czf "orion-$GITHUB_REF_NAME-linux-x64.tar.gz" -C bundle .
+
+    # package.yml releases the vsix on the same tag; create tolerates whichever job got there first.
+    - name: Publish release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create "$GITHUB_REF_NAME" --title "Orion $GITHUB_REF_NAME" --generate-notes || true
+        gh release upload "$GITHUB_REF_NAME" orion-*.tar.gz --clobber

@@ -1,0 +1,31 @@
+// A #state LOCAL in a block is per-INSTANCE, because each instance is its own function: `a` and `b`
+// below advance independently. What it is not is a `SolverState` cell -- see Docs/Solver.md.
+void Counter(#param str name, #param i32 step, #output i32 value @ $"{name}_out")
+{
+	#state i32 acc = 0;
+	value = acc;
+	acc = acc + step;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [
+			#create Counter(name = "a", step = 1),
+			#create Counter(name = "b", step = 10)
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert {
+			for (i32 i = 0; i < 3; i++)
+			{
+				solver_cycle(state);
+				${Solver::ViewState(solver)};
+			}
+		}
+	}
+	return 0;
+}

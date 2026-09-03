@@ -1,0 +1,24 @@
+// The RTTI accessors. Bound after the tables, which they name.
+
+i32 Function::Count()
+{
+	return _Functions.Length;
+}
+
+RtFunction Function::At(i32 index)
+{
+	return _Functions[index];
+}
+
+RtFunction Function::Get(str name)
+{
+	for (i32 i = 0; i < _Functions.Length; i++)
+	{
+		if (_Functions[i].Name == name)
+		{
+			return _Functions[i];
+		}
+	}
+
+	return _NoFunction;
+}

@@ -1,0 +1,48 @@
+//The other end of telemetry.src: two processes that never agreed on an address, only on a service name.
+#using "Lib/types.src"
+#using "Lib/Common.src"
+#using "Services.src"
+#using "Lib/Telemetry.src"
+
+//One line per frame that passed the hash check; `#input` reads nets, so this never sees a byte of one.
+void Report(
+	#param str name,
+	#param str source,
+	#input f64 setpoint @ $"{source}_sp_value",
+	#input f64 measured @ $"{source}_plant_out",
+	#input AppState mode @ $"{source}_mode_state",
+	//i64, not `time`: `Type::Of<time>()` resolves the alias, so that is what frame and net carry.
+	#input i64 stamp @ $"{source}_cycle_time",
+	#state i32 count = 0
+)
+{
+	count = count + 1;
+	WriteLine("frame " + to_str(count)
+		+ " t=" + to_str(stamp)
+		+ " sp=" + to_str(setpoint)
+		+ " plant=" + to_str(measured)
+		+ " mode=" + to_str(mode));
+}
+
+#build i32 main()
+{
+	//The publisher's frame, field for field. The hash of this list is what a frame is checked against.
+	List<Device> telem = List::New<Device>();
+	telem.Add(Device { name = "sp_value", type = Type::Of<f64>() });
+	telem.Add(Device { name = "plant_out", type = Type::Of<f64>() });
+	telem.Add(Device { name = "mode_state", type = Type::Of<AppState>() });
+	telem.Add(Device { name = "cycle_time", type = Type::Of<time>() });
+
+	Function[] blocks =
+	[
+		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
+		#create CycleStart(name = "cycle", dt_ns = Hz_100),
+		#create TelemetryReader(name = "rx", devices = telem, service = ServiceOf("Vehicle.Telemetry")),
+		#create Report(name = "report", source = "rx")
+	]:Function;
+
+	Solver solver = Solver::New(blocks);
+	Solver::Export(solver, Hz_100);
+
+	return 0;
+}

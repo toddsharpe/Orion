@@ -1,0 +1,28 @@
+/*
+ * extern -- a runtime platform service (Model A FFI).
+ *
+ * The signature is declared here with no body. The target's runtime library provides the implementation
+ * (Orion_platform.h / .py / .js), and the compiler emits the call by name -- exactly how WriteLine
+ * works. These stand in for real platform calls: timers, an ADC, a radio. An extern is runtime-only:
+ * calling one from a #build/#run block is a compile error, since there is no hardware at build time.
+ *
+ * Only FUNCTIONS may be extern. A TYPE the platform defines was `extern struct`, and is gone: it meant
+ * the same layout written in Orion and again in every runtime, with nothing checking the two agreed.
+ * A type a platform needs is declared in Orion and marked `#export`, which puts it in the generated
+ * C++ header for a platform to include. See Docs/Cpp.md.
+ */
+extern void Platform_SleepUntil(i64 deadline);
+extern i64 Platform_Now();
+
+i32 main()
+{
+	// Advance the platform's clock through the platform layer, then read it back through the same
+	// layer: the platform keeps state of its own between calls.
+	WriteLine("t0 = " + to_str(Platform_Now()));
+	Platform_SleepUntil(250:i64);
+	WriteLine("t1 = " + to_str(Platform_Now()));
+	Platform_SleepUntil(500:i64);
+	WriteLine("t2 = " + to_str(Platform_Now()));
+
+	return 0;
+}

@@ -1,0 +1,14 @@
+// A collection is a handle, so a second writable name for a const one is a way straight back in.
+#build str probe()
+{
+	const List<i32> ro = List::New<i32>();
+	List<i32> alias = ro;
+	alias.Add(1);
+	return to_str(ro.Length);
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

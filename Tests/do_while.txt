@@ -1,0 +1,5 @@
+at_least_once(0) = 5
+at_least_once(9) = 10
+evens_upto(8) = 20
+grid(3, 4) = 12
+triangle(5) = 10

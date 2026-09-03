@@ -1,0 +1,32 @@
+// The transcendentals. Unlike sqrt, IEEE-754 does not require these to be correctly rounded, so the
+// hosts may differ in the last ulp; the values here are exact or far from a 6-significant-figure edge.
+//
+// The builtins are the subject, so this tests the compiler rather than a library: every call below is
+// still in the generated code, which is why it stays a golden run on all three backends rather than
+// becoming a `#test`. The one constant it needed from Math.src is spelled here instead.
+const f64 PI = 3.14159265358979311600;
+
+i32 main()
+{
+	WriteLine(to_str(sin<f64>(0.0)) + " " + to_str(cos<f64>(0.0)) + " " + to_str(tan<f64>(0.0)));
+	WriteLine(to_str(sin<f64>(PI / 2.0)) + " " + to_str(cos<f64>(PI)));
+	WriteLine(to_str(asin<f64>(1.0)) + " " + to_str(acos<f64>(1.0)) + " " + to_str(atan<f64>(1.0)));
+	WriteLine(to_str(atan2<f64>(1.0, 1.0)) + " " + to_str(pow<f64>(2.0, 10.0)));
+	WriteLine(to_str(exp<f64>(0.0)) + " " + to_str(exp<f64>(1.0)));
+	WriteLine(to_str(log<f64>(1.0)) + " " + to_str(log2<f64>(8.0)) + " " + to_str(log10<f64>(1000.0)));
+	WriteLine(to_str(sinh<f64>(0.0)) + " " + to_str(cosh<f64>(0.0)) + " " + to_str(tanh<f64>(0.0)));
+	WriteLine(to_str(cbrt<f64>(27.0)) + " " + to_str(pow<f64>(9.0, 0.5)));
+
+	// The f32 forms narrow the same computation. Values differ from the f64 ones above: literals are
+	// interned by value regardless of width, so sharing one would bind the f64 symbol.
+	WriteLine(to_str(sin<f32>(0.25:f32)) + " " + to_str(cbrt<f32>(125.0:f32)) + " " + to_str(exp<f32>(0.25:f32)));
+
+	// At build time as well, since these are builtins rather than externs.
+	WriteLine(#run at_build());
+	return 0;
+}
+
+#build str at_build()
+{
+	return "build " + to_str(cos<f64>(0.0)) + " " + to_str(log2<f64>(1024.0));
+}

@@ -1,0 +1,143 @@
+// Heading from magnetometer and attitude: two rows of the rotation, and dropping the third is the compensation.
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Types.src"
+
+// Fold an angle into [0, 360): -10 and 350 are one direction, and only one of them is a heading.
+f32<deg> Heading_Normalize(const f32<deg> degrees)
+{
+	f32<deg> d = degrees;
+	while (d < 0.0:f32<deg>)
+	{
+		d = d + 360.0:f32<deg>;
+	}
+	while (d >= 360.0:f32<deg>)
+	{
+		d = d - 360.0:f32<deg>;
+	}
+	return d;
+}
+
+// The shorter way round, in [-180, 180]: 350 to 10 is twenty degrees, which a subtraction misses.
+f32<deg> Heading_Difference(const f32<deg> from, const f32<deg> to)
+{
+	const f32<deg> d = Heading_Normalize(to - from);
+	if (d > 180.0:f32<deg>)
+	{
+		return d - 360.0:f32<deg>;
+	}
+	return d;
+}
+
+// One tick, degrees in [0, 360) counterclockwise from earth-frame +X, with q0..q3 the attitude (w, x, y, z).
+void Heading(
+	#param str name,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<uT> magX @ "Mag.OutX",
+	#input f32<uT> magY @ "Mag.OutY",
+	#input f32<uT> magZ @ "Mag.OutZ",
+	#input bool updated @ "Mag.Updated",
+	#input f32 q0 @ "Orient.Q0",
+	#input f32 q1 @ "Orient.Q1",
+	#input f32 q2 @ "Orient.Q2",
+	#input f32 q3 @ "Orient.Q3",
+	#output f32<deg> degrees @ "Heading.Degrees"
+)
+{
+	// Not dispatched this cycle: the net holds, for the same reason a stale magnetometer holds it below.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// A stale magnetometer would recompute the same angle: a transcendental for no new information.
+	if (updated == false)
+	{
+		return;
+	}
+
+	// The rotation's entries are ratios, so what comes out of the two rows is still a field in uT.
+	const f32<uT> x = (1.0:f32 - 2.0:f32 * (q2 * q2 + q3 * q3)) * magX
+		+ 2.0:f32 * (q1 * q2 - q0 * q3) * magY
+		+ 2.0:f32 * (q1 * q3 + q0 * q2) * magZ;
+
+	const f32<uT> y = 2.0:f32 * (q1 * q2 + q0 * q3) * magX
+		+ (1.0:f32 - 2.0:f32 * (q1 * q1 + q3 * q3)) * magY
+		+ 2.0:f32 * (q2 * q3 - q0 * q1) * magZ;
+
+	// `atan2` hands back a ratio -- the two fields divide out -- and the half turn it is scaled by makes it an angle.
+	degrees = Heading_Normalize(atan2<f32>(y, x) * 180.0:f32<deg> / cast<f32>(PI));
+}
+
+// ---- self-test ----
+
+#build bool Heading_SelfTest()
+{
+	// Normalizing: already-valid headings pass through, and anything else folds into range.
+	#assert(approx(cast<f64>(Heading_Normalize(0.0:f32<deg>)), 0.0, 0.0001), "Heading: zero is zero");
+	#assert(approx(cast<f64>(Heading_Normalize(359.9:f32<deg>)), 359.9, 0.01), "Heading: just under a turn passes through");
+	#assert(approx(cast<f64>(Heading_Normalize(360.0:f32<deg>)), 0.0, 0.0001), "Heading: a full turn is zero");
+	#assert(approx(cast<f64>(Heading_Normalize(-10.0:f32<deg>)), 350.0, 0.0001), "Heading: -10 is 350");
+	#assert(approx(cast<f64>(Heading_Normalize(725.0:f32<deg>)), 5.0, 0.0001), "Heading: two turns and five degrees is five");
+
+	// Difference: the short way round, including across zero.
+	#assert(approx(cast<f64>(Heading_Difference(350.0:f32<deg>, 10.0:f32<deg>)), 20.0, 0.0001),
+		"Heading: 350 to 10 is twenty degrees the short way");
+	#assert(approx(cast<f64>(Heading_Difference(10.0:f32<deg>, 350.0:f32<deg>)), -20.0, 0.0001),
+		"Heading: and twenty the other way going back");
+	#assert(approx(cast<f64>(Heading_Difference(0.0:f32<deg>, 90.0:f32<deg>)), 90.0, 0.0001),
+		"Heading: a quarter turn is ninety");
+
+	const f32 w = 1.0:f32;
+	const f32 zero = 0.0:f32;
+
+	Instance mag = Function::Start(#create Heading(name = "heading_selftest"));
+
+	// Level and unrotated: the identity leaves the field alone, a quadrant at a time from +X.
+	Function::Tick(mag, ${enabled = true, magX = 1.0:f32, magY = zero, magZ = zero, updated = true, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(approx(cast<f64>(Instance::Get<f32>(mag, "degrees")), 0.0, 0.01), "Heading: field along +X is zero");
+	const f32<deg> alongX = cast<f32<deg>>(Instance::Get<f32>(mag, "degrees"));
+
+	Function::Tick(mag, ${enabled = true, magX = zero, magY = 1.0:f32, magZ = zero, updated = true, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(approx(cast<f64>(Instance::Get<f32>(mag, "degrees")), 90.0, 0.01), "Heading: field along +Y is ninety");
+
+	Function::Tick(mag, ${enabled = true, magX = -1.0:f32, magY = zero, magZ = zero, updated = true, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(approx(cast<f64>(Instance::Get<f32>(mag, "degrees")), 180.0, 0.01), "Heading: field along -X is a half turn");
+
+	Function::Tick(mag, ${enabled = true, magX = zero, magY = -1.0:f32, magZ = zero, updated = true, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(approx(cast<f64>(Instance::Get<f32>(mag, "degrees")), 270.0, 0.01), "Heading: field along -Y is three quarters");
+
+	// Always in range, whatever the inputs.
+	Function::Tick(mag, ${enabled = true, magX = 0.3:f32, magY = -0.7:f32, magZ = 0.5:f32, updated = true, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(Instance::Get<f32>(mag, "degrees") >= 0.0:f32, "Heading: never negative");
+	#assert(Instance::Get<f32>(mag, "degrees") < 360.0:f32, "Heading: never a full turn");
+
+	// The vertical component is rejected when level, so it cannot move an unchanged heading.
+	Function::Tick(mag, ${enabled = true, magX = 1.0:f32, magY = zero, magZ = 5.0:f32, updated = true, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(approx(cast<f64>(Instance::Get<f32>(mag, "degrees")), cast<f64>(alongX), 0.01),
+		"Heading: a level vehicle ignores the vertical component");
+
+	// The attitude is used, not ignored: a 90 degree yaw moves the answer by 90.
+	const f32 half = 0.70710678:f32;   // cos(45) -- a 90 degree rotation
+	Function::Tick(mag, ${enabled = true, magX = 1.0:f32, magY = zero, magZ = zero, updated = true, q0 = half, q1 = zero, q2 = zero, q3 = half});
+	#assert(approx(cast<f64>(Heading_Difference(0.0:f32<deg>, cast<f32<deg>>(Instance::Get<f32>(mag, "degrees")))), 90.0, 0.1),
+		"Heading: rotating the vehicle rotates the answer");
+
+	// Tilt compensation proper: pitch over with the field fixed and the horizontal angle must not move.
+	Function::Tick(mag, ${enabled = true, magX = 1.0:f32, magY = zero, magZ = zero, updated = true, q0 = half, q1 = half, q2 = zero, q3 = zero});
+	#assert(approx(cast<f64>(Heading_Difference(alongX, cast<f32<deg>>(Instance::Get<f32>(mag, "degrees")))), 0.0, 0.1),
+		"Heading: tilting must not move a heading the vehicle has not turned from");
+
+	// A stale magnetometer is the same reading, so the net holds rather than re-deriving it.
+	const f32 held = Instance::Get<f32>(mag, "degrees");
+	Function::Tick(mag, ${enabled = true, magX = zero, magY = 1.0:f32, magZ = zero, updated = false, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(Instance::Get<f32>(mag, "degrees") == held, "Heading: an un-updated magnetometer holds the last answer");
+
+	// Disabled: the net holds too, even with a fresh reading that would plainly have moved it.
+	Function::Tick(mag, ${enabled = false, magX = zero, magY = 1.0:f32, magZ = zero, updated = true, q0 = w, q1 = zero, q2 = zero, q3 = zero});
+	#assert(Instance::Get<f32>(mag, "degrees") == held, "Heading: a disabled tick holds the last answer");
+
+	return true;
+}
+
+#test Heading_SelfTest "Tilt-compensated heading"

@@ -1,0 +1,17 @@
+// One cell carries one value, so a second declaration of the same name has nowhere to live.
+#build i32 twice(i32 v)
+{
+	return v * 2;
+}
+
+i32 main()
+{
+	#build const i32 d = twice(21);
+	#build const i32 d = twice(10);
+	i32 z = 0;
+	#run
+	{
+		#insert $"z = {d};";
+	}
+	return z;
+}

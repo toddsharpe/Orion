@@ -1,0 +1,40 @@
+//A 16-byte frame per cycle, counter and timestamp big-endian, proving the channel path; listen.py decodes it.
+#using "Lib/types.src"
+#using "Lib/Channel.src"
+#using "Lib/Common.src"
+#using "Services.src"
+
+void Beacon(
+	#param str name,
+	#param i32 service,
+	#input time cycle_time,
+	#state u32 count = 0:u32
+)
+{
+	//Declared at build time and folded to the channel's INDEX, so `channel_push` takes a literal.
+	const i32 tx = #run Channel::Tx(service, 16, 2);
+
+	count = count + 1:u32;
+
+	u8[16] frame;
+	pack_be_u32(frame, 0:u32, count);
+	pack_be_i64(frame, 4:u32, cast<i64>(cycle_time));
+	pack_be_u32(frame, 12:u32, 3735928559:u32);
+
+	//A full ring drops the frame, which at 100 Hz means the platform did not drain last cycle.
+	channel_push(tx, frame);
+}
+
+#build i32 main()
+{
+	Function[] blocks =
+	[
+		#create CycleStart(name = "cycle", dt_ns = Hz_100),
+		#create Beacon(name = "beacon", service = ServiceOf("Vehicle.Telemetry"))
+	]:Function;
+
+	Solver solver = Solver::New(blocks);
+	Solver::Export(solver, Hz_100);
+
+	return 0;
+}

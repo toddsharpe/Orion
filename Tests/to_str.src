@@ -1,0 +1,36 @@
+// to_str(x) stringifies without naming the source type, the same conversion an interpolation uses.
+
+// The source type is only known during binding, so this works at build time too.
+#build str manifest()
+{
+	i32 n = 40 + 2;
+	return "build=" + to_str(n);
+}
+
+i32 main()
+{
+	WriteLine(#run manifest());
+
+	i32 a = 0 - 42;
+	u8 b = 200:u8;
+	u32 c = 4000000000:u32;
+	i64 d = 9000000000:i64;
+	WriteLine(to_str(a) + " " + to_str(b) + " " + to_str(c) + " " + to_str(d));
+
+	// Floats keep their decimal point and bool is lower case, on every backend.
+	f64 e = 3.5;
+	f32 g = 1.25:f32;
+	bool h = true;
+	str i = "hi";
+	WriteLine(to_str(e) + " " + to_str(g) + " " + to_str(h) + " " + to_str(i));
+
+	// The operand is an expression, not just a name.
+	WriteLine(to_str(a + 2));
+	WriteLine(to_str(cast<u16>(70000:u32)));
+
+	// The formatting itself, and that a hole in an interpolation is the same conversion.
+	WriteLine(to_str(to_str(a) == "-42"));
+	WriteLine(to_str(to_str(e) == $"{e}"));
+
+	return 0;
+}

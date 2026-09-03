@@ -1,0 +1,584 @@
+// Numeric helpers, generic where possible over i32 and f64; typed literals use the `0:T` suffix.
+
+// ---- scalar ----
+
+T max<T>(const T a, const T b)
+{
+	if (a > b)
+	{
+		return a;
+	}
+	return b;
+}
+
+T min<T>(const T a, const T b)
+{
+	if (a < b)
+	{
+		return a;
+	}
+	return b;
+}
+
+T abs<T>(const T x)
+{
+	if (x < 0:T)
+	{
+		return 0:T - x;
+	}
+	return x;
+}
+
+// -1, 0, or 1 (i32) for the sign of x.
+i32 sign<T>(const T x)
+{
+	if (x < 0:T)
+	{
+		return -1;
+	}
+	else if (x > 0:T)
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+T square<T>(const T x)
+{
+	return x * x;
+}
+
+T cube<T>(const T x)
+{
+	return x * x * x;
+}
+
+// x raised to a non-negative INTEGER power; pow<T> is the float-exponent intrinsic.
+T ipow<T>(const T base, const i32 exp)
+{
+	T r = 1:T;
+	for (i32 i = 0; i < exp; i++)
+	{
+		r = r * base;
+	}
+	return r;
+}
+
+// Ceiling division: the smallest q with q * b >= a. Multiplying back avoids both overflow and `%`.
+T div_round_up<T>(const T a, const T b)
+{
+	const T q = a / b;
+	if (q * b == a)
+	{
+		return q;
+	}
+	return q + 1:T;
+}
+
+// Saturate x into [lo, hi].
+T clamp<T>(const T x, const T lo, const T hi)
+{
+	if (x < lo)
+	{
+		return lo;
+	}
+	else if (x > hi)
+	{
+		return hi;
+	}
+	else
+	{
+		return x;
+	}
+}
+
+// Saturate x into [0, 1].
+T clamp01<T>(const T x)
+{
+	return clamp<T>(x, 0:T, 1:T);
+}
+
+// True if lo <= x <= hi.
+bool in_range<T>(const T x, const T lo, const T hi)
+{
+	return x >= lo && x <= hi;
+}
+
+// Linear interpolation: a + (b - a) * t.
+T lerp<T>(const T a, const T b, const T t)
+{
+	return a + (b - a) * t;
+}
+
+// ---- reductions over arrays ----
+
+T sum_all<T>(ConstSpan<T> xs)
+{
+	T total = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		total = total + xs[i];
+	}
+	return total;
+}
+
+T product_all<T>(ConstSpan<T> xs)
+{
+	T total = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		total = total * xs[i];
+	}
+	return total;
+}
+
+T max_all<T>(ConstSpan<T> xs)
+{
+	T m = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		m = max<T>(m, xs[i]);
+	}
+	return m;
+}
+
+T min_all<T>(ConstSpan<T> xs)
+{
+	T m = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		m = min<T>(m, xs[i]);
+	}
+	return m;
+}
+
+// Arithmetic mean (integer division when T is integral). Count is built as T so no i32 mixes in.
+T mean<T>(ConstSpan<T> xs)
+{
+	const T total = sum_all<T>(xs);
+	T count = 1:T;
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		count = count + 1:T;
+	}
+	return total / count;
+}
+
+// Dot product of two equal-length vectors.
+T dot<T>(ConstSpan<T> a, ConstSpan<T> b)
+{
+	T total = a[0] * b[0];
+	for (i32 i = 1; i < a.Length; i++)
+	{
+		total = total + a[i] * b[i];
+	}
+	return total;
+}
+
+// ---- integer-domain helpers (not generic: integer literals / semantics) ----
+
+i32 sum_to(const i32 n)
+{
+	i32 sum = 0;
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}
+
+i32 factorial(const i32 n)
+{
+	if (n < 2)
+	{
+		return 1;
+	}
+	return n * factorial(n - 1);
+}
+
+// a and b are reduced in place, so they are not const.
+i32 gcd(i32 a, i32 b)
+{
+	while (b != 0)
+	{
+		const i32 t = b;
+		b = a % b;
+		a = t;
+	}
+	return a;
+}
+
+i32 lcm(const i32 a, const i32 b)
+{
+	const i32 g = gcd(a, b);
+	return a / g * b;
+}
+
+bool is_even(const i32 n)
+{
+	return n % 2 == 0;
+}
+
+// List ops
+#build T list_sum<T>(const List<T> xs)
+{
+	T total = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		total = total + xs[i];
+	}
+	return total;
+}
+
+#build List<T> range<T>(const i32 length)
+{
+	List<T> xs = List::New<T>();
+	T v = 0:T;
+	for (i32 i = 0; i < length; i++)
+	{
+		xs.Add(v);
+		v = v + 1:T;
+	}
+	return xs;
+}
+
+// ---- float helpers built on the math builtins ----
+
+const f64 PI = 3.14159265358979311600;
+const f64 TAU = 6.28318530717958623200;
+const f64 E = 2.71828182845904509080;
+
+// Degrees <-> radians.
+f64 radians(const f64 deg)
+{
+	return deg * PI / 180.0;
+}
+
+f64 degrees(const f64 rad)
+{
+	return rad * 180.0 / PI;
+}
+
+// The fractional part, keeping the sign of x (so fract(-1.25) is -0.25).
+f64 fract(const f64 x)
+{
+	return x - trunc<f64>(x);
+}
+
+// x with the sign of y. Zero counts as positive, so copysign(3.0, 0.0) is 3.0.
+f64 copysign(const f64 x, const f64 y)
+{
+	if (y < 0.0)
+	{
+		return 0.0 - fabs<f64>(x);
+	}
+	return fabs<f64>(x);
+}
+
+// True when a and b are within tol of each other; NaN compares false, as it should.
+bool approx(const f64 a, const f64 b, const f64 tol)
+{
+	return fabs<f64>(a - b) <= tol;
+}
+
+// ---- 32-bit integer / bit helpers ----
+
+// Rotate left. The two halves occupy disjoint bit ranges, so `|` merges them without carry.
+u32 rotl32(const u32 x, const i32 n)
+{
+	if (n == 0)
+	{
+		return x;
+	}
+	return (x << n) | (x >> (32 - n));
+}
+
+u32 rotr32(const u32 x, const i32 n)
+{
+	if (n == 0)
+	{
+		return x;
+	}
+	return (x >> n) | (x << (32 - n));
+}
+
+bool is_pow2(const u32 x)
+{
+	return x != 0:u32 && (x & (x - 1:u32)) == 0:u32;
+}
+
+// The smallest power of two >= x. Returns 1 for x = 0, and 0 if x has no representable next power.
+u32 next_pow2(const u32 x)
+{
+	if (x <= 1:u32)
+	{
+		return 1:u32;
+	}
+	return 1:u32 << (32 - clz<u32>(x - 1:u32));
+}
+
+// floor(log2(x)); -1 for x = 0, which has no logarithm.
+i32 ilog2(const u32 x)
+{
+	if (x == 0:u32)
+	{
+		return -1;
+	}
+	return 31 - clz<u32>(x);
+}
+
+// Reverse the bit order of a 32-bit word, by swapping progressively wider adjacent groups.
+u32 bit_reverse32(const u32 x)
+{
+	u32 v = x;
+	v = ((v >> 1) & 0x55555555:u32) | ((v & 0x55555555:u32) << 1);
+	v = ((v >> 2) & 0x33333333:u32) | ((v & 0x33333333:u32) << 2);
+	v = ((v >> 4) & 0x0F0F0F0F:u32) | ((v & 0x0F0F0F0F:u32) << 4);
+	v = ((v >> 8) & 0x00FF00FF:u32) | ((v & 0x00FF00FF:u32) << 8);
+	return (v >> 16) | (v << 16);
+}
+
+// ---- statistics ----
+
+// Population variance (divides by n, not n-1).
+f64 variance(ConstSpan<f64> xs)
+{
+	const f64 m = mean<f64>(xs);
+	f64 total = 0.0;
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		const f64 d = xs[i] - m;
+		total = total + d * d;
+	}
+	return total / cast<f64>(xs.Length);
+}
+
+f64 stddev(ConstSpan<f64> xs)
+{
+	return sqrt<f64>(variance(xs));
+}
+
+// ---- sorting and search ----
+
+// Insertion sort, in place. Stable, and the array is written through so it is not const.
+void sort<T>(Span<T> xs)
+{
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		const T key = xs[i];
+		i32 j = i - 1;
+		while (j >= 0 && xs[j] > key)
+		{
+			xs[j + 1] = xs[j];
+			j = j - 1;
+		}
+		xs[j + 1] = key;
+	}
+}
+
+// Index of `key` in a sorted array, or -1. Halves the range each step.
+i32 binary_search<T>(ConstSpan<T> xs, const T key)
+{
+	i32 lo = 0;
+	i32 hi = xs.Length - 1;
+	while (lo <= hi)
+	{
+		const i32 mid = lo + (hi - lo) / 2;
+		if (xs[mid] == key)
+		{
+			return mid;
+		}
+		if (xs[mid] < key)
+		{
+			lo = mid + 1;
+		}
+		else
+		{
+			hi = mid - 1;
+		}
+	}
+	return -1;
+}
+
+// The median of an already-sorted array; the mean of the middle pair when the length is even.
+f64 median_sorted(ConstSpan<f64> xs)
+{
+	const i32 n = xs.Length;
+	const i32 mid = n / 2;
+	if (n % 2 == 1)
+	{
+		return xs[mid];
+	}
+	return (xs[mid - 1] + xs[mid]) * 0.5;
+}
+
+// ---- deterministic pseudo-random ----
+
+// xorshift32, pure Orion so the sequence matches on every backend. The state must not be zero.
+u32 rand_seed(const u32 seed)
+{
+	if (seed == 0:u32)
+	{
+		return 2463534242:u32;
+	}
+	return seed;
+}
+
+u32 rand_next(const u32 state)
+{
+	u32 x = state;
+	x = x ^ (x << 13);
+	x = x ^ (x >> 17);
+	x = x ^ (x << 5);
+	return x;
+}
+
+// A float in [0, 1) from a state word, using the top 24 bits so every result is exactly representable.
+f64 rand_unit(const u32 state)
+{
+	return cast<f64>(state >> 8) / 16777216.0;
+}
+
+// ---- ordering and quantiles ----
+
+// Indices that would sort xs ascending, leaving xs untouched; insertion sort, so it is stable.
+void argsort<T>(Span<i32> order, ConstSpan<T> xs)
+{
+	for (i32 i = 0; i < order.Length; i++)
+	{
+		order[i] = i;
+	}
+
+	for (i32 i = 1; i < order.Length; i++)
+	{
+		const i32 key = order[i];
+		i32 j = i - 1;
+		while (j >= 0 && xs[order[j]] > xs[key])
+		{
+			order[j + 1] = order[j];
+			j = j - 1;
+		}
+		order[j + 1] = key;
+	}
+}
+
+// Linear-interpolated percentile of a sorted array: the rank is q * (n - 1), blending two neighbours.
+f64 percentile_sorted(ConstSpan<f64> xs, const f64 q)
+{
+	const i32 n = xs.Length;
+	if (n == 1)
+	{
+		return xs[0];
+	}
+
+	const f64 rank = clamp<f64>(q, 0.0, 1.0) * cast<f64>(n - 1);
+	const i32 lo = cast<i32>(floor<f64>(rank));
+	if (lo >= n - 1)
+	{
+		return xs[n - 1];
+	}
+
+	// The fraction between the two neighbours, so an exact rank returns the element itself.
+	const f64 frac = rank - cast<f64>(lo);
+	return lerp<f64>(xs[lo], xs[lo + 1], frac);
+}
+
+// ---- PCG, a second generator with a much longer period than xorshift32 ----
+
+// PCG-XSH-RR over a 64-bit state; build-time only, the 64-bit multiply being exact in the CLR alone.
+#build u64 pcg_seed(const u64 seed)
+{
+	return seed * 6364136223846793005:u64 + 1442695040888963407:u64;
+}
+
+#build u64 pcg_next(const u64 state)
+{
+	return state * 6364136223846793005:u64 + 1442695040888963407:u64;
+}
+
+// The 32 bits drawn from a state word.
+#build u32 pcg_out(const u64 state)
+{
+	const u32 xorshifted = cast<u32>(((state >> 18) ^ state) >> 27);
+	const i32 rot = cast<i32>(state >> 59);
+	return rotr32(xorshifted, rot);
+}
+
+// ---- self-test ----------------------------------------------------------------------------
+// Everything Math.src adds over the builtins, exact by construction except `approx` itself.
+#build bool Math_SelfTest()
+{
+	// argsort leaves the input alone and returns the order, stably.
+	f64[] xs = [3.0, 1.0, 4.0, 1.5, 2.0]:f64;
+	i32[5] order;
+	argsort<f64>(order, xs);
+	#assert(order[0] == 1 && order[1] == 3 && order[2] == 4 && order[3] == 0 && order[4] == 2,
+		"argsort returns the order, stably");
+	#assert(xs[0] == 3.0 && xs[4] == 2.0, "argsort leaves its input alone");
+
+	// Percentiles of a sorted array; 0.5 on an even count interpolates the middle pair.
+	f64[] q = [1.0, 2.0, 3.0, 4.0]:f64;
+	#assert(percentile_sorted(q, 0.0) == 1.0, "the 0th percentile is the first element");
+	#assert(percentile_sorted(q, 1.0) == 4.0, "the 100th percentile is the last element");
+	#assert(percentile_sorted(q, 0.5) == 2.5, "the median of an even count interpolates the middle pair");
+	#assert(percentile_sorted(q, 0.25) == 1.75, "the 25th percentile interpolates");
+
+	// --- float helpers ---
+	#assert(fract(-1.25) == -0.25 && fract(1.25) == 0.25, "fract keeps the sign of its argument");
+	#assert(copysign(3.0, -1.0) == -3.0 && copysign(-3.0, 1.0) == 3.0, "copysign takes the sign of the second");
+	#assert(approx(1.0, 1.0001, 0.001), "approx inside the tolerance");
+	#assert(!approx(1.0, 1.1, 0.001), "approx outside the tolerance");
+	#assert(radians(180.0) - PI == 0.0, "radians(180) is exactly PI");
+	#assert(degrees(PI) == 180.0, "degrees(PI) is 180");
+
+	// --- 32-bit bit helpers ---
+	#assert(rotl32(0x12345678:u32, 8) == 878082066:u32, "rotl32");
+	#assert(rotr32(0x12345678:u32, 8) == 2014458966:u32, "rotr32");
+	#assert(rotl32(0x12345678:u32, 0) == 305419896:u32, "rotating by zero is the identity");
+	#assert(is_pow2(64:u32) && !is_pow2(65:u32) && !is_pow2(0:u32), "is_pow2, zero included");
+	#assert(next_pow2(100:u32) == 128:u32, "next_pow2 rounds up");
+	#assert(next_pow2(128:u32) == 128:u32, "next_pow2 of a power of two is itself");
+	#assert(next_pow2(0:u32) == 1:u32, "next_pow2 of zero is one");
+	#assert(ilog2(1024:u32) == 10 && ilog2(1023:u32) == 9, "ilog2 floors");
+	#assert(ilog2(0:u32) == -1, "ilog2 of zero has no answer and says so");
+	#assert(bit_reverse32(1:u32) == 2147483648:u32, "bit_reverse32 of the low bit");
+	#assert(bit_reverse32(0x80000000:u32) == 1:u32, "bit_reverse32 of the high bit");
+
+	// --- statistics ---
+	f64[] stats = [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0]:f64;
+	#assert(mean<f64>(stats) == 5.0, "mean");
+	#assert(variance(stats) == 4.0 && stddev(stats) == 2.0, "variance and stddev");
+	#assert(median_sorted([1.0, 2.0, 3.0, 4.0]:f64) == 2.5, "the median of an even count");
+	#assert(median_sorted([1.0, 2.0, 3.0]:f64) == 2.0, "the median of an odd count");
+
+	// --- sorting and search ---
+	i32[] sorted = [5, 3, 1, 4, 2]:i32;
+	sort<i32>(sorted);
+	#assert(sorted[0] == 1 && sorted[1] == 2 && sorted[2] == 3 && sorted[3] == 4 && sorted[4] == 5, "sort");
+	#assert(binary_search<i32>(sorted, 4) == 3, "binary_search finds a present element");
+	#assert(binary_search<i32>(sorted, 99) == -1, "binary_search answers -1 for an absent one");
+
+	// --- deterministic PRNG: the same sequence on every backend ---
+	u32 r = rand_seed(1:u32);
+	r = rand_next(r);
+	#assert(r == 270369:u32, "rand_next draw 1");
+	r = rand_next(r);
+	#assert(r == 67634689:u32, "rand_next draw 2");
+	#assert(rand_unit(r) < 1.0, "rand_unit stays below one");
+
+	// PCG is build-time only: the 64-bit multiply is exact in the CLR, not in a JavaScript number.
+	u64 s = pcg_seed(42:u64);
+	s = pcg_next(s);
+	#assert(pcg_out(s) == 242089394:u32, "PCG draw 1 from seed 42");
+	s = pcg_next(s);
+	#assert(pcg_out(s) == 3457789919:u32, "PCG draw 2 from seed 42");
+	s = pcg_next(s);
+	#assert(pcg_out(s) == 3637502659:u32, "PCG draw 3 from seed 42");
+
+	return true;
+}
+
+#test Math_SelfTest "Math helpers, statistics, sorting and PRNGs"

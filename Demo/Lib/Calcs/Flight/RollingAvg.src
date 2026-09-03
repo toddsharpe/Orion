@@ -1,0 +1,132 @@
+// The mean of the last N samples, and whether N have arrived.
+#using "Lib/Math.src"
+
+// The window is a size parameter, so each block states its own history instead of sharing one.
+struct RollingAvg<N>
+{
+	f32[N] window;
+
+	// How many of the slots hold a real sample; stops climbing once the window is full.
+	i32 count;
+
+	// Where the next sample lands, wrapping so the oldest is the one overwritten.
+	i32 index;
+}
+
+RollingAvg<N> RollingAvg_Zero<N>()
+{
+	RollingAvg<N> a = RollingAvg<N>{ window = f32[N], count = 0, index = 0 };
+	return a;
+}
+
+// Add one sample.
+void RollingAvg_Add<N>(#output RollingAvg<N> a, const f32 value)
+{
+	a.window[a.index] = value;
+	a.index = (a.index + 1) % a.window.Length;
+
+	if (a.count < a.window.Length)
+	{
+		a.count = a.count + 1;
+	}
+}
+
+// The mean of what is in the window, summed fresh: a running total drifts as samples come and go.
+f32 RollingAvg_Value<N>(const RollingAvg<N> a)
+{
+	if (a.count == 0)
+	{
+		return 0.0:f32;
+	}
+
+	f32 total = 0.0:f32;
+	for (i32 i = 0; i < a.count; i++)
+	{
+		total = total + a.window[i];
+	}
+
+	return total / cast<f32>(a.count);
+}
+
+// True once the window is full, which is what makes the mean worth trusting.
+bool RollingAvg_Ready<N>(const RollingAvg<N> a)
+{
+	return a.count >= a.window.Length;
+}
+
+// How many samples a full window holds, so a caller can say how long calibration takes.
+i32 RollingAvg_Capacity<N>(const RollingAvg<N> a)
+{
+	return a.window.Length;
+}
+
+// ---- self-test ----
+
+#build bool RollingAvg_SelfTest()
+{
+	// Instantiate at a small window, and check what a cold one reports before anything is in it.
+	RollingAvg<4> avg = RollingAvg_Zero<4>();
+	const i32 cap = RollingAvg_Capacity<4>(avg);
+
+	#assert(avg.count == 0, "RollingAvg: a cold start holds nothing");
+	#assert(RollingAvg_Ready<4>(avg) == false, "RollingAvg: an empty window is not ready");
+	#assert(approx(cast<f64>(RollingAvg_Value<4>(avg)), 0.0, 0.000001), "RollingAvg: an empty window averages zero");
+
+	// One sample is its own mean, and the window is not ready on the strength of it.
+	RollingAvg_Add<4>(avg, 7.0:f32);
+	#assert(avg.count == 1, "RollingAvg: one sample counts once");
+	#assert(approx(cast<f64>(RollingAvg_Value<4>(avg)), 7.0, 0.000001), "RollingAvg: one sample is its own mean");
+	#assert(RollingAvg_Ready<4>(avg) == false, "RollingAvg: one sample is not a full window");
+
+	// Ready exactly at capacity, not before.
+	RollingAvg<4> filling = RollingAvg_Zero<4>();
+	for (i32 i = 0; i < cap - 1; i++)
+	{
+		RollingAvg_Add<4>(filling, 1.0:f32);
+	}
+	#assert(RollingAvg_Ready<4>(filling) == false, "RollingAvg: one short of capacity is not ready");
+
+	RollingAvg_Add<4>(filling, 1.0:f32);
+	#assert(RollingAvg_Ready<4>(filling), "RollingAvg: a full window is ready");
+	#assert(filling.count == cap, "RollingAvg: the count stops at capacity");
+	#assert(approx(cast<f64>(RollingAvg_Value<4>(filling)), 1.0, 0.000001), "RollingAvg: a constant signal averages to itself");
+
+	// It stays at capacity however many more arrive.
+	for (i32 i = 0; i < cap * 2; i++)
+	{
+		RollingAvg_Add<4>(filling, 1.0:f32);
+	}
+	#assert(filling.count == cap, "RollingAvg: the count does not climb past capacity");
+
+	// Old samples fall out: one full pass at a new value replaces the window entirely.
+	for (i32 i = 0; i < cap; i++)
+	{
+		RollingAvg_Add<4>(filling, 5.0:f32);
+	}
+	#assert(approx(cast<f64>(RollingAvg_Value<4>(filling)), 5.0, 0.000001), "RollingAvg: a full pass replaces the window");
+
+	// A half-and-half window sits between the two, which is what makes it an average and not a latch.
+	RollingAvg<4> half = RollingAvg_Zero<4>();
+	for (i32 i = 0; i < cap; i++)
+	{
+		RollingAvg_Add<4>(half, 0.0:f32);
+	}
+	for (i32 i = 0; i < cap / 2; i++)
+	{
+		RollingAvg_Add<4>(half, 10.0:f32);
+	}
+	#assert(RollingAvg_Value<4>(half) > 0.0:f32, "RollingAvg: a partly replaced window has moved");
+	#assert(RollingAvg_Value<4>(half) < 10.0:f32, "RollingAvg: a partly replaced window has not arrived");
+
+	// Symmetric noise cancels, which is the whole reason a bias is averaged rather than sampled.
+	RollingAvg<4> noisy = RollingAvg_Zero<4>();
+	for (i32 i = 0; i < cap; i++)
+	{
+		RollingAvg_Add<4>(noisy, is_even(i) ? 110.0:f32 : 90.0:f32);
+	}
+	#assert(approx(cast<f64>(RollingAvg_Value<4>(noisy)), 100.0, 0.0001), "RollingAvg: symmetric noise must cancel");
+
+	return true;
+}
+
+#test RollingAvg_SelfTest "Rolling average"

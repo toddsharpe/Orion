@@ -1,0 +1,26 @@
+// A block's memory as a #state LOCAL is per-instance and fine; what cannot reach it is the #init,
+// which is lifted into a function of its own and so sees only the block's #state PORTS.
+void Opener(#param str name, #output i32 handle @ $"{name}_out")
+{
+	#state i32 fd = 0;
+
+	#init
+	{
+		fd = 7;
+		return true;
+	}
+
+	fd = fd + 1;
+	handle = fd;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Opener(name = "op") ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

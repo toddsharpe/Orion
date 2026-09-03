@@ -1,0 +1,12 @@
+//Code the build wrote is bound like any other, and a name in it that resolves to nothing is an error
+//like any other. It reached lowering with no callee and tripped an assertion instead -- naming a
+//compiler internal, and no source line at all.
+i32 main()
+{
+	#run
+	{
+		#insert { WriteLine(to_str(no_such_function(1))); }
+	}
+
+	return 0;
+}

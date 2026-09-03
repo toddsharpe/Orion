@@ -1,0 +1,8 @@
+// `pack_be<T>` emits `pack_be_T`, which a library must define; a missing width is caught at the call site.
+i32 main()
+{
+	u8[8] buf;
+	i16 v = 3:i16;
+	pack_be<i16>(buf, 0:u32, v);
+	return 0;
+}

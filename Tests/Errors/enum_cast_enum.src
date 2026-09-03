@@ -1,0 +1,23 @@
+//Enum to enum is not a cast: two sets sharing an ordinal mean different things.
+//Both convert through a numeric type, which is what the error asks for.
+
+enum Phase
+{
+	Idle,
+	Busy
+}
+
+enum Mode
+{
+	Off,
+	On
+}
+
+i32 main()
+{
+	Phase p = Phase::Busy;
+	Mode m = cast<Mode>(p);
+	WriteLine(to_str(m));
+
+	return 0;
+}

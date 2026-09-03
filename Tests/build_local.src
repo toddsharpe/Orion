@@ -1,0 +1,53 @@
+struct Cfg
+{
+	str name;
+	i32 count;
+}
+
+#build Cfg MakeCfg(str tag, i32 n)
+{
+	return Cfg
+	{
+		name = tag + to_str(n),
+		count = n * 2
+	};
+}
+
+//`#build const` names a build-time cell: one value, readable from every `#run` in the function, and
+//nothing the backend ever sees. Runtime statements may sit between the blocks that read it.
+i32 main()
+{
+	#build const Cfg cfg = MakeCfg("sensor", 3);
+
+	i32 total = 0;
+	WriteLine("start");
+
+	//First reader: the cell is spliced in as a constant.
+	#run
+	{
+		#insert { total = ${cfg.count}; }
+	}
+
+	WriteLine("total = " + to_str(total));
+
+	//Second reader, after runtime code: the same cell still holds the value the first one saw.
+	const u32 width = #run str_len(cfg.name);
+
+	#run
+	{
+		#insert { WriteLine("name = " + ${cfg.name}); }
+	}
+
+	WriteLine("width = " + to_str(width));
+
+	//A loop in a build block, so the cell is read more than once per block.
+	#run
+	{
+		for (i32 i = 0; i < cfg.count; i++)
+		{
+			#insert { WriteLine("tick " + to_str(${i}) + " of " + ${cfg.name}); }
+		}
+	}
+
+	return 0;
+}

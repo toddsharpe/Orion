@@ -1,0 +1,14 @@
+squares.len=6
+squares.sum=55
+evens.len=5
+evens.sum=20
+names.len=3
+name=name0
+name=name1
+name=name2
+uniq.len=3
+uniq=heater
+uniq=alarm
+uniq=fan
+flags.len=2
+flags.sum=3

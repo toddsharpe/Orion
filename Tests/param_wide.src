@@ -1,0 +1,47 @@
+//A `#param` folds to a literal at `#create`, and the fold has to keep two things a value alone does
+//not carry: its width, and the type the block declared.
+//
+//`time` is an i64 alias. A period of five seconds is past 2^31, so folding it as an i32 kept its low
+//32 bits and said nothing; and a period that DOES fit in 32 bits folded to an i32 literal, which then
+//failed to satisfy the `time` parameter it was written for.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A nanosecond timestamp.
+typedef i64 time;
+
+//Both are `time`, so both have to arrive as one: neither call below writes a cast.
+void Ticker(#param str name, #param time period, #param time small)
+{
+	WriteLine("period = " + to_str(period));
+	WriteLine("small = " + to_str(small));
+	WriteLine("sum = " + to_str(period + small));
+}
+
+//An unsigned width is a written type too, and used to fold to a value no literal could spell.
+void Counter(#param str name, #param u32 start, #param u8 step)
+{
+	WriteLine("start = " + to_str(start));
+	WriteLine("step = " + to_str(step));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks =
+		[
+			#create Ticker(name = "t", period = 5000000000:i64, small = 10000000),
+			#create Counter(name = "c", start = 4000000000:u32, step = 200:u8)
+		]:Function;
+
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert
+		{
+			${Solver::Struct(solver)};
+			solver_cycle(state);
+		}
+	}
+
+	return 0;
+}

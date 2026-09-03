@@ -1,0 +1,66 @@
+// f32/f64 primitive types exercised through every feature: arithmetic, arrays,
+// typed literals, generics, build-time List<T>, and string interpolation.
+
+T max<T>(T a, T b)
+{
+	if (a > b)
+	{
+		return a;
+	}
+	return b;
+}
+
+T sum_all<T>(ConstSpan<T> xs)
+{
+	T total = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		total = total + xs[i];
+	}
+	return total;
+}
+
+// Build a fixed f64 array at build time from a generic List<f64>.
+#build List<f64> build_scaled(i32 n)
+{
+	List<f64> xs = List::New<f64>();
+	for (i32 i = 0; i < n; i++)
+	{
+		xs.Add(1.5);
+	}
+	return xs;
+}
+
+void test()
+{
+	// Bare float literal is f64; arithmetic.
+	f64 a = 2.5;
+	f64 b = 4.0;
+	WriteLine($"a+b = {a + b}");
+	WriteLine($"a*b = {a * b}");
+
+	// f32 via typed literal.
+	f32 c = 3.25:f32;
+	f32 d = 0.75:f32;
+	WriteLine($"c+d f32 = {c + d}");
+
+	// f64 array (int and float element literals coerce).
+	f64[] xs = [1.5, 2.5, 3.0, 4.0]:f64;
+	WriteLine($"sum f64 = {sum_all<f64>(xs)}");
+	WriteLine($"max f64 = {max<f64>(a, b)}");
+
+	// f32 generic reuse (same template, different type).
+	f32[] ys = [1.0, 2.0, 3.0]:f32;
+	WriteLine($"sum f32 = {sum_all<f32>(ys)}");
+
+	// Build-time List<f64> frozen to a fixed array.
+	f64[] scaled = #run build_scaled(4);
+	WriteLine($"scaled len={scaled.Length} sum={sum_all<f64>(scaled)}");
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

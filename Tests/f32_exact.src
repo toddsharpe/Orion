@@ -1,0 +1,62 @@
+// f32 is bit-exact across the three backends, so an accumulated single may be printed in a golden.
+// C++ has real single-precision arithmetic; Python and JavaScript compute in double and round every
+// f32 result back, and the f32 transcendentals narrow the f64 one on all three rather than calling the
+// single-precision libm, whose last ulp is its host's business. Raw bit patterns, not formatted text:
+// six significant figures would hide exactly the divergence this is here to catch.
+
+i32 main()
+{
+	u8[64] buf;
+
+	// An integrator: 40 rounds of multiply-add, where a single ulp of drift compounds into the open.
+	f32 acc = 1.0:f32;
+	i32 i = 0;
+	while (i < 40)
+	{
+		acc = acc * 1.1:f32 + 0.7:f32;
+		i = i + 1;
+	}
+	pack_be_f32(buf, 0:u32, acc);
+
+	// Subtract and divide, which round as surely as the pair above.
+	f32 ratio = 1.0:f32;
+	i = 0;
+	while (i < 40)
+	{
+		ratio = (ratio - 0.003:f32) / 1.0009:f32;
+		i = i + 1;
+	}
+	pack_be_f32(buf, 4:u32, ratio);
+
+	// The transcendentals rocket flies on, at inputs chosen for awkwardness rather than roundness.
+	pack_be_f32(buf, 8:u32, atan2<f32>(acc, 3.0:f32));
+	pack_be_f32(buf, 12:u32, pow<f32>(0.813:f32, 0.190284:f32));
+	pack_be_f32(buf, 16:u32, sin<f32>(0.7853981:f32));
+	pack_be_f32(buf, 20:u32, cos<f32>(0.7853981:f32));
+	pack_be_f32(buf, 24:u32, exp<f32>(1.3:f32));
+	pack_be_f32(buf, 28:u32, log<f32>(7.3:f32));
+	pack_be_f32(buf, 32:u32, tan<f32>(1.1:f32));
+	pack_be_f32(buf, 36:u32, asin<f32>(0.61:f32));
+	pack_be_f32(buf, 40:u32, cbrt<f32>(7.0:f32));
+
+	// sqrt IEEE-754 requires to be correctly rounded, so it is the one that never needed the care.
+	pack_be_f32(buf, 44:u32, sqrt<f32>(2.0:f32));
+
+	// A compound expression: every operator inside rounds, not just the one that lands in the variable.
+	const f32 a = 1.7:f32;
+	const f32 b = 3.9:f32;
+	pack_be_f32(buf, 48:u32, a * b + a / b - a * a);
+
+	// f64 needs no narrowing anywhere: its basic arithmetic is the same IEEE double on all three.
+	f64 wide = 1.0;
+	i = 0;
+	while (i < 40)
+	{
+		wide = wide * 1.1 + 0.7;
+		i = i + 1;
+	}
+	pack_be_f64(buf, 52:u32, wide);
+
+	WriteLine(bytes_hexstr(buf));
+	return 0;
+}

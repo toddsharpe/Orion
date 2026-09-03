@@ -1,0 +1,4 @@
+nanos    = 1500000
+celsius  = 50
+as i64   = 1500000, as i32 = 50
+Type.Name = celsius, size = 4

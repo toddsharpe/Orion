@@ -1,0 +1,17 @@
+// A #state port is the block's private memory, so there is no net for `@` to name.
+void Blk(#param str name, #state i32 c @ "wired", #output i32 y @ $"{name}_out")
+{
+	c = c + 1;
+	y = c;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Blk(name = "k") ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

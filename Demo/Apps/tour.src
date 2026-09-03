@@ -1,0 +1,229 @@
+//Every build-time construct Orion has, printed once from a standalone `main`. See Demo/README.md.
+#using "Lib/types.src"
+
+// ---- 12. A block's #init, started and stepped by hand ------------------------------------
+void Opener(
+	#param str name,
+	#state  i32 fd,
+	#output i32 handle
+)
+{
+	#init
+	{
+		fd = 7;
+		return fd != -1;
+	}
+
+	fd = fd + 1;
+	handle = fd;
+}
+
+// ---- 11. Ports as values + Code fragments ------------------------------------------------
+void Report(#param str name, #param List<Device> channels)
+{
+	#run
+	{
+		List<Code> lines = List::New<Code>();
+		for (const Device d in channels)
+		{
+			const Port p = Port::In(d.type, d.name);
+			lines.Add(#code {
+				WriteLine("  " + ${p.Name} + " (" + ${d.type.Name} + ") = " + to_str(${p}));
+			});
+		}
+
+		const Code body = Code::Combine(lines);
+		#insert { WriteLine("--- " + ${name} + ": " + to_str(${Code::Length(body)}) + " statements ---"); }
+		#insert body;
+	}
+}
+
+// ---- 10. A #param block used as a plain function, not wired into the solver --------------
+i32 Scale(#param str name, #param i32 factor, const i32 v)
+{
+	return v * factor;
+}
+
+// ---- 5. A #build function with a default argument, called from build code ----------------
+#build Code banner(const str text, const i32 reps = 3)
+{
+	#assert(reps > 0, "a banner needs at least one mark");
+	str marks = "";
+	for (i32 i = 0; i < reps; i++)
+	{
+		marks = marks + "-";
+	}
+
+	return Code::Parse($"WriteLine(\"banner     = {marks} {text} {marks}\");");
+}
+
+//A runtime entry, so the transcript below runs once and the program exits -- no platform, no rate.
+i32 main()
+{
+	// ---- 1. Type values ------------------------------------------------------------------
+	#run
+	{
+		const Type u = Type::Of<u16>();
+		#insert { WriteLine("Type.Name  = " + ${u.Name}); }
+		#insert { WriteLine("Type.Size  = " + to_str(${u.Size})); }
+		#insert { WriteLine("Type_str   = " + ${Type_str(u)}); }
+
+		const Type parsed = Type::Parse("f64");
+		#insert { WriteLine("Type::Parse = " + ${parsed.Name} + " / " + to_str(${parsed.Size}) + " bytes"); }
+
+		str same = "no";
+		if (u == Type::Of<u16>()) { same = "yes"; }
+		str diff = "no";
+		if (u == parsed) { diff = "yes"; }
+		#insert { WriteLine("u16==u16   = " + ${same} + ", u16==f64 = " + ${diff}); }
+	}
+
+	// ---- 2. pack_be<T> / unpack_be<T> ----------------------------------------------------------
+	u8[16] frame;
+	pack_be<u16>(frame, 0:u32, 4660:u16);
+	pack_be<f64>(frame, 2:u32, 1.5);
+	WriteLine("packed u16 = " + to_str(unpack_be<u16>(frame, 0:u32)));
+	WriteLine("packed f64 = " + to_str(unpack_be<f64>(frame, 2:u32)));
+
+	// ---- 3. Fragments splice as written --------------------------------------------------
+	#run
+	{
+		const Code bump = #code { label += 5; };
+		#insert { i32 label = 0; }
+		#insert bump;
+		#insert bump;
+		#insert { WriteLine("label = " + to_str(label)); }
+	}
+
+	// ---- 4. Unrolling: one copy per element, each carrying its own constant ---------------
+	#run
+	{
+		Code steps = Code::Empty();
+		i32 at = 0;
+		for (const i32 w in [3, 5, 7]:List<i32>)
+		{
+			steps += #code { acc = acc + ${w} * ${at}; };
+			at = at + 1;
+		}
+
+		#insert { i32 acc = 0; }
+		#insert steps;
+		#insert { WriteLine("unrolled acc = " + to_str(acc)); }
+	}
+
+	// ---- 5. A #build function, its default argument, and #assert -------------------------
+	#run { #insert banner("build"); }
+
+	// ---- 6. Interpolation, and text where a hole cannot reach ----------------------------
+	const i32 lo = 3;
+	const i32 hi = 8;
+	WriteLine($"interp     = {lo}..{hi}, span {hi - lo}");
+	#run
+	{
+		//A name is syntax, not a value, so a generated declaration of one is text.
+		const str cell = "counter";
+		#insert $"const i32 {cell} = 41;";
+		#insert $"WriteLine(\"text       = \" + to_str({cell} + 1));";
+	}
+
+	// ---- 7. Build-time collections: List, Map, comprehension, freeze ----------------------
+	//A build-only List frozen into the fixed array the runtime code indexes.
+	const i32[] doubled = #run {
+		const List<i32> src = [1, 2, 3, 4, 5]:List<i32>;
+		const List<i32> evens = [v * 10 for const i32 v in src if v % 2 == 0]:List<i32>;
+		return evens.ToArray();
+	};
+	WriteLine($"comprehen  = {doubled[0]},{doubled[1]}, of {doubled.Length}");
+
+	#run
+	{
+		Map<str, i32> widths = Map::New<str, i32>();
+		widths = widths + Map<str, i32>{ "u8" = 1, "u16" = 2 };
+		#insert { WriteLine("map        = u16 is " + to_str(${widths["u16"]}) + " bytes"); }
+	}
+
+	// ---- 8. A generated enum, and a switch whose arms are spliced ------------------------
+	#run
+	{
+		const List<str> steps = ["Idle", "Busy", "Done"]:List<str>;
+		Build::Enum("Phase", steps);
+
+		//The declared type is a hole too, so the enum need not be nameable when the fragment is written.
+		#insert { #state ${Type::Parse("Phase")} phase = ${Enum::Value("Phase", "Busy")}; }
+
+		List<Code> arms = List::New<Code>();
+		for (const str st in steps)
+		{
+			arms.Add(Code::Case<Enum>(Enum::Value("Phase", st), #code { WriteLine("phase      = " + ${st}); }));
+		}
+
+		#insert { switch (phase) { ${Code::Combine(arms)} } }
+	}
+
+	// ---- 9. Holes that are not expressions: a type, an operator, a typed literal ----------
+	#run
+	{
+		//An operator is syntax, so the config's ">=" arrives as a hole rather than as a value.
+		const str op = ">=";
+		#insert { const ${Type::Parse("u16")} gate = ${Str::To("40000", Type::Parse("u16"))}; }
+		#insert { const i32 raw = ${7}:i32 * 6000; }
+		#insert { WriteLine("holes      = " + to_str(raw ${op} cast<i32>(gate))); }
+	}
+
+	// ---- 10. Function handles: the callee of a generated call ----------------------------
+	#run
+	{
+		const Function scale = #create Scale(name = "by3", factor = 3);
+		#insert { const i32 tripled = ${scale}(7); }
+		#insert $"WriteLine(\"handle     = {scale} gave \" + to_str(tripled));";
+	}
+
+	// ---- 11. Ports as values: a block assembled at build time, then called --------------
+	const i32 count = 7;
+	const f64 level = 2.5;
+	#run
+	{
+		const List<Device> chans = [
+			Device{ name = "count", type = Type::Of<i32>() },
+			Device{ name = "level", type = Type::Of<f64>() }
+		]:List<Device>;
+
+		//Its ports are its parameters, so the assembled block is an ordinary call.
+		const Function rep = #create Report(name = "rep", channels = chans);
+		#insert { ${rep}(count, level); }
+	}
+
+	// ---- 12. A block's #init, started and stepped by hand -------------------------------
+	//`Opener` is NOT wired into a netlist: the `#state` port binds `fd` here and no solver sees it.
+	i32 fd = 0;
+	i32 opened = 0;
+	bool started = false;
+	#run
+	{
+		const Function op = #create Opener(name = "op");
+
+		//`f.Init` is the lifted #init, and empty when a block declares none, so ask before calling.
+		if (op.Init.Name != "") { #insert { started = ${op.Init}(fd); } }
+
+		#insert { ${op}(fd, opened); }
+		#insert { ${op}(fd, opened); }
+	}
+	WriteLine($"startup    = {started}, fd {fd}, opened {opened}");
+
+	// ---- 13. Calling a #create'd block at BUILD time -------------------------------------
+	#run
+	{
+		//A specialization is bodied like any other function, so the build can run one and fold the answer.
+		const Function five = #create Scale(name = "by5", factor = 5);
+		const i32 folded = Function::Call<i32>(five, ${v = 8});
+
+		//A block answers through its ports, so name the one to read; an #output starts at zero.
+		const Function probe = #create Opener(name = "probe");
+		const i32 ready = Function::Out<i32>(probe.Init, ${fd = 0}, "fd");
+		const i32 stepped = Function::Out<i32>(probe, ${fd = ready}, "handle");
+
+		#insert { WriteLine("buildcall  = " + to_str(${folded}) + ", started at " + to_str(${ready}) + " then " + to_str(${stepped})); }
+	}
+
+	return 0;
+}

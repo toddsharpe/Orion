@@ -1,0 +1,8 @@
+v = 3.0 a = 0.75
+back = 12.0
+scaled = 24.0
+ratio = 0.5
+square = 8100.0
+root = 90.0
+gain = 6.0
+accel = 19.62

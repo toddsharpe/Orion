@@ -1,0 +1,13 @@
+// An #output port is a reference the callee writes through, so a constant may not be passed to one.
+void produce(#output i32 v @ "net_a")
+{
+	v = 5;
+}
+
+i32 main()
+{
+	const i32 frozen = 1;
+	produce(frozen);
+	WriteLine(to_str(frozen));
+	return 0;
+}

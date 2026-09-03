@@ -1,0 +1,44 @@
+// A literal's type comes from its suffix, not from whatever was written first. Literals are interned
+// per (value, type): `4242:time` and `4242:ticks` box to the same CLR long, and matching on the value
+// alone used to hand the second one the first one's Orion type -- reported as a bogus
+// "Invalid assignment of ticks = time" whose only cause was the two numbers being equal.
+
+typedef i64 time;
+typedef i64 ticks;
+
+// A root-scope const is visible from every function below it, so its literal is the one most likely
+// to be found first by an unrelated line somewhere else in the program.
+const time PERIOD = 4242:time;
+
+// Underscores belong to a type name, so a suffix must read all of `nano_t` rather than stopping at
+// the `_` and leaving a `_t` no parser could consume.
+typedef i64 nano_t;
+
+str show(time a, ticks b, i64 c, nano_t d)
+{
+	return to_str(a) + " " + to_str(b) + " " + to_str(c) + " " + to_str(d);
+}
+
+i32 main()
+{
+	// The same number at four types, in one scope. Each keeps the type it was written with.
+	time  a = 4242:time;
+	ticks b = 4242:ticks;
+	i64   c = 4242:i64;
+	nano_t d = 4242:nano_t;
+	WriteLine("same value : " + show(a, b, c, d));
+
+	// And against the const the root scope already holds.
+	WriteLine("const      : " + to_str(PERIOD) + " " + to_str(4242:i64));
+
+	// A leading `-` parses as a prefix operator rather than part of the number, so a negative element
+	// used to make the whole literal an expression -- and an expression's elements are not typed by the
+	// array's suffix, so `[1.0, -2.0]:f32` was rejected as f64 while `[1.0, 2.0]:f32` was fine.
+	f32[] xs = [1.0, -2.0, 3.5, -0.25]:f32;
+	WriteLine("f32 array  : " + to_str(xs[0]) + " " + to_str(xs[1]) + " " + to_str(xs[2]) + " " + to_str(xs[3]));
+
+	i16[] ys = [-1, 2, -3]:i16;
+	WriteLine("i16 array  : " + to_str(ys[0]) + " " + to_str(ys[1]) + " " + to_str(ys[2]));
+
+	return 0;
+}

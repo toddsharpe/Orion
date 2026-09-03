@@ -1,0 +1,1 @@
+build struct fields are built, not null

@@ -1,0 +1,8 @@
+a_count (i32): 0
+b_count (i32): 0
+a_count (i32): 1
+b_count (i32): 10
+a_count (i32): 2
+b_count (i32): 20
+a_count (i32): 3
+b_count (i32): 30

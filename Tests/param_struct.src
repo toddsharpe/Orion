@@ -1,0 +1,58 @@
+struct Mount
+{
+	i32 axis;
+}
+
+struct Geometry
+{
+	i32 imu;
+	Mount mount;
+	i32[3] trim;
+}
+
+const Geometry Fixed = Geometry{ imu = 4, mount = Mount{ axis = 2 }, trim = [10, 20, 30]:i32 };
+
+i32 Sum(const i32[3] xs)
+{
+	return xs[0] + xs[1] + xs[2];
+}
+
+void Count(#param str name, #state i32 t = 0, #output i32 tick @ "tick")
+{
+	tick = t;
+	t = t + 1;
+}
+
+void Watch(#param str name, #param Geometry geo, #input i32 tick @ "tick")
+{
+	WriteLine("imu = " + to_str(geo.imu));
+	WriteLine("axis = " + to_str(geo.mount.axis));
+	WriteLine("trim1 = " + to_str(geo.trim[1]));
+	WriteLine("sum = " + to_str(Sum(geo.trim)));
+	WriteLine("const imu = " + to_str(Fixed.imu));
+	WriteLine("const axis = " + to_str(Fixed.mount.axis));
+	WriteLine("const trim2 = " + to_str(Fixed.trim[2]));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks =
+		[
+			#create Count(name = "count"),
+			#create Watch(name = "watch", geo = Geometry{ imu = 7, mount = Mount{ axis = 5 }, trim = [1, 2, 3]:i32 })
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert
+		{
+			${Solver::Struct(solver)};
+			if (solver_init(state) == false) { return -1; }
+			solver_cycle(state);
+		}
+	}
+
+	return 0;
+}

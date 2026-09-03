@@ -1,0 +1,6 @@
+a_out (i32): 0
+b_out (i32): 0
+a_out (i32): 1
+b_out (i32): 10
+a_out (i32): 2
+b_out (i32): 20

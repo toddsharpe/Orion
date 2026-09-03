@@ -1,0 +1,17 @@
+// Float constant folding (B9): literal-only float arithmetic is evaluated at
+// compile time and comparisons fold to bool. Non-finite results (e.g. div by
+// zero) are left to runtime, and non-literal float math is untouched.
+i32 main()
+{
+	f64 a = 2.0 + 3.0;
+	f64 b = 10.0 - 4.0;
+	f64 c = 2.5 * 4.0;
+	f64 d = 9.0 / 2.0;
+	WriteLine(to_str(a));
+	WriteLine(to_str(b));
+	WriteLine(to_str(c));
+	WriteLine(to_str(d));
+	WriteLine(to_str(1.0 < 2.0));
+	WriteLine(to_str(5.0 >= 9.0));
+	return 0;
+}

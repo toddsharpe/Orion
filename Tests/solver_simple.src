@@ -1,0 +1,44 @@
+void Count(#param str name, #state i32 prev = 0, #output i32 last)
+{
+	last = prev;
+	prev = prev + 1;
+}
+
+void Even(#param str name, #input i32 last, #output bool is_even)
+{
+	is_even = last % 2 == 0;
+}
+
+void Square(#param str name, #input i32 last, #output i32 squared)
+{
+	squared = last * last;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Count(name = "my_count"),
+			#create Even(name = "my_even"),
+			#create Square(name = "square")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		Code view = Solver::ViewState(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 5; i++)
+			{
+				WriteLine("Cycle: " + to_str(i));
+				solver_cycle(state);
+				${view};
+			}
+		}
+	}
+
+	return 0;
+}

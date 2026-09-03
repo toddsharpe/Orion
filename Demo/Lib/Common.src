@@ -1,0 +1,76 @@
+//The cycle's own health, in Orion so it is the same on every backend; a platform still owns the loop.
+#using "Lib/types.src"
+#using "Lib/Platform.src"
+
+//Published as ports on the `App` subtree, all of it derived from the one `cycle_time` the platform stamped.
+void CycleStart(#param str name, #param time dt_ns,
+	#input time cycle_time,
+	#output time cycle_latency @ "App.CycleLatency",
+	#output time cycle_interval @ "App.CycleInterval",
+	#output i64 cycles @ "App.Cycles",
+	#output i32 skips @ "App.SkippedCycles",
+	#state time prev = 0,
+	#state time seen = 0,
+	#state i64 n = 0,
+	#state i32 missed = 0)
+{
+	//How late into its slot a cycle was serviced: the margin, which an overrun count only reports once gone.
+	const time now = Platform_Now();
+	cycle_latency = now - cycle_time;
+
+	//Cycle to cycle off that same clock, so a stall shows as an interval and not only as a skip.
+	if (seen > 0:time)
+	{
+		cycle_interval = now - seen;
+	}
+	seen = now;
+
+	//Missed SLOTS, not lateness events: five periods late is five, and monotonic time cannot go backwards.
+	if (prev > 0:time)
+	{
+		missed = missed + cast<i32>((cycle_time - prev) / dt_ns) - 1;
+	}
+	prev = cycle_time;
+
+	n = n + 1:i64;
+	cycles = n;
+	skips = missed;
+}
+
+// ---- self-test ----
+
+//The cells are threaded by hand, so each call is one cycle with a stated history.
+#build bool CycleStart_SelfTest()
+{
+	Function cs = #create CycleStart(name = "cyclestart_selftest", dt_ns = Hz_100);
+
+	//No previous stamp, so nothing can have been missed yet.
+	#assert(Function::Out<i32>(cs, ${cycle_time = 0:time, prev = 0:time, seen = 0:time, n = 0:i64, missed = 0}, "skips") == 0,
+		"CycleStart: the first cycle has no previous stamp, so nothing is missed");
+
+	//Back-to-back slots: the healthy case, and the one a held rate produces every cycle.
+	#assert(Function::Out<i32>(cs, ${cycle_time = 2:time * Hz_100, prev = Hz_100, seen = 0:time, n = 1:i64, missed = 0}, "skips") == 0,
+		"CycleStart: consecutive slots skip nothing");
+
+	//One slot lost.
+	#assert(Function::Out<i32>(cs, ${cycle_time = 3:time * Hz_100, prev = Hz_100, seen = 0:time, n = 1:i64, missed = 0}, "skips") == 1,
+		"CycleStart: a stamp two periods on means one slot was missed");
+
+	//SLOTS, not events: this is what a platform counting the times it noticed being late gets wrong.
+	#assert(Function::Out<i32>(cs, ${cycle_time = 6:time * Hz_100, prev = Hz_100, seen = 0:time, n = 1:i64, missed = 0}, "skips") == 4,
+		"CycleStart: five periods late is four missed slots, not one late cycle");
+
+	//Accumulates rather than reporting only this cycle.
+	#assert(Function::Out<i32>(cs, ${cycle_time = 3:time * Hz_100, prev = Hz_100, seen = 0:time, n = 1:i64, missed = 7}, "skips") == 8,
+		"CycleStart: skips is a running total");
+
+	//The cycle counter is the count of dispatches, so it starts at one.
+	#assert(Function::Out<i64>(cs, ${cycle_time = 0:time, prev = 0:time, seen = 0:time, n = 0:i64, missed = 0}, "cycles") == 1:i64,
+		"CycleStart: the first cycle is cycle one");
+	#assert(Function::Out<i64>(cs, ${cycle_time = 5:time * Hz_100, prev = 4:time * Hz_100, seen = 0:time, n = 41:i64, missed = 0}, "cycles") == 42:i64,
+		"CycleStart: the cycle count advances by one whatever the stamps did");
+
+	return true;
+}
+
+#test CycleStart_SelfTest "cycle health"

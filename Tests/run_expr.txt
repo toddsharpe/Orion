@@ -1,0 +1,5 @@
+scalar  build=55 runtime=55
+struct  build=orion/5 runtime=orion/5
+array   build=0 2 4 6 8 runtime=0 2 4 6 8 
+chained build=alpha,beta,9 runtime=alpha,beta,9
+void    emitted=42

@@ -1,0 +1,57 @@
+// `#prev` is an `#input` that means LAST cycle's value, which is what a net driven later carries.
+
+void Controller(
+	#param str name,
+	#param i32 gain,
+	#input i32 level @ "plant_level",
+	#output i32 command @ "ctrl_command"
+)
+{
+	// Drive toward 100, so a closed loop climbs and an open one would run away.
+	command = (100 - level) * gain;
+}
+
+void Plant(
+	#param str name,
+	// The controller is listed after this block, so its command is a cycle old. That IS the feedback.
+	#prev i32 command @ "ctrl_command",
+	#output i32 level @ "plant_level"
+)
+{
+	level = level + command;
+}
+
+// Reads both nets, and both drivers are listed before it, so both are this cycle's.
+void Show(
+	#param str name,
+	#input i32 level @ "plant_level",
+	#input i32 command @ "ctrl_command"
+)
+{
+	WriteLine("level " + to_str(level) + " command " + to_str(command));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Plant(name = "plant"),
+			#create Controller(name = "ctrl", gain = 1),
+			#create Show(name = "show")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 5; i++)
+			{
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

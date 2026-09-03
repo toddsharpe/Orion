@@ -1,0 +1,139 @@
+// Two bugs a ternary inside a solver block used to hit, and one the identifiers below did.
+//
+// A ternary's result temp has TWO writers, one per branch -- the only common shape that does.
+// `TempCondense` folds a writer into its reader and splices the replacement in, but it only ADDED the
+// replacement to its data graph rather than linking it, so the symbols that replacement touched came
+// out an edge short. A later fold then read "one writer, one reader" off a temp that had two, folded a
+// branch away, and left the ternary evaluating to whichever branch it kept -- and the dangling temp
+// crashed the next pass with "The given key '_temp_TNN:f32' was not present in the dictionary".
+//
+// It only bit inside a `#param` block because the fold order there put the branch temp first. That is
+// what makes it worth pinning: the pass was order-dependent, so an ordinary function was one temp
+// number away from the same silent answer.
+// True when a and b are within tol of each other; NaN compares false, as it should.
+bool approx(const f64 a, const f64 b, const f64 tol)
+{
+	return fabs<f64>(a - b) <= tol;
+}
+
+// `trueX` and `falseX` are identifiers, not keywords. `str "true"` used to match the prefix and leave a
+// `Height` nothing could consume, failing the whole enclosing block with a parse error.
+struct Reading
+{
+	bool trueNorth;
+	f32 falseAlarm;
+}
+
+// The plain function: both branches, and a compound one on the right.
+f32 Pick(const f32 x)
+{
+	return x < 1.0:f32 ? 10.0:f32 : x + 100.0:f32;
+}
+
+// A ternary whose branches BOTH compute, so neither writer is a bare literal the folder can hoist.
+i32 Grade(const i32 n)
+{
+	return n < 0 ? 0 - n * 2 : n * 3 + 1;
+}
+
+// ---- blocks ----
+
+// The source, alternating so both branches of the block below are taken.
+void Source(#param str name, #state i32 i, #output f32 x @ "x")
+{
+	if (i == 0)
+	{
+		x = 0.0:f32;
+	}
+	else
+	{
+		x = 5.0:f32;
+	}
+	i = i + 1;
+}
+
+// The shape that used to crash: a ternary in a block, with a non-literal branch.
+void Choose(
+	#param str name,
+	#param f32 threshold = 1.0:f32,
+	#input f32 x @ "x",
+	#output f32 y @ "y",
+	#output i32 graded @ "graded"
+)
+{
+	#init
+	{
+		return true;
+	}
+
+	y = x < threshold ? 10.0:f32 : x + 100.0:f32;
+	graded = Grade(cast<i32>(x) - 2);
+}
+
+#build bool Ternary_SelfTest()
+{
+	// Both branches, at build time, where the same folds run.
+	#assert(approx(cast<f64>(Pick(0.0:f32)), 10.0, 0.000001), "ternary: the true branch");
+	#assert(approx(cast<f64>(Pick(5.0:f32)), 105.0, 0.000001), "ternary: the false branch");
+
+	#assert(Grade(-4) == 8, "ternary: a computed true branch");
+	#assert(Grade(4) == 13, "ternary: a computed false branch");
+
+	// Identifiers that begin with a keyword.
+	f32 trueHeight = 12.5:f32;
+	bool falseStart = false;
+	Reading r = Reading{ trueNorth = true, falseAlarm = 1.0:f32 };
+	#assert(approx(cast<f64>(trueHeight), 12.5, 0.000001), "identifier: `trueHeight` is a name");
+	#assert(falseStart == false, "identifier: `falseStart` is a name");
+	#assert(r.trueNorth, "identifier: and so is a field called `trueNorth`");
+	#assert(approx(cast<f64>(r.falseAlarm), 1.0, 0.000001), "identifier: or `falseAlarm`");
+
+	// The keywords themselves still parse.
+	#assert(true, "keyword: true");
+	#assert(!false, "keyword: false");
+
+	return true;
+}
+
+#run
+{
+	Ternary_SelfTest();
+}
+
+i32 main()
+{
+	// The same two branches at runtime, so the backends have to agree with the build.
+	WriteLine("Pick(0)  = " + to_str(Pick(0.0:f32)));
+	WriteLine("Pick(5)  = " + to_str(Pick(5.0:f32)));
+	WriteLine("Grade(-4)= " + to_str(Grade(-4)));
+	WriteLine("Grade(4) = " + to_str(Grade(4)));
+
+	f32 trueHeight = 12.5:f32;
+	bool falseStart = false;
+	WriteLine("names    = " + to_str(trueHeight) + " " + to_str(falseStart));
+
+	// And through a block, where the fold order is what used to break it.
+	#run
+	{
+		Function[] blocks = [
+			#create Source(name = "src"),
+			#create Choose(name = "pick")
+		]:Function;
+
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert
+		{
+			for (i32 c = 0; c < 2; c++)
+			{
+				solver_cycle(state);
+				WriteLine("block    = x " + to_str(state.x) + " -> y " + to_str(state.y) + ", graded " + to_str(state.graded));
+			}
+		}
+	}
+
+	return 0;
+}

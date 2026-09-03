@@ -1,0 +1,47 @@
+// Reusable solver blocks. A #param block is a template; each named-arg instantiation is
+// specialized (the #param fold into the body, the @ interpolations resolve to concrete nets) and
+// wired by net. AddN is reused twice on the same input net with different n and different outputs.
+
+void Const(
+	#param str name,
+	#param i32 value,
+	#output i32 output @ $"{name}_out"
+)
+{
+	output = value;
+}
+
+void AddN(
+	#param str name,
+	#param str source,
+	#param i32 n = 1,
+	#input i32 input @ source,
+	#output i32 output @ $"{name}_out"
+)
+{
+	output = input + n;
+}
+
+i32 main()
+{
+	#run
+	{
+		const i32 v = 5;
+		i32 n = 0;
+		n++;
+		Function[] funcs = [
+			#create Const(name = "seed", value = v),
+			#create AddN(name = "a", source = "seed_out", n = n),
+			#create AddN(name = "b", source = "seed_out", n = 100)
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { solver_cycle(state); }
+		#insert Solver::ViewState(solver);
+	}
+
+	return 0;
+}

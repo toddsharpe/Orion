@@ -1,0 +1,166 @@
+//The flight machine: eight states, and a `phases` map deciding which calcs each state lets run.
+#using "Lib/sm_types.src"
+
+#build StateMachine machine()
+{
+	return StateMachine
+	{
+		// Everything the machine tests; the machine runs first, so it decides on last cycle's answers.
+		inputs = [
+			Device{ name = "Launch.Detected",    type = Type::Of<bool>() },
+			Device{ name = "Coast.Detected",     type = Type::Of<bool>() },
+			Device{ name = "Apogee.Detected",    type = Type::Of<bool>() },
+			Device{ name = "Landed.Detected",    type = Type::Of<bool>() },
+			Device{ name = "GpsReady.Ready",     type = Type::Of<bool>() },
+			Device{ name = "Baro.Calibrated",    type = Type::Of<bool>() },
+			Device{ name = "Imu.GyroCalibrated", type = Type::Of<bool>() },
+			Device{ name = "ArmCmd",             type = Type::Of<bool>() },
+			Device{ name = "RelaunchCmd",        type = Type::Of<bool>() }
+		]:List<Device>,
+
+		// The seven driven by a calc listed AFTER the machine, so this cycle's answer is not written yet.
+		prev = [
+			"Launch.Detected",
+			"Coast.Detected",
+			"Apogee.Detected",
+			"Landed.Detected",
+			"GpsReady.Ready",
+			"Baro.Calibrated",
+			"Imu.GyroCalibrated"
+		]:List<str>,
+
+		// No event outputs: it dispatches rather than sequences, and the state is published regardless.
+		outputs = []:List<Device>,
+
+		// One trigger per edge; order is priority within a state, and it is load-bearing in two places:
+		//   Armed   launch before disarm  -- a launch on the cycle the operator disarms goes to Boost
+		//   Idle    notready before arm   -- losing the fix wins over an arm request
+		triggers = [
+			Trigger{ name = "launch", command = "LAUNCH", conditions = [
+				Condition{ input = "Launch.Detected", op = "==", threshold = "true" }
+			]:List<Condition> },
+
+			Trigger{ name = "coast", command = "COAST", conditions = [
+				Condition{ input = "Coast.Detected", op = "==", threshold = "true" }
+			]:List<Condition> },
+
+			Trigger{ name = "apogee", command = "APOGEE", conditions = [
+				Condition{ input = "Apogee.Detected", op = "==", threshold = "true" }
+			]:List<Condition> },
+
+			Trigger{ name = "landed", command = "LANDED", conditions = [
+				Condition{ input = "Landed.Detected", op = "==", threshold = "true" }
+			]:List<Condition> },
+
+			Trigger{ name = "notready", command = "NOTREADY", conditions = [
+				Condition{ input = "GpsReady.Ready", op = "==", threshold = "false" }
+			]:List<Condition> },
+
+			// `gpsReady && calibrated`, as three conditions rather than a net something else had to compute.
+			Trigger{ name = "ready", command = "READY", conditions = [
+				Condition{ input = "GpsReady.Ready",     op = "==", threshold = "true" },
+				Condition{ input = "Baro.Calibrated",    op = "==", threshold = "true" },
+				Condition{ input = "Imu.GyroCalibrated", op = "==", threshold = "true" }
+			]:List<Condition> },
+
+			Trigger{ name = "arm", command = "ARM", conditions = [
+				Condition{ input = "ArmCmd", op = "==", threshold = "true" }
+			]:List<Condition> },
+
+			Trigger{ name = "disarm", command = "DISARM", conditions = [
+				Condition{ input = "ArmCmd", op = "==", threshold = "false" }
+			]:List<Condition> },
+
+			// `!armed && relaunch`: a second switch has to be off before the first one can restart a flight.
+			Trigger{ name = "relaunch", command = "RELAUNCH", conditions = [
+				Condition{ input = "ArmCmd",      op = "==", threshold = "false" },
+				Condition{ input = "RelaunchCmd", op = "==", threshold = "true" }
+			]:List<Condition> },
+
+			// No conditions, so it fires the cycle it is evaluated: `Init` exists only to have a start.
+			Trigger{ name = "go", command = "GO", conditions = []:List<Condition> }
+		]:List<Trigger>,
+
+		// The first state listed is the initial one.
+		states = [
+			State{
+				name = "Init",
+				phase = "Pad",
+				commands = Map<str, str>{ "GO" = "GpsWait" },
+				events = []:List<Event>
+			},
+
+			// Waiting for a fix and for both biases to fill: what keeps Altitude off a zero reference.
+			State{
+				name = "GpsWait",
+				phase = "Pad",
+				commands = Map<str, str>{ "READY" = "Idle" },
+				events = []:List<Event>
+			},
+
+			// Ready, waiting on the operator. Losing the fix drops back rather than arming on a stale one.
+			State{
+				name = "Idle",
+				phase = "Pad",
+				commands = Map<str, str>{ "NOTREADY" = "GpsWait", "ARM" = "Armed" },
+				events = []:List<Event>
+			},
+
+			// LaunchDetect runs in this state and no other, so a detection during setup cannot reach Boost.
+			State{
+				name = "Armed",
+				phase = "Armed",
+				commands = Map<str, str>{ "LAUNCH" = "Boost", "DISARM" = "Idle" },
+				events = []:List<Event>
+			},
+
+			State{
+				name = "Boost",
+				phase = "Boost",
+				commands = Map<str, str>{ "COAST" = "Coast" },
+				events = []:List<Event>
+			},
+
+			State{
+				name = "Coast",
+				phase = "Coast",
+				commands = Map<str, str>{ "APOGEE" = "Descent" },
+				events = []:List<Event>
+			},
+
+			State{
+				name = "Descent",
+				phase = "Descent",
+				commands = Map<str, str>{ "LANDED" = "Landed" },
+				events = []:List<Event>
+			},
+
+			// Down: everything stops but the landing site, and a relaunch needs the arm switch off first.
+			State{
+				name = "Landed",
+				phase = "Landed",
+				commands = Map<str, str>{ "RELAUNCH" = "GpsWait" },
+				events = []:List<Event>
+			}
+		]:List<State>,
+
+		// A phase is a SET of blocks, not a sequence: order is the solver's block list in rocket.src.
+		phases = Map<str, List<str>>{
+			"Pad"     = ["gpsready", "barobias", "gyrobias", "pad"]:List<str>,
+			"Armed"   = ["alt", "range", "orient", "heading", "spin", "launch"]:List<str>,
+			"Boost"   = ["alt", "range", "orient", "heading", "spin", "coast"]:List<str>,
+			"Coast"   = ["alt", "range", "orient", "heading", "spin", "apogee"]:List<str>,
+			"Descent" = ["alt", "range", "orient", "heading", "spin", "landed"]:List<str>,
+			"Landed"  = ["site"]:List<str>
+		},
+
+		// The transcript comes from rocket.src's Report blocks, reading the nets a ground station would.
+		trace = false
+	};
+}
+
+//Declaring `main` is how a config tells `orion test` it is a program and must not be merged into one.
+i32 main()
+{
+	return 0;
+}

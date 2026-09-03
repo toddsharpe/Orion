@@ -1,0 +1,1 @@
+many=2 one=solo nil=0 start=Warmup b=2 empty=0 nested=2 a1 b2 arr=30

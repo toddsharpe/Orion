@@ -1,0 +1,23 @@
+// An #input port is read-only: it is the net's value arriving, not storage the block owns.
+void Src(#param str name, #output i32 v @ $"{name}_out")
+{
+	v = 1;
+}
+
+void Blk(#param str name, #param str source,
+		 #input i32 x @ source, #output i32 y @ $"{name}_out")
+{
+	x = x + 1;
+	y = x;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Src(name = "s"), #create Blk(name = "k", source = "s_out") ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

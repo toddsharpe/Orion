@@ -1,0 +1,31 @@
+// The failing half of Tests/assert.src, which can only show #assert passing.
+struct Row { str name; i32 weight; }
+
+#build i32 total(List<Row> rows)
+{
+	#assert(rows.Length > 0, "no rows");
+
+	i32 sum = 0;
+	for (const Row r in rows)
+	{
+		#assert(r.weight > 0, "row '" + r.name + "' has no weight");
+		sum = sum + r.weight;
+	}
+
+	return sum;
+}
+
+#build str check()
+{
+	List<Row> rows = [
+		Row{ name = "a", weight = 10 },
+		Row{ name = "b", weight = 0 }
+	]:List<Row>;
+	return "total=" + to_str(total(rows));
+}
+
+i32 main()
+{
+	WriteLine(#run check());
+	return 0;
+}

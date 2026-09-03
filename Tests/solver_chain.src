@@ -1,0 +1,43 @@
+// One Double block reused across a pipeline, each stage reading the previous stage's net.
+
+void Const(
+	#param str name,
+	#param i32 value,
+	#output i32 output @ $"{name}_out"
+)
+{
+	output = value;
+}
+
+void Double(
+	#param str name,
+	#param str source,
+	#input i32 input @ source,
+	#output i32 output @ $"{name}_out"
+)
+{
+	output = input * 2;
+}
+
+i32 main()
+{
+	#run
+	{
+		const i32 v = 3;
+		Function[] funcs = [
+			#create Const(name = "s", value = v),
+			#create Double(name = "d1", source = "s_out"),
+			#create Double(name = "d2", source = "d1_out"),
+			#create Double(name = "d3", source = "d2_out")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { solver_cycle(state); }
+		#insert Solver::ViewState(solver);
+	}
+
+	return 0;
+}

@@ -1,0 +1,91 @@
+// Roll rate about the long axis: one de-biased gyro axis, with the axis and sign the caller's to pick.
+#using "Lib/Math.src"
+#using "Lib/units.src"
+
+// This airframe reads roll backwards; a board mounted the other way passes 1.0 instead.
+const f32 SpinAxisSign = -1.0:f32;
+
+// Revolutions per second, which a recovery system's limits are written in: the divisor is degrees PER REVOLUTION.
+f32<rev/s> SpinRate_Revolutions(const f32<deg/s> degreesPerSecond)
+{
+	return degreesPerSecond / 360.0:f32<deg/rev>;
+}
+
+// One tick in degrees per second; roll is the chip's X axis.
+void SpinRate(
+	#param str name,
+	#param f32 axis_sign = -1.0:f32,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<deg/s> gyroX @ "Imu.GyroX",
+	#input bool updated @ "Imu.Updated",
+	#input f32<deg/s> biasX @ "Imu.GyroBiasX",
+	#output f32<deg/s> rate @ "Spin.RateDps"
+)
+{
+	// Not dispatched this cycle: the net holds, the same way it does for a stale sample below.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// A stale sample carries no new rate; the net holds the last one.
+	if (updated == false)
+	{
+		return;
+	}
+
+	rate = axis_sign * (gyroX - biasX);
+}
+
+// ---- self-test ----
+
+#build bool SpinRate_SelfTest()
+{
+	Instance spin = Function::Start(#create SpinRate(name = "spinrate_selftest"));
+	#assert(Instance::Get<f32>(spin, "rate") == 0.0:f32, "SpinRate: a cold start is not rolling");
+
+	// A still vehicle reads its own bias, and de-biasing it is zero.
+	Function::Tick(spin, ${enabled = true, gyroX = 0.4:f32, updated = true, biasX = 0.4:f32});
+	#assert(approx(cast<f64>(Instance::Get<f32>(spin, "rate")), 0.0, 0.000001),
+		"SpinRate: a still gyro minus its bias is no rotation");
+
+	// The bias is subtracted, not ignored: a real rate carries the offset with it until it is removed.
+	Function::Tick(spin, ${enabled = true, gyroX = 90.4:f32, updated = true, biasX = 0.4:f32});
+	#assert(approx(cast<f64>(Instance::Get<f32>(spin, "rate")), -90.0, 0.0001),
+		"SpinRate: the bias must come out of a real rate");
+
+	// Direction survives: rolling the other way is the other sign.
+	Function::Tick(spin, ${enabled = true, gyroX = -90.0:f32, updated = true, biasX = 0.0:f32});
+	#assert(Instance::Get<f32>(spin, "rate") > 0.0:f32, "SpinRate: reversing the rotation reverses the answer");
+
+	// A stale sample is not a new rate, so the net keeps what it last said rather than reading zero.
+	Function::Tick(spin, ${enabled = true, gyroX = 4000.0:f32, updated = false, biasX = 0.0:f32});
+	#assert(Instance::Get<f32>(spin, "rate") > 0.0:f32, "SpinRate: an un-updated IMU holds the last answer");
+
+	// The sign is the mounting, so both are two blocks: a tick does not get to refit the board.
+	Instance other = Function::Start(#create SpinRate(name = "spinrate_other", axis_sign = 1.0:f32));
+	Function::Tick(other, ${enabled = true, gyroX = 90.0:f32, updated = true, biasX = 0.0:f32});
+	#assert(approx(cast<f64>(Instance::Get<f32>(other, "rate")), 90.0, 0.0001),
+		"SpinRate: a board mounted the other way reads the other way");
+
+	Function::Tick(spin, ${enabled = true, gyroX = 90.0:f32, updated = true, biasX = 0.0:f32});
+	#assert(Instance::Get<f32>(other, "rate") == -Instance::Get<f32>(spin, "rate"),
+		"SpinRate: the two conventions are exact negations");
+
+	// Revolutions: one turn a second is 360 deg/s, and the sign carries through.
+	#assert(approx(cast<f64>(SpinRate_Revolutions(360.0:f32<deg/s>)), 1.0, 0.000001),
+		"SpinRate: 360 deg/s is one revolution a second");
+	#assert(approx(cast<f64>(SpinRate_Revolutions(-180.0:f32<deg/s>)), -0.5, 0.000001),
+		"SpinRate: half a turn backwards is -0.5 rev/s");
+
+	// Disabled: the net holds, exactly as it does for a stale sample.
+	Instance held = Function::Start(#create SpinRate(name = "spinrate_held"));
+	Function::Tick(held, ${enabled = true, gyroX = 90.0:f32, updated = true, biasX = 0.0:f32});
+	const f32 spinning = Instance::Get<f32>(held, "rate");
+	Function::Tick(held, ${enabled = false, gyroX = 4000.0:f32, updated = true, biasX = 0.0:f32});
+	#assert(Instance::Get<f32>(held, "rate") == spinning, "SpinRate: a disabled tick holds the last answer");
+
+	return true;
+}
+
+#test SpinRate_SelfTest "Roll rate"

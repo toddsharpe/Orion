@@ -1,0 +1,3 @@
+seed_out (i32): 5
+a_out (i32): 6
+b_out (i32): 105

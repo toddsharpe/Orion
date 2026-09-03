@@ -1,0 +1,42 @@
+//The inversion, driven by Orion's own executive: no channels, so the blocks just print. See Demo/README.md.
+#using "Lib/types.src"
+#using "Lib/Common.src"
+#using "Services.src"
+
+//A ramp, so each cycle is visibly different and a transcript is worth diffing.
+void Ramp(#param str name, #state i32 t = 1, #output i32 level @ "level")
+{
+	//Startup, once before the first cycle; under an exported solver a `#state` initializer runs here too.
+	#init
+	{
+		t = 1;
+		return true;
+	}
+
+	level = t * 3;
+	t = t + 1;
+}
+
+//Reads the net the ramp drives, and the timestamp the platform stamped this cycle with.
+void Watch(#param str name, #input i32 level @ "level", #input time cycle_time)
+{
+	WriteLine("cycle t=" + to_str(cast<i64>(cycle_time)) + "ns level=" + to_str(level));
+}
+
+#build i32 main()
+{
+	Function[] blocks =
+	[
+		//Reads the stamp the platform hands each cycle and turns it into the executive's own health.
+		#create CycleStart(name = "cycle", dt_ns = Hz_100),
+		#create Ramp(name = "ramp"),
+		#create Watch(name = "watch")
+	]:Function;
+
+	Solver solver = Solver::New(blocks);
+
+	//Export rather than Solve: the state becomes a global, so a platform links against functions alone.
+	Solver::Export(solver, Hz_100);
+
+	return 0;
+}

@@ -1,0 +1,19 @@
+// A declaration is a channel, not a lookup: the service addresses the bus and the index addresses the ring,
+// so two declarations on one service are two rings and the second does not fold into the first.
+#using "Lib/types.src"
+
+extern i32 channel_count();
+extern i32 channel_service(i32 index);
+extern i32 channel_bytes(i32 index);
+
+i32 main()
+{
+	const i32 a = #run Channel::Tx(1, 16, 2);
+	const i32 b = #run Channel::Tx(1, 24, 2);
+
+	WriteLine("indexes " + to_str(a) + " " + to_str(b));
+	WriteLine("count " + to_str(channel_count()));
+	WriteLine("service " + to_str(channel_service(a)) + " " + to_str(channel_service(b)));
+	WriteLine("bytes " + to_str(channel_bytes(a)) + " " + to_str(channel_bytes(b)));
+	return 0;
+}

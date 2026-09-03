@@ -1,0 +1,8 @@
+build Busy=1
+name Done
+ordinal 2
+round trip Done
+scaled 3.0
+0 -> Idle
+1 -> Busy
+2 -> Done

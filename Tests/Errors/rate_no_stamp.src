@@ -1,0 +1,21 @@
+// The guard tests the stamp, so a netlist with no `cycle_time` has nothing for a schedule to fire on.
+void Tick(#param str name, #output i32 n @ "ticks")
+{
+	n = n + 1;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Tick(name = "slow") ${ period = 30000000 }
+		]:Function;
+
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

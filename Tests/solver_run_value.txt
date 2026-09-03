@@ -1,0 +1,7 @@
+a: first escape
+a: second escape
+b: first escape
+b: second escape
+s_out (i32): 3
+a_out (i32): 30
+b_out (i32): 600

@@ -1,0 +1,1 @@
+i32.len=5 sum=10 f64.len=4 sum=6.0 u32=0,1,2 zero=0 neg=0 squares=55 odd=135

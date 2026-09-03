@@ -1,0 +1,53 @@
+// Mixed block: a #param template with BOTH a static declarative body AND a #build escape.
+//
+// The three block flavors now coexist as one construct:
+//   * static      - Source (declarative body, no escape)
+//   * mixed       - Tap    (declarative body `y = x * 2`  +  a #build escape that adds a debug print)
+//   * (fully data-driven blocks live in demo_claude_solver: Display / Pack)
+//
+// The static part is specialized normally (folded #params, resolved @ nets); the #build escape runs
+// during specialization against a builder seeded with that static body, appending the dynamic parts.
+
+void Source(#param str name, #state i32 t = 0, #output i32 v @ $"{name}_out")
+{
+	v = t + 1;
+	t = t + 1;
+}
+
+void Tap(#param str name, #param str source, #param i32 gain,
+		 #input i32 x @ source, #output i32 y @ $"{name}_out")
+{
+	// static declarative body (gain is a folded #param)
+	y = x * gain;
+
+	// dynamic escape: append a debug line (targetless #insert -> the function being assembled)
+	#run {
+		#insert { WriteLine("tap " + ${name} + ": " + to_str(x) + " * " + to_str(${gain}) + " = " + to_str(y)); }
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [
+			#create Source(name = "src"),
+			#create Tap(name = "tap", source = "src_out", gain = 3)
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 t = 0; t < 4; t++)
+			{
+				WriteLine("-- cycle " + to_str(t) + " --");
+				solver_cycle(state);
+				${Solver::ViewState(solver)};
+			}
+		}
+	}
+
+	return 0;
+}

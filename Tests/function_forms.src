@@ -1,0 +1,161 @@
+// ============================================================================================
+// Every function / block form Orion supports, in one file. Compiles and runs on C++ and Python.
+// ============================================================================================
+
+// ---------------------------------------------------------------------------------------------
+// 1. Runtime functions
+// ---------------------------------------------------------------------------------------------
+
+// 1a. Plain: typed params, a return value.
+i32 add(i32 a, i32 b)
+{
+	return a + b;
+}
+
+// 1b. Void.
+void banner(str title)
+{
+	WriteLine("== " + title + " ==");
+}
+
+// 1c. #state -- a local that persists across calls (static local in C++, global in Python).
+i32 next_id()
+{
+	#state i32 counter = 0;
+	counter = counter + 1;
+	return counter;
+}
+
+// 1d. Arrays: a sized zero-initialized array (u8[N]), filled and returned.
+i32[4] doubled(ConstSpan<i32> xs)
+{
+	i32[4] out;
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		out[i] = xs[i] * 2;
+	}
+	return out;
+}
+
+// 1e. Generic function -- monomorphized; explicit type args at the call site.
+T pick<T>(bool cond, T a, T b)
+{
+	if (cond)
+	{
+		return a;
+	}
+	return b;
+}
+
+// 1f. First-class function parameter, Action<T> (no return).
+void for_each(ConstSpan<i32> xs, Action<i32> action)
+{
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		action(xs[i]);
+	}
+}
+
+// 1g. First-class function parameter, Func<...> (returns a value).
+i32 apply(Func<i32, i32> f, i32 x)
+{
+	return f(x);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 2. Build-time functions (#build) -- run at build time; results spliced into runtime via #run.
+// ---------------------------------------------------------------------------------------------
+
+// 2a. A build-time computation whose result is baked into the runtime code.
+#build i32 triangle(i32 n)
+{
+	i32 sum = 0;
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}
+
+// 2b. A build-time function that splices generated code straight into its caller's #run body.
+#build void greeter(str who)
+{
+	#insert { WriteLine("hello, " + ${who} + "!"); }
+}
+
+// ---------------------------------------------------------------------------------------------
+// 3. Solver blocks -- #param templates, all three flavors, wired into one solver.
+// ---------------------------------------------------------------------------------------------
+
+// 3a. Static template: declarative body, #state, #output bound to a net.
+void Counter(#param str name, #param i32 step, #state i32 acc = 0,
+			 #output i32 value @ $"{name}_out")
+{
+	value = acc;
+	acc = acc + step;
+}
+
+// 3b. Mixed template: a static declarative body PLUS a #build escape.
+void Scale(#param str name, #param str source, #param i32 factor,
+		   #input i32 x @ source, #output i32 y @ $"{name}_out")
+{
+	y = x * factor;
+	#run {
+		#insert { WriteLine("  scale " + ${name} + ": " + to_str(x) + " -> " + to_str(y)); }
+	}
+}
+
+// 3c. Data-driven template: the whole body is a #build escape (ports + body assembled at build time).
+void Show(#param str name, #param str source, #param str label)
+{
+	#run {
+		const Port v = Port::In(Type::Of<i32>(), source);
+		#insert { WriteLine("  " + ${label} + " = " + to_str(${v})); }
+	}
+}
+
+i32 main()
+{
+	banner("runtime functions");
+	WriteLine("add(2, 3) = " + to_str(add(2, 3)));
+	WriteLine("next_id = " + to_str(next_id()) + " " + to_str(next_id()) + " " + to_str(next_id()));
+
+	i32[4] d = doubled([1, 2, 3, 4]:i32);
+	WriteLine("doubled = " + to_str(d[0]) + " " + to_str(d[1]) + " " + to_str(d[2]) + " " + to_str(d[3]));
+
+	WriteLine("pick = " + to_str(pick<i32>(true, 10, 20)) + " " + to_str(pick<i32>(false, 10, 20)));
+	WriteLine("apply(+1, 41) = " + to_str(apply([](i32 v) { return v + 1; } : i32, 41)));
+	for_each([5, 6, 7]:i32, [](i32 v) { WriteLine("  each " + to_str(v)); });
+
+	banner("build-time functions");
+	i32 t = #run triangle(5);
+	WriteLine("triangle(5) folded at build time = " + to_str(t));
+	#run
+	{
+		greeter("world");
+	}
+
+	banner("solver: static / mixed / data-driven templates");
+	#run
+	{
+		Function[] blocks = [
+			#create Counter(name = "count", step = 5),
+			#create Scale(name = "scale", source = "count_out", factor = 2),
+			#create Show(name = "show", source = "scale_out", label = "scaled")
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 c = 0; c < 3; c++)
+			{
+				WriteLine("cycle " + to_str(c));
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

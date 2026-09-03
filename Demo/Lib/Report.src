@@ -1,0 +1,45 @@
+//How a demo prints solver state: each device adds an `#input`, named by its DOTTED net, and a WriteLine.
+#using "Lib/types.src"
+
+//One line per net in list order, under `title`; a `List<Device>`, so one list feeds a report and a frame.
+void Report(#param str name, #param str title, #param List<Device> fields)
+{
+	#run
+	{
+		#insert { WriteLine(${title}); }
+
+		for (i32 i = 0; i < fields.Length; i++)
+		{
+			//The port IS the wiring: `Port::In` names the net, and the hole below becomes a read of it.
+			Device d = fields[i];
+			const Port p = Port::In(d.type, d.name);
+			#insert { WriteLine("  " + ${d.name} + " = " + to_str(${p})); }
+		}
+	}
+}
+
+//The same on a period: one report every `every` cycles, a full run being 5400 lines otherwise.
+void ReportEvery(
+	#param str name,
+	#param str title,
+	#param i32 every,
+	#param List<Device> fields,
+	#state i32 tick = 0
+)
+{
+	tick = tick + 1;
+
+	//The guard is GENERATED around the spliced lines: a nested `#run` cannot see the `#param`s.
+	#run
+	{
+		Code lines = #code { WriteLine(${title} + " " + to_str(tick)); };
+		for (i32 i = 0; i < fields.Length; i++)
+		{
+			Device d = fields[i];
+			const Port p = Port::In(d.type, d.name);
+			lines += #code { WriteLine("  " + ${d.name} + " = " + to_str(${p})); };
+		}
+
+		#insert { if (tick % ${every} == 0) { ${lines} } }
+	}
+}

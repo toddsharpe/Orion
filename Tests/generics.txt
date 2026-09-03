@@ -1,0 +1,7 @@
+max i32 = 9
+sum i32 = 108
+second i32 = 8
+sum i64 = 60
+max i64 = 250
+max3 i32 = 12
+pick_first.A = 1

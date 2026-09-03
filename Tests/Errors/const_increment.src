@@ -1,0 +1,16 @@
+// `n += 1` desugars into an assignment and was always checked; `n++` binds as a unary operator.
+struct P { i32 x; }
+
+i32 main()
+{
+	const i32 n = 1;
+	n++;
+
+	const i32[2] xs = [1, 2]:i32;
+	xs[0]--;
+
+	const P p = P{ x = 1 };
+	p.x++;
+
+	return 0;
+}

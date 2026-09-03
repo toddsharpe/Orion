@@ -1,0 +1,758 @@
+// The helpers this needs from Math.src, spelled here so the test stands alone.
+T min<T>(const T a, const T b)
+{
+	if (a < b)
+	{
+		return a;
+	}
+	return b;
+}
+
+T max<T>(const T a, const T b)
+{
+	if (a > b)
+	{
+		return a;
+	}
+	return b;
+}
+
+T ipow<T>(const T base, const i32 exp)
+{
+	T r = 1:T;
+	for (i32 i = 0; i < exp; i++)
+	{
+		r = r * base;
+	}
+	return r;
+}
+
+
+i32 factorial(const i32 n)
+{
+	if (n < 2)
+	{
+		return 1;
+	}
+	return n * factorial(n - 1);
+}
+
+// a and b are reduced in place, so they are not const.
+i32 gcd(i32 a, i32 b)
+{
+	while (b != 0)
+	{
+		const i32 t = b;
+		b = a % b;
+		a = t;
+	}
+	return a;
+}
+
+bool is_even(const i32 n)
+{
+	return n % 2 == 0;
+}
+
+/*
+ * Orion Compute Suite v2 -- a deliberately large program that pushes the language.
+ *
+ * Covers: enums, structs (with struct-returning functions), fixed arrays used as
+ * dynamic buffers/matrices/stacks, first-class functions (Action/Func, 1 and 2 args),
+ * higher-order combinators (map/filter/fold/each/count), iterative algorithms
+ * (sorting, binary search, sieve of Eratosthenes, Collatz, gcd, matrix multiply,
+ * an RPN stack machine) and compile-time metaprogramming (args metadata,
+ * #param solver blocks driven via Build::AddBody, and a Solver dataflow).
+ *
+ * Language constraints respected: no recursion, no forward references (every callee
+ * is defined above its caller, main last), flat operator precedence (compound
+ * arithmetic inside comparisons is parenthesised), only != via (x == y) == false.
+ */
+
+enum Level
+{
+	Low,
+	Medium,
+	High
+}
+
+struct Stats
+{
+	i32 Count;
+	i32 Sum;
+	i32 Min;
+	i32 Max;
+}
+
+struct Vec3
+{
+	i32 X;
+	i32 Y;
+	i32 Z;
+}
+
+/*
+ * ---- Scalar utilities ----
+ */
+i32 clamp_i(i32 x, i32 lo, i32 hi)
+{
+	i32 r = x;
+	if (r < lo)
+	{
+		r = lo;
+	}
+	if (r > hi)
+	{
+		r = hi;
+	}
+	return r;
+}
+
+bool is_prime(i32 n)
+{
+	if (n < 2)
+	{
+		return false;
+	}
+	for (i32 d = 2; (d * d) <= n; d++)
+	{
+		if ((n % d) == 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+i32 collatz_steps(i32 start)
+{
+	i32 n = start;
+	i32 steps = 0;
+	while (n > 1)
+	{
+		if ((n % 2) == 0)
+		{
+			n = n / 2;
+		}
+		else
+		{
+			n = (3 * n) + 1;
+		}
+		steps = steps + 1;
+	}
+	return steps;
+}
+
+//Count array elements that are not equal to a target (uses !=).
+i32 count_not<T>(ConstSpan<T> a, T target)
+{
+	i32 c = 0;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		if (a[i] != target)
+		{
+			c = c + 1;
+		}
+	}
+	return c;
+}
+
+/*
+ * ---- String utilities ----
+ */
+str repeat_str(str s, i32 n)
+{
+	str r = "";
+	for (i32 i = 0; i < n; i++)
+	{
+		r = r + s;
+	}
+	return r;
+}
+
+str pad_left(str s, i32 width)
+{
+	str r = s;
+	i32 len = cast<i32>(str_len(s));
+	for (i32 i = len; i < width; i++)
+	{
+		r = " " + r;
+	}
+	return r;
+}
+
+str join_ints(ConstSpan<i32> a, str sep)
+{
+	str r = "";
+	i32 last = a.Length - 1;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		r = r + to_str(a[i]);
+		if (i < last)
+		{
+			r = r + sep;
+		}
+	}
+	return r;
+}
+
+/*
+ * ---- Vector ops (struct return) ----
+ */
+i32 vec_dot(Vec3 a, Vec3 b)
+{
+	return ((a.X * b.X) + (a.Y * b.Y)) + (a.Z * b.Z);
+}
+
+Vec3 vec_add(Vec3 a, Vec3 b)
+{
+	Vec3 r = Vec3{};
+	r.X = a.X + b.X;
+	r.Y = a.Y + b.Y;
+	r.Z = a.Z + b.Z;
+	return r;
+}
+
+/*
+ * ---- Array algorithms ----
+ */
+i32 arr_sum(ConstSpan<i32> a)
+{
+	i32 s = 0;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		s = s + a[i];
+	}
+	return s;
+}
+
+Stats summarize(ConstSpan<i32> a)
+{
+	Stats s = Stats{};
+	i32 first = a[0];
+	s.Count = 0;
+	s.Sum = 0;
+	s.Min = first;
+	s.Max = first;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		i32 v = a[i];
+		s.Count = s.Count + 1;
+		s.Sum = s.Sum + v;
+		s.Min = min<i32>(s.Min, v);
+		s.Max = max<i32>(s.Max, v);
+	}
+	return s;
+}
+
+void reverse<T>(Span<T> a)
+{
+	i32 n = a.Length;
+	i32 half = n / 2;
+	for (i32 i = 0; i < half; i++)
+	{
+		i32 j = (n - 1) - i;
+		T t = a[i];
+		a[i] = a[j];
+		a[j] = t;
+	}
+}
+
+i32 index_of<T>(ConstSpan<T> a, T target)
+{
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		if (a[i] == target)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+bool contains<T>(ConstSpan<T> a, T target)
+{
+	i32 at = index_of<T>(a, target);
+	return at >= 0;
+}
+
+void bsort(Span<i32> a)
+{
+	i32 n = a.Length;
+	for (i32 i = 0; i < n; i++)
+	{
+		i32 stop = (n - 1) - i;
+		for (i32 j = 0; j < stop; j++)
+		{
+			i32 right = j + 1;
+			if (a[j] > a[right])
+			{
+				i32 t = a[j];
+				a[j] = a[right];
+				a[right] = t;
+			}
+		}
+	}
+}
+
+i32 binary_search(ConstSpan<i32> a, i32 target)
+{
+	i32 lo = 0;
+	i32 hi = a.Length - 1;
+	while (lo <= hi)
+	{
+		i32 mid = (lo + hi) / 2;
+		i32 v = a[mid];
+		if (v == target)
+		{
+			return mid;
+		}
+		if (v < target)
+		{
+			lo = mid + 1;
+		}
+		else
+		{
+			hi = mid - 1;
+		}
+	}
+	return -1;
+}
+
+i32 count_if<T>(ConstSpan<T> a, Func<T, bool> pred)
+{
+	i32 c = 0;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		if (pred(a[i]))
+		{
+			c = c + 1;
+		}
+	}
+	return c;
+}
+
+T fold<T>(ConstSpan<T> a, T seed, Func<T, T, T> op)
+{
+	T acc = seed;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		acc = op(acc, a[i]);
+	}
+	return acc;
+}
+
+void map_inplace<T>(Span<T> a, Func<T, T> f)
+{
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		T cur = a[i];
+		a[i] = f(cur);
+	}
+}
+
+void each<T>(ConstSpan<T> a, Action<T> act)
+{
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		act(a[i]);
+	}
+}
+
+/*
+ * ---- Classification ----
+ */
+Level classify(i32 v)
+{
+	if (v < 25)
+	{
+		return Level::Low;
+	}
+	else if (v < 60)
+	{
+		return Level::Medium;
+	}
+	else
+	{
+		return Level::High;
+	}
+}
+
+str level_name(Level l)
+{
+	if (l == Level::Low)
+	{
+		return "Low";
+	}
+	else if (l == Level::Medium)
+	{
+		return "Medium";
+	}
+	else
+	{
+		return "High";
+	}
+}
+
+/*
+ * ---- Number theory ----
+ */
+void sieve(Span<i32> flags)
+{
+	i32 n = flags.Length;
+	for (i32 p = 2; (p * p) < n; p++)
+	{
+		if (flags[p] == 0)
+		{
+			i32 m = p * p;
+			while (m < n)
+			{
+				flags[m] = 1;
+				m = m + p;
+			}
+		}
+	}
+}
+
+/*
+ * ---- Matrix ops on flat row-major arrays ----
+ */
+i32 mat_idx(i32 r, i32 c, i32 cols)
+{
+	return (r * cols) + c;
+}
+
+void mat_identity(Span<i32> m, i32 n)
+{
+	for (i32 r = 0; r < n; r++)
+	{
+		for (i32 c = 0; c < n; c++)
+		{
+			i32 v = 0;
+			if (r == c)
+			{
+				v = 1;
+			}
+			m[mat_idx(r, c, n)] = v;
+		}
+	}
+}
+
+void mat_mul(ConstSpan<i32> a, ConstSpan<i32> b, Span<i32> dst, i32 n)
+{
+	for (i32 r = 0; r < n; r++)
+	{
+		for (i32 c = 0; c < n; c++)
+		{
+			i32 acc = 0;
+			for (i32 k = 0; k < n; k++)
+			{
+				i32 av = a[mat_idx(r, k, n)];
+				i32 bv = b[mat_idx(k, c, n)];
+				acc = acc + (av * bv);
+			}
+			dst[mat_idx(r, c, n)] = acc;
+		}
+	}
+}
+
+i32 mat_trace(ConstSpan<i32> m, i32 n)
+{
+	i32 t = 0;
+	for (i32 i = 0; i < n; i++)
+	{
+		t = t + m[mat_idx(i, i, n)];
+	}
+	return t;
+}
+
+str mat_row(ConstSpan<i32> m, i32 r, i32 n)
+{
+	str s = "[ ";
+	for (i32 c = 0; c < n; c++)
+	{
+		s = s + pad_left(to_str(m[mat_idx(r, c, n)]), 4) + " ";
+	}
+	return s + "]";
+}
+
+/*
+ * ---- RPN stack machine ----
+ * code: 0=push arg, 1=add, 2=sub, 3=mul, 4=div
+ */
+i32 rpn_eval(ConstSpan<i32> code, ConstSpan<i32> arg)
+{
+	i32[] stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]:i32;
+	i32 sp = 0;
+	for (i32 i = 0; i < code.Length; i++)
+	{
+		i32 op = code[i];
+		if (op == 0)
+		{
+			stack[sp] = arg[i];
+			sp = sp + 1;
+		}
+		else
+		{
+			i32 b = stack[sp - 1];
+			i32 a = stack[sp - 2];
+			sp = sp - 2;
+			i32 r = 0;
+			if (op == 1)
+			{
+				r = a + b;
+			}
+			if (op == 2)
+			{
+				r = a - b;
+			}
+			if (op == 3)
+			{
+				r = a * b;
+			}
+			if (op == 4)
+			{
+				r = a / b;
+			}
+			stack[sp] = r;
+			sp = sp + 1;
+		}
+	}
+	return stack[0];
+}
+
+/*
+ * ---- Compile-time generated stateful stages (Solver dataflow) ----
+ */
+void Count(#param str name, #state i32 prev = 0, #output i32 last)
+{
+	last = prev;
+	prev = prev + 1;
+}
+
+void Even(#param str name, #input i32 last, #output bool is_even)
+{
+	is_even = last % 2 == 0;
+}
+
+void Square(#param str name, #input i32 last, #output i32 squared)
+{
+	squared = last * last;
+}
+
+i32 main()
+{
+	str bar = repeat_str("=", 52);
+
+	/*
+	 * Compile-time metadata baked into the output.
+	 */
+	#run
+	{
+		WriteArgs(${ suite="orion-compute", version=2, author="claude" });
+	}
+
+	WriteLine(bar);
+	WriteLine("  ORION COMPUTE SUITE v2");
+	WriteLine(bar);
+
+	/*
+	 * Sorting + searching.
+	 */
+	WriteLine("[ Sorting & searching ]");
+	i32[] data = [42, 7, 13, 99, 1, 56, 23, 8, 77, 4]:i32;
+	WriteLine($"  unsorted: {join_ints(data, ", ")}");
+	bsort(data);
+	WriteLine($"  sorted:   {join_ints(data, ", ")}");
+	i32 needle = 56;
+	WriteLine($"  binary_search({needle}) -> index {binary_search(data, needle)}");
+	WriteLine($"  contains 100? {contains<i32>(data, 100)}");
+	reverse<i32>(data);
+	WriteLine($"  reversed: {join_ints(data, ", ")}");
+
+	/*
+	 * Statistics via a struct return.
+	 */
+	WriteLine("[ Statistics ]");
+	Stats st = summarize(data);
+	WriteLine($"  count={st.Count} sum={st.Sum} min={st.Min} max={st.Max}");
+
+	/*
+	 * Higher-order functions with lambdas.
+	 */
+	WriteLine("[ Higher-order ]");
+	i32[] nums = [1, 2, 3, 4, 5, 6, 7, 8]:i32;
+	Func<i32, i32> sq = [](i32 x)
+	{
+		return x * x;
+	}:i32;
+	map_inplace<i32>(nums, sq);
+	WriteLine($"  squares: {join_ints(nums, ", ")}");
+
+	Func<i32, bool> even = [](i32 x)
+	{
+		return (x % 2) == 0;
+	}:bool;
+	WriteLine($"  even count in sorted data: {count_if<i32>(data, even)}");
+
+	Func<i32, i32, i32> add = [](i32 a, i32 b)
+	{
+		return a + b;
+	}:i32;
+	WriteLine($"  fold-sum of squares: {fold<i32>(nums, 0, add)}");
+
+	Action<i32> dot = [](i32 x)
+	{
+		WriteLine($"    tick {x}");
+	};
+	each<i32>([10, 20, 30]:i32, dot);
+
+	/*
+	 * Vectors.
+	 */
+	WriteLine("[ Vectors ]");
+	Vec3 va = Vec3{ X=1, Y=2, Z=3 };
+	Vec3 vb = Vec3{ X=4, Y=5, Z=6 };
+	Vec3 vc = vec_add(va, vb);
+	WriteLine($"  va+vb = ({vc.X}, {vc.Y}, {vc.Z})");
+	WriteLine($"  va.vb = {vec_dot(va, vb)}");
+
+	/*
+	 * Number theory: primes via a sieve, gcd, powers, Collatz.
+	 */
+	WriteLine("[ Number theory ]");
+	i32[] flags = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]:i32;
+	sieve(flags);
+	str primes = "";
+	for (i32 i = 2; i < flags.Length; i++)
+	{
+		if (flags[i] == 0)
+		{
+			primes = $"{primes}{i} ";
+		}
+	}
+	WriteLine($"  primes < 30: {primes}");
+	WriteLine($"  gcd(48, 36) = {gcd(48, 36)}");
+	WriteLine($"  2^10 = {ipow<i32>(2, 10)}");
+	str collatz = "";
+	for (i32 i = 1; i <= 8; i++)
+	{
+		collatz = $"{collatz}{collatz_steps(i)} ";
+	}
+	WriteLine($"  collatz steps 1..8: {collatz}");
+	WriteLine($"  5! (recursive) = {factorial(5)}");
+	WriteLine($"  6! (recursive) = {factorial(6)}");
+
+	/*
+	 * Generics: the same min/max/contains templates reused across element types.
+	 * One definition, a concrete copy generated per type argument (C++-template style).
+	 */
+	WriteLine("[ Generics across types ]");
+	i64[] big = [48, 36, 91, 12]:i64;
+	WriteLine($"  min i64 = {min<i64>(big[0], big[1])}");
+	WriteLine($"  max i64 = {max<i64>(big[2], big[3])}");
+	WriteLine($"  contains i64 91? {contains<i64>(big, 91:i64)}");
+	str[] words = ["orion", "compute", "suite"]:str;
+	WriteLine($"  contains str 'suite'? {contains<str>(words, "suite")}");
+	WriteLine($"  contains str 'nope'? {contains<str>(words, "nope")}");
+
+	/*
+	 * Floating point: f32/f64 flow through the same generic min/max, printed via
+	 * interpolation. Bare floats are f64; f32 uses a typed literal.
+	 */
+	WriteLine("[ Floating point ]");
+	f64[] samples = [1.5, 2.25, 0.75, 3.0]:f64;
+	f64 fsum = samples[0];
+	for (i32 i = 1; i < samples.Length; i++)
+	{
+		fsum = fsum + samples[i];
+	}
+	WriteLine($"  f64 sum={fsum} min={min<f64>(samples[2], samples[0])} max={max<f64>(samples[1], samples[3])}");
+	f32 gain = 1.5:f32;
+	WriteLine($"  f32 gain doubled = {gain + gain}");
+
+	/*
+	 * Arrays of structs + the != operator.
+	 */
+	WriteLine("[ Struct arrays & != ]");
+	Vec3[] basis = [Vec3{X=3,Y=0,Z=0}, Vec3{X=0,Y=4,Z=0}, Vec3{X=0,Y=0,Z=5}]:Vec3;
+	i32 mag2 = 0;
+	for (i32 i = 0; i < basis.Length; i++)
+	{
+		Vec3 bv = basis[i];
+		mag2 = mag2 + vec_dot(bv, bv);
+	}
+	WriteLine($"  sum of |v|^2 over basis = {mag2}");
+	i32[] flagged = [3, 3, 7, 3, 9, 3]:i32;
+	WriteLine($"  entries != 3: {count_not<i32>(flagged, 3)}");
+
+	/*
+	 * Matrix multiply on flat 3x3 arrays.
+	 */
+	WriteLine("[ Matrix 3x3 ]");
+	i32 n = 3;
+	i32[] a = [1, 2, 3, 4, 5, 6, 7, 8, 9]:i32;
+	i32[] id = [0, 0, 0, 0, 0, 0, 0, 0, 0]:i32;
+	i32[] prod = [0, 0, 0, 0, 0, 0, 0, 0, 0]:i32;
+	mat_identity(id, n);
+	mat_mul(a, id, prod, n);
+	for (i32 r = 0; r < n; r++)
+	{
+		WriteLine($"  {mat_row(prod, r, n)}");
+	}
+	WriteLine($"  trace(A) = {mat_trace(a, n)}");
+
+	/*
+	 * RPN: evaluate ((2 + 3) * 4) - 5 = 15.
+	 */
+	WriteLine("[ RPN machine ]");
+	i32[] code = [0, 0, 1, 0, 3, 0, 2]:i32;
+	i32[] argv = [2, 3, 0, 4, 0, 5, 0]:i32;
+	WriteLine($"  ((2+3)*4)-5 = {rpn_eval(code, argv)}");
+
+	/*
+	 * Classification pipeline.
+	 */
+	WriteLine("[ Classification ]");
+	i32[] readings = [12, 34, 78, 55, 91, 20]:i32;
+	for (i32 i = 0; i < readings.Length; i++)
+	{
+		i32 v = readings[i];
+		WriteLine($"  {pad_left(to_str(v), 3)} -> {level_name(classify(v))}");
+	}
+
+	/*
+	 * Compile-time metaprogramming: a Solver wires the generated #state stages
+	 * (Count -> Even/Square) and emits a driver loop into main.
+	 */
+	WriteLine("[ Compile-time dataflow ]");
+	#run
+	{
+		Function[] funcs = [
+			#create Count(name = "my_count"),
+			#create Even(name = "my_even"),
+			#create Square(name = "square")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		Code view = Solver::ViewState(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 c = 0; c < 5; c++)
+			{
+				WriteLine("  cycle " + to_str(c));
+				solver_cycle(state);
+				${view};
+			}
+		}
+	}
+
+	WriteLine(bar);
+	WriteLine("  done.");
+	WriteLine(bar);
+
+	return 0;
+}

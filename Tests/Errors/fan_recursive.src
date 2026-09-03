@@ -1,0 +1,24 @@
+// Publishing a struct field by field needs the fields to end, which a self-referential one never does.
+struct Node
+{
+	i32 v;
+	Node inner;
+}
+
+void Sensor(#param str name, #output Node node @ "Tree")
+{
+	node.v = 1;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [#create Sensor(name = "s")]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

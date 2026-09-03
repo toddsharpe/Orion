@@ -1,0 +1,13 @@
+// A struct defines no operators, so `a + b` is an error at the call site rather than four different
+// downstream failures: a C2676 in the generated C++, a TypeError on Python, a crash at build time,
+// and on JavaScript a quiet -inf from stringifying two objects. Vec.src writes v3_add instead.
+struct V { f64 x; f64 y; }
+
+i32 main()
+{
+	V a = V{ x = 1.0, y = 2.0 };
+	V b = V{ x = 10.0, y = 20.0 };
+	V c = a + b;
+	WriteLine(to_str(c.x));
+	return 0;
+}

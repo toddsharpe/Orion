@@ -1,0 +1,147 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Nullable>disable</Nullable>
+		<ImplicitUsings>disable</ImplicitUsings>
+
+		<!--
+			Orion's build-time stage (#call / solver blocks) emits and invokes MSIL via
+			System.Reflection.Emit. On Blazor WebAssembly that only works under the Mono
+			INTERPRETER, so AOT must stay off (emitted IL is interpreted, not JIT'd).
+		-->
+		<RunAOTCompilation>false</RunAOTCompilation>
+
+		<!--
+			The compiler + FSharp.Core + FParsec lean heavily on reflection. The IL trimmer
+			cannot see reflected/emitted targets and would strip them, giving MissingMethod
+			failures that only surface after publish. Keep everything until we add explicit
+			trimmer roots and measure.
+		-->
+		<!--
+			Trimming a Reflection.Emit-heavy compiler is risky (the trimmer can't see reflected/emitted
+			targets), so it stays OFF by default. Shrink the payload with `dotnet publish -p:OrionTrim=true`
+			and VERIFY build-time #call execution still works in-browser before relying on it. The whole
+			compiler + F#/FParsec are rooted (below), so only the BCL and unrelated deps get trimmed.
+		-->
+		<OrionTrim Condition="'$(OrionTrim)' == ''">false</OrionTrim>
+		<PublishTrimmed>$(OrionTrim)</PublishTrimmed>
+		<BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+
+		<!--
+			Orion.LangSvr is OutputType=Exe (stdio LSP). Referencing an exe from here trips NETSDK1150;
+			this is the SDK's escape hatch for it. Do NOT instead override OutputType=Library on the
+			reference: that builds the project a SECOND time into the same bin folder, where the library
+			flavour has no runtimeconfig.json and removes the one the exe flavour wrote, so whichever
+			build lands last wins and the LangSvr build then fails to copy it.
+		-->
+		<ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+	</PropertyGroup>
+
+	<!-- Keep the compiler and its F#/parser deps whole when trimming is enabled. -->
+	<ItemGroup Condition="'$(OrionTrim)' == 'true'">
+		<TrimmerRootAssembly Include="Orion.Compiler" />
+		<TrimmerRootAssembly Include="Orion.Lang" />
+		<TrimmerRootAssembly Include="Orion.LangSvr" />
+		<TrimmerRootAssembly Include="FSharp.Core" />
+		<TrimmerRootAssembly Include="FParsec" />
+		<TrimmerRootAssembly Include="FParsecCS" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all" />
+	</ItemGroup>
+
+	<!-- Reuse the exact frontend + language-server logic (and, transitively, the compiler). -->
+	<ItemGroup>
+		<ProjectReference Include="..\Orion.LangSvr\Orion.LangSvr.csproj" />
+		<ProjectReference Include="..\Orion.Compiler\Orion.Compiler.csproj" />
+	</ItemGroup>
+
+	<!-- Every file of Demo/ under samples/, shape intact, Demo/ being the source root; see wwwroot/js/README-explorer.md. -->
+	<!--
+		They have to be MIRRORED into wwwroot rather than referenced in place: the static-web-asset
+		pipeline resolves every Content-derived asset against one content root (the project's wwwroot),
+		so a file outside it gets a correct route pointing at a path that does not exist, and every
+		fetch 404s. The mirror is generated, hence gitignored and excluded from the implicit wwwroot
+		glob; the target below is the only thing that declares it, so a rebuild cannot double-add it.
+	-->
+	<PropertyGroup>
+		<DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\samples\**</DefaultItemExcludes>
+	</PropertyGroup>
+
+	<Target Name="MirrorOrionSamples" BeforeTargets="AssignTargetPaths">
+		<ItemGroup>
+
+			<!-- The whole tree, library and `orion.json` marker included; Demo/build is this compiler's own output. -->
+			<OrionDemo Include="..\..\Demo\**\*" Exclude="..\..\Demo\build\**\*" />
+
+			<!-- Drop copies whose source is gone; index.json is written below, so it is a stale mirror of nothing. -->
+			<ExpectedMirror Include="@(OrionDemo->'$(MSBuildProjectDirectory)\wwwroot\samples\%(RecursiveDir)%(Filename)%(Extension)')" />
+			<ExistingMirror Include="$(MSBuildProjectDirectory)\wwwroot\samples\**\*"
+											Exclude="$(MSBuildProjectDirectory)\wwwroot\samples\index.json" />
+			<StaleMirror Include="@(ExistingMirror)" Exclude="@(ExpectedMirror)" />
+		</ItemGroup>
+
+		<Delete Files="@(StaleMirror)" />
+
+		<Copy SourceFiles="@(OrionDemo)"
+					DestinationFiles="@(OrionDemo->'$(MSBuildProjectDirectory)\wwwroot\samples\%(RecursiveDir)%(Filename)%(Extension)')"
+					SkipUnchangedFiles="true" />
+
+		<!--
+			A directory listing for the browser: static hosting cannot enumerate a folder, so the file tree
+			in the playground reads this. Written after the copy, so it lists what is actually there.
+
+			The whole Demo tree, folders and all: Apps/, Configs/, Lib/ and the eighteen files under
+			Lib/Calcs/Flight. It is one source root seeded whole, so what the tree shows and what a
+			`#using` resolves are the same set of files. A reader can open the thing a program includes
+			and read it. Which two are OPEN on load is explorer.js's INITIAL_TABS, not this.
+		-->
+		<ItemGroup>
+			<SampleAsset Include="$(MSBuildProjectDirectory)\wwwroot\samples\**\*"
+									 Exclude="$(MSBuildProjectDirectory)\wwwroot\samples\index.json" />
+			<SampleRoute Include="@(SampleAsset->'%(RecursiveDir)%(Filename)%(Extension)')" />
+		</ItemGroup>
+
+		<PropertyGroup>
+			<SampleIndexJson>[&quot;@(SampleRoute->'%(Identity)', '&quot;,&quot;')&quot;]</SampleIndexJson>
+		</PropertyGroup>
+
+		<WriteLinesToFile File="$(MSBuildProjectDirectory)\wwwroot\samples\index.json"
+											Lines="$(SampleIndexJson.Replace('\','/'))"
+											Overwrite="true"
+											WriteOnlyWhenDifferent="true" />
+
+		<!-- Declares the mirror and the index: the implicit glob excludes all of samples/. -->
+		<ItemGroup>
+			<Content Include="wwwroot\samples\**\*" CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+
+		<!-- The JS backend's runtime, served so the Run panel can prepend it to a compiled program. The
+				 platform library (extern bodies) is served alongside and prepended after the core runtime. -->
+		<Copy SourceFiles="..\..\Runtimes\JavaScript\Orion.js"
+					DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\runtime\orion.js"
+					SkipUnchangedFiles="true" />
+		<Copy SourceFiles="..\..\Runtimes\JavaScript\Orion_platform.js"
+					DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\runtime\orion_platform.js"
+					SkipUnchangedFiles="true" />
+
+		<!--
+			Demo/Platforms/Platform.js: the browser's Windows.cpp, appended AFTER a compiled program so it
+			can drive one whose `main` is `#build`. Served as executive.js because orion_platform.js is
+			already sitting next to it meaning something else entirely. That one is extern bodies, this one
+			is the cycle loop, and two files called platform would be read as two halves of one thing.
+		-->
+		<Copy SourceFiles="..\..\Demo\Platforms\Platform.js"
+					DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\runtime\executive.js"
+					SkipUnchangedFiles="true" />
+		<ItemGroup>
+			<Content Include="wwwroot\runtime\orion.js" CopyToPublishDirectory="PreserveNewest" />
+			<Content Include="wwwroot\runtime\orion_platform.js" CopyToPublishDirectory="PreserveNewest" />
+			<Content Include="wwwroot\runtime\executive.js" CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+	</Target>
+
+</Project>

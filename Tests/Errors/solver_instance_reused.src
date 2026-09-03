@@ -1,0 +1,16 @@
+// A block is named for its instance, so two blocks cannot share one.
+void Gain(#param str name, #param i32 n, #output i32 y @ $"{name}_out")
+{
+	y = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Gain(name = "g", n = 1), #create Gain(name = "g", n = 2) ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

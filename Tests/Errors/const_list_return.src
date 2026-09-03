@@ -1,0 +1,20 @@
+// A return carries no `const`, so borrowed storage may not escape -- not directly, not through a name.
+#build List<i32> sneak(const List<i32> xs)
+{
+	const List<i32> alias = xs;
+	return alias;
+}
+
+#build str probe()
+{
+	const List<i32> ro = List::New<i32>();
+	List<i32> out = sneak(ro);
+	out.Add(1);
+	return to_str(ro.Length);
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

@@ -1,0 +1,102 @@
+// Rectangular arrays. `i32[2,3]` is one flat row-major buffer of 6 elements that knows its rank, so
+// `m[r,c]` folds to `m[r*3 + c]` in the binder and every pass below it still sees a 1-D subscript.
+// A literal is written out row-major, and `T[R,C]` in expression position is a zero-init allocation.
+
+// A sized rectangular type can be a parameter and a return type, because the extents are part of it.
+i32 trace(i32[3,3] m)
+{
+	i32 sum = 0;
+	for (i32 i = 0; i < 3; i++)
+	{
+		sum = sum + m[i,i];
+	}
+	return sum;
+}
+
+i32[2,3] scaled(i32[2,3] m, i32 by)
+{
+	i32[2,3] out;
+	for (i32 r = 0; r < 2; r++)
+	{
+		for (i32 c = 0; c < 3; c++)
+		{
+			out[r,c] = m[r,c] * by;
+		}
+	}
+	return out;
+}
+
+str render(i32[2,3] m)
+{
+	str s = "";
+	for (i32 r = 0; r < 2; r++)
+	{
+		for (i32 c = 0; c < 3; c++)
+		{
+			s = s + to_str(m[r,c]) + " ";
+		}
+		s = s + "| ";
+	}
+	return s;
+}
+
+void test()
+{
+	// Row-major: the literal reads left to right, top to bottom.
+	i32[,] grid = [1, 2, 3, 4, 5, 6]:i32[2,3];
+	WriteLine("grid: " + render(grid));
+	WriteLine("grid[1,2]=" + to_str(grid[1,2]));
+
+	// An element is an ordinary lvalue.
+	grid[0,1] = 20;
+	WriteLine("after store: " + render(grid));
+
+	// .Length is the outer extent; a row is a value of its own, with its own length.
+	WriteLine("rows=" + to_str(grid.Length) + " cols=" + to_str(grid[0].Length));
+
+	// A row is an ordinary i32[3] value, so it can be named and passed around.
+	i32[] row = grid[1];
+	WriteLine("row1=" + to_str(row[0]) + "," + to_str(row[1]) + "," + to_str(row[2]));
+
+	// m[i,j] and m[i][j] are the same access.
+	WriteLine("same=" + to_str(grid[1,2]) + to_str(grid[1][2]));
+
+	WriteLine("scaled: " + render(scaled(grid, 3)));
+
+	// Zero-initialized allocation, then filled.
+	i32[3,3] eye;
+	for (i32 i = 0; i < 3; i++)
+	{
+		eye[i,i] = 1;
+	}
+	WriteLine("trace=" + to_str(trace(eye)));
+
+	// A computed index per dimension, to pin that each one is evaluated exactly once.
+	i32 r = 1;
+	i32 c = 0;
+	WriteLine("grid[r,c]=" + to_str(grid[r,c]));
+
+	// Rank 3, to show the fold is not special-cased at two.
+	i32[2,2,2] cube;
+	cube[1,0,1] = 7;
+	WriteLine("cube[1,0,1]=" + to_str(cube[1,0,1]));
+	WriteLine("cube rows=" + to_str(cube.Length));
+}
+
+// The same type at build time: the fold is in the binder, so MSIL sees a plain 1-D array too.
+#build str corners()
+{
+	i32[,] m = [10, 20, 30, 40, 50, 60]:i32[2,3];
+	m[1,1] = 99;
+	return to_str(m[0,0]) + "/" + to_str(m[1,1]) + "/" + to_str(m[1,2]) + "/" + to_str(m.Length);
+}
+
+i32 main()
+{
+	test();
+
+	str built = #run corners();
+	WriteLine("build-time: " + built);
+
+	return 0;
+}

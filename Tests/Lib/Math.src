@@ -1,0 +1,38 @@
+// The one helper this needs from Math.src, spelled here so the test stands alone.
+T clamp<T>(const T x, const T lo, const T hi)
+{
+	if (x < lo)
+	{
+		return lo;
+	}
+	else if (x > hi)
+	{
+		return hi;
+	}
+	else
+	{
+		return x;
+	}
+}
+
+// Ceiling division: the smallest q with q * b >= a. Multiplying back avoids both overflow and `%`.
+T div_round_up<T>(const T a, const T b)
+{
+	const T q = a / b;
+	if (q * b == a)
+	{
+		return q;
+	}
+	return q + 1:T;
+}
+
+
+i32 sum_to(const i32 n)
+{
+	i32 sum = 0;
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}

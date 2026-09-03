@@ -1,0 +1,35 @@
+// The one helper this needs from Math.src, spelled here so the test stands alone.
+i32 sum_to(const i32 n)
+{
+	i32 sum = 0;
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}
+
+str greeting(str name)
+{
+	return $"Hello {name}";
+}
+
+i32 main()
+{
+	str output = #run greeting("Orion");
+	#run Build::AddBody("WriteLine(output);");
+
+	#run
+	{
+		WriteLine(greeting("Build"));
+
+		i32 sum = sum_to(5);
+		str display = to_str(sum);
+		WriteLine(display);
+	}
+
+	i32 sum_rt = sum_to(5);
+	WriteLine(to_str(sum_rt));
+
+	return 0;
+}

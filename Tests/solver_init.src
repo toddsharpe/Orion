@@ -1,0 +1,66 @@
+// `#init { }` is a block's startup: solver_init runs every one first and returns whether all started.
+
+// State written by #init is the same cell the cycle body reads: one #state port, wired to both.
+void Opener(
+	#param str name,
+	#state  i32 fd = -1,
+	#output i32 handle @ $"{name}_handle"
+)
+{
+	#init
+	{
+		fd = 7;
+		return fd != -1;
+	}
+
+	fd = fd + 1;
+	handle = fd;
+}
+
+// Reports failure, and runs first: Opener's cell below proves a later #init still runs anyway.
+void Failer(
+	#param str name,
+	#state  i32 n = 0,
+	#output i32 tries @ $"{name}_tries"
+)
+{
+	#init
+	{
+		n = 1;
+		return false;
+	}
+
+	tries = n;
+}
+
+// No #init at all, so the solver has nothing to run for it.
+void Plain(
+	#param str name,
+	#state  i32 t = 100,
+	#output i32 c @ $"{name}_c"
+)
+{
+	t = t + 1;
+	c = t;
+}
+
+i32 main()
+{
+	#run {
+		Function[] blocks = [
+			#create Failer(name = "fl"),
+			#create Opener(name = "op"),
+			#create Plain(name = "pl")
+		]:Function;
+
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { bool init_ok = solver_init(state); }
+		Build::AddBody("WriteLine(\"init_ok=\" + to_str(init_ok));");
+		#insert { solver_cycle(state); }
+		#insert Solver::ViewState(solver);
+	}
+	return 0;
+}

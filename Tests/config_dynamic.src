@@ -1,0 +1,38 @@
+// #src with a path that is NOT a literal: the file to load is chosen at build time. Here the path
+// arrives as a parameter of a #build function, and is also assembled by interpolation - neither is
+// knowable when the frontend runs, so the target is compiled and executed during build execution.
+#using "Lib/types.src"
+
+// The path is a plain build-time value.
+#build str describe(str path, i32 count)
+{
+	List<Device> fields = #src path devices(count);
+
+	str r = "";
+	for (const Device f in fields)
+	{
+		r = r + f.name + "/" + f.type.Name + " ";
+	}
+	return r;
+}
+
+// The path is built by interpolation from a build-time name.
+#build i32 total(str name)
+{
+	List<Device> fields = #src $"Configs/{name}.src" devices(4);
+
+	//`.Size` makes this the packed width of the whole device list, resolved at build time.
+	i32 sum = 0;
+	for (const Device f in fields)
+	{
+		sum = sum + f.type.Size;
+	}
+	return sum;
+}
+
+i32 main()
+{
+	WriteLine(#run describe("Configs/telemetry.src", 3));
+	WriteLine("total=" + to_str(#run total("telemetry")));
+	return 0;
+}

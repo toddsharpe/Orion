@@ -1,0 +1,6 @@
+assign  a=1 b=99
+param   a=1
+return  a=1 c=2
+local   acc=6
+array   a=1 e0=7 e1=1
+nested  p=1 q=42

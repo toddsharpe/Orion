@@ -1,0 +1,42 @@
+// A `#build` struct builds every field, so an unset `str` is empty rather than a null that throws.
+#build struct Inner
+{
+	str tag;
+}
+
+#build struct Cfg
+{
+	str name;
+	i32 n;
+	Inner inner;
+	str[2] rows;
+}
+
+#build bool Zeroed()
+{
+	// Omitting a field is the case that matters: a config literal leaves the ones it has no value for.
+	const Cfg partial = Cfg{ n = 1 };
+	#assert(partial.name == "", "an unset str field is empty, not null");
+	#assert(partial.inner.tag == "", "and so is one a field deep");
+	#assert(partial.rows[0] == "", "and every element of an array of them");
+	#assert(partial.n == 1, "while a field that was given a value keeps it");
+
+	// A nested literal that omits everything is built the same way, field by field, all the way down.
+	const Cfg empty = Cfg{};
+	#assert(empty.name == "" && empty.inner.tag == "" && empty.rows[1] == "", "and one that sets nothing");
+
+	return true;
+}
+
+i32 main()
+{
+	#run
+	{
+		#assert(Zeroed(), "build struct fields are zeroed");
+
+		//Spliced, so the transcript is the program's and the assertions above are the compile's.
+		#insert { WriteLine("build struct fields are built, not null"); }
+	}
+
+	return 0;
+}

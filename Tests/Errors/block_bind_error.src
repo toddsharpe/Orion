@@ -1,0 +1,21 @@
+// A mistake inside a #param template is still a diagnostic. Binding reports the unresolved name and
+// leaves the node unbound; lowering one used to assert, so the compiler died with a stack trace
+// instead of pointing at the line -- the same call outside a block reported cleanly all along.
+void B(#param str name, #output f64 y @ $"{name}_out")
+{
+	f64 v = 5.0 * cos(0.7);
+	y = v;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [#create B(name = "b")]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

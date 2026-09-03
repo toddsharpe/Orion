@@ -1,0 +1,47 @@
+// Explicit integer type suffix: <number>:<typecode>. Bare integers still default
+// to i32. This lets literals carry a non-i32 type directly, e.g. for generic calls.
+
+T max<T>(T a, T b)
+{
+	if (a > b)
+	{
+		return a;
+	}
+	return b;
+}
+
+void test()
+{
+	// Bare literal is i32; suffixed literals are their stated type.
+	i64 big = 5000000000:i64;
+	WriteLine("big i64 = " + to_str(big));
+
+	u8 small = 200:u8;
+	WriteLine("small u8 = " + to_str(small));
+
+	i64 m = max<i64>(100:i64, 250:i64);
+	WriteLine("max i64 = " + to_str(m));
+
+	u32 u = 4000000000:u32;
+	WriteLine("u32 = " + to_str(u));
+
+	i16 s = 30000:i16;
+	WriteLine("i16 = " + to_str(s));
+
+	i32 plain = 42;
+	WriteLine("plain i32 = " + to_str(plain));
+
+	// The array's suffix types every element; a per-element one is redundant but needed above i32.
+	u8[] bare = [1, 2, 200]:u8;
+	u8[] typed = [1:u8, 2:u8, 200:u8]:u8;
+	i64[] wide = [5000000000:i64, 1:i64]:i64;
+	WriteLine("array u8 = " + to_str(bare[2]) + " " + to_str(typed[2]));
+	WriteLine("array i64 = " + to_str(wide[0]));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

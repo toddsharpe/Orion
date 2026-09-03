@@ -1,0 +1,26 @@
+--- Raw readings ---
+  reading = 5
+  reading = 15
+  reading = 25
+  reading = 35
+  reading = 45
+  reading = 55
+  reading = 65
+  reading = 75
+--- Calibrated + classified ---
+  15 -> Low
+  25 -> Medium
+  35 -> Medium
+  45 -> Medium
+  55 -> Medium
+  65 -> High
+  75 -> High
+  85 -> High
+Sum of High readings: 225
+--- Summary ---
+Count: 8
+Sum:   400
+Max:   85
+--- Calibration (floats) ---
+total gain = 4.0
+f32 trim applied twice = 1.0

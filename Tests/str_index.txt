@@ -1,0 +1,7 @@
+first  = 79
+last   = 110
+lower  = orion, len 5
+hex    = 6F72696F6E
+build  = azc
+folded = 6F72696F6E
+agree  = true

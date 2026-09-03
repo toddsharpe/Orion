@@ -1,0 +1,22 @@
+// `T[N] dst = src` copies a view into storage the local owns, on every backend.
+
+void probe(ConstSpan<u8> src)
+{
+	u8[4] copy = src;
+	copy[0] = 99:u8;
+	WriteLine("copy=" + to_str(copy[0]) + " src=" + to_str(src[0]));
+
+	// A shorter destination reads only as many elements as it holds.
+	u8[2] half = src;
+	WriteLine("half=" + to_str(half[0]) + to_str(half[1]));
+}
+
+i32 main()
+{
+	u8[4] b;
+	b[0] = 1:u8;
+	b[1] = 2:u8;
+	probe(b);
+	WriteLine("caller sees " + to_str(b[0]));
+	return 0;
+}

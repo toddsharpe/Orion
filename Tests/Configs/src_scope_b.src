@@ -1,0 +1,9 @@
+#build i32 bump(i32 v)
+{
+	return v + 100;
+}
+
+#build i32 pick(i32 seed)
+{
+	return bump(seed) * 10;
+}

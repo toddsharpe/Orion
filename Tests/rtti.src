@@ -1,0 +1,96 @@
+// Runtime type information: the compiler describes every function of the program as Orion data.
+
+struct Sample
+{
+	u16 raw;
+	i32 scaled;
+	bool valid;
+}
+
+void scale(#input i32 n, #output i32 doubled)
+{
+	#state i32 seen = 0;
+	seen = seen + 1;
+	doubled = n * 2;
+}
+
+// A struct describes its members the way a function describes its ports.
+void fields(Ref<RtType> t)
+{
+	WriteLine($"{t.Name}: {t.Size} bytes, {t.Fields.Length} fields");
+	for (i32 i = 0; i < t.Fields.Length; i++)
+	{
+		RtField f = t.Fields[i];
+		WriteLine($"  +{f.Offset} {f.Name}:{f.Type.Name} ({f.Type.Size})");
+	}
+}
+
+// The port lists ARE views over the one global table, so they index and measure like any buffer.
+void ports(str label, Span<RtPort> ports)
+{
+	for (i32 i = 0; i < ports.Length; i++)
+	{
+		RtPort p = ports[i];
+		// A port names its type rather than indexing it, so the descriptor is reached with no lookup.
+		Ref<RtType> t = p.Type;
+
+		// A buffer names its element the same way, and the "no type" row names itself, so a walk always ends.
+		if (t.Kind == TypeKind::Span)
+		{
+			WriteLine($"  {label} {p.Name}:{t.Name} of {t.Element.Name}");
+		}
+		else
+		{
+			WriteLine($"  {label} {p.Name}:{t.Name}");
+		}
+	}
+}
+
+void report(str name)
+{
+	RtFunction f = Function::Get(name);
+
+	// A name no function has answers with the empty descriptor.
+	if (str_len(f.Name) == 0:u32)
+	{
+		WriteLine($"{name}: not found");
+		return;
+	}
+
+	Ref<RtType> ret = f.Return;
+	WriteLine($"{f.Name} -> {ret.Name}");
+
+	ports("in   ", f.Inputs);
+	ports("out  ", f.Outputs);
+	ports("state", f.State);
+}
+
+// Naming Sample in a signature is what pulls its description into the tables.
+i32 use(Sample s)
+{
+	return s.scaled;
+}
+
+i32 main()
+{
+	WriteLine($"functions: {Function::Count()}");
+
+	// Count and At are the whole enumeration surface: Function::Get needs a name you already have.
+	for (i32 i = 0; i < Function::Count(); i++)
+	{
+		RtFunction f = Function::At(i);
+		WriteLine($"  [{i}] {f.Name}");
+	}
+
+	report("scale");
+	report("report");
+
+	// A port's type reaches the struct's own description, with no lookup in between.
+	fields(Function::Get("use").Inputs[0].Type);
+
+	// `ports` takes a Span<RtPort>, so describing it walks a type that names another type.
+	report("ports");
+	report("nope");
+
+	return 0;
+}

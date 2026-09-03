@@ -1,0 +1,14 @@
+#using "Lib/types.src"
+
+//A fixed-size frame moving one way through a ring the program owns, declared at build time:
+//    const i32 tx = #run Channel::Tx(service, 320, 2);
+//    channel_push(tx, frame);
+//`service` addresses the bus and the index addresses the ring; the externs below get compiler-written bodies.
+#export struct ChannelEndpoint
+{
+	u32 group;
+	u16 port;
+}
+
+extern i32 channel_push(i32 index, ConstSpan<u8> frame);
+extern i32 channel_pop(i32 index, Span<u8> frame);

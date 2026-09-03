@@ -1,0 +1,72 @@
+// One member surface: a build-time handle and the runtime descriptor carry the same members.
+
+void Count(#param str name, #input i32 step, #output i32 total)
+{
+	#run
+	{
+		#insert {
+			#state i32 running = 0;
+			running = running + step;
+			total = running;
+		}
+	}
+}
+
+// The runtime face: `RtPort` carries Name, Type and Direction; `RtType` carries Name, Kind and Size.
+void Ports(str label, Span<RtPort> ports)
+{
+	for (i32 i = 0; i < ports.Length; i++)
+	{
+		RtPort p = ports[i];
+		Ref<RtType> t = p.Type;
+		WriteLine($"  {label} {p.Name}:{t.Name} {t.Size}");
+	}
+}
+
+i32 main()
+{
+	i32 step = 5;
+	i32 total = 0;
+
+	// The build-time face: the same walk over the handle `#create` yields, while the program is written.
+	#run
+	{
+		const Function h = #create Count(name = "counter");
+		#insert { WriteLine("build " + ${h.Name} + " -> " + ${h.Return.Name}); }
+
+		for (const Port p in h.Inputs)
+		{
+			#insert { WriteLine("  in    " + ${p.Name} + ":" + ${p.Type.Name} + " " + to_str(${p.Type.Size})); }
+		}
+		for (const Port p in h.Outputs)
+		{
+			#insert { WriteLine("  out   " + ${p.Name} + ":" + ${p.Type.Name} + " " + to_str(${p.Type.Size})); }
+		}
+
+		// A `#state` LOCAL has no parameter, so both faces have to look past the signature to see it.
+		for (const Port p in h.State)
+		{
+			#insert { WriteLine("  state " + ${p.Name} + ":" + ${p.Type.Name} + " " + to_str(${p.Type.Size})); }
+		}
+	}
+
+	#run Build::AddBody("counter(step, total);");
+	#run Build::AddBody("counter(step, total);");
+	WriteLine($"total = {total}");
+
+	// The runtime face: the same function, read back out of the tables the compiler wrote beside it.
+	RtFunction f = Function::Get("counter");
+	WriteLine($"run   {f.Name} -> {f.Return.Name}");
+	Ports("in   ", f.Inputs);
+	Ports("out  ", f.Outputs);
+	Ports("state", f.State);
+
+	// The enums are one declaration too, so a build-time test and a runtime test spell the same.
+	RtPort first = f.Inputs[0];
+	if (first.Direction == ParamDirection::In && first.Type.Kind == TypeKind::Primitive)
+	{
+		WriteLine("in is a primitive");
+	}
+
+	return 0;
+}

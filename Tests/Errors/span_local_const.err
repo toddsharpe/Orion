@@ -1,0 +1,1 @@
+a mutable view of a read-only buffer would launder the const away

@@ -1,0 +1,67 @@
+// `s[i]` reads the byte at a position and `s[i] = c` writes it. A string is a run of bytes, so the
+// element is a `u8`; no backend mutates a string in place, so the write assigns the result back.
+
+// The one thing that needed a character: a byte as two hex digits, with no runtime help.
+str hex(u8 b)
+{
+	str digits = "0123456789ABCDEF";
+	str out = "??";
+
+	out[0] = digits[cast<i32>(b) / 16];
+	out[1] = digits[cast<i32>(b) % 16];
+
+	return out;
+}
+
+i32 main()
+{
+	str s = "Orion";
+
+	// Read: a character is its ASCII byte.
+	WriteLine("first  = " + to_str(s[0]));
+	WriteLine("last   = " + to_str(s[4]));
+
+	// Write: lower-casing is a bit set, and the string is the same length afterwards.
+	s[0] = s[0] + 32:u8;
+	WriteLine("lower  = " + s + ", len " + to_str(str_len(s)));
+
+	// Every byte of a string, as text.
+	str packed = "";
+	for (i32 i = 0; i < cast<i32>(str_len(s)); i++)
+	{
+		packed = packed + hex(s[i]);
+	}
+	WriteLine("hex    = " + packed);
+
+	// Read and write at BUILD time: 'a' + 25 is 'z', so the write depends on the read.
+	const str tag = #run
+	{
+		str t = "abc";
+		t[1] = t[0] + 25:u8;
+		return t;
+	};
+	WriteLine("build  = " + tag);
+
+	// The same walk the runtime just did, executed at build time instead. Both faces index the same
+	// way, so the answer has to match -- and a mismatch is what this line is here to catch.
+	const str folded = #run
+	{
+		str digits = "0123456789ABCDEF";
+		str src = "orion";
+		str out = "";
+
+		for (i32 i = 0; i < cast<i32>(str_len(src)); i++)
+		{
+			str pair = "??";
+			pair[0] = digits[cast<i32>(src[i]) / 16];
+			pair[1] = digits[cast<i32>(src[i]) % 16];
+			out = out + pair;
+		}
+
+		return out;
+	};
+	WriteLine("folded = " + folded);
+	WriteLine("agree  = " + to_str(folded == packed));
+
+	return 0;
+}

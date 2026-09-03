@@ -1,0 +1,44 @@
+// Default and named arguments on ordinary functions. A default is folded once, at the declaration,
+// so it must be constant; each call site builds its own literal from the folded value.
+const i32 STEP = 4;
+
+i32 scaled(i32 value, i32 factor = 2, i32 offset = 0)
+{
+	return value * factor + offset;
+}
+
+//A default may be any constant expression, including one over a named constant.
+i32 stepped(i32 value, i32 by = STEP * 2)
+{
+	return value + by;
+}
+
+str label(str name, str units = "mm", bool loud = false)
+{
+	if (loud) { return name + " [" + units + "]!"; }
+	return name + " [" + units + "]";
+}
+
+f64 area(f64 r, f64 pi = 3.5)
+{
+	return pi * r * r;
+}
+
+void main()
+{
+	WriteLine("all      = " + to_str(scaled(3, 5, 1)));
+	WriteLine("default  = " + to_str(scaled(3)));
+	WriteLine("partial  = " + to_str(scaled(3, 4)));
+	WriteLine("named    = " + to_str(scaled(3, offset = 7)));
+	WriteLine("reorder  = " + to_str(scaled(offset = 1, value = 3, factor = 5)));
+
+	WriteLine("const    = " + to_str(stepped(1)));
+	WriteLine("override = " + to_str(stepped(1, by = 100)));
+
+	WriteLine("str      = " + label("depth"));
+	WriteLine("str2     = " + label("depth", units = "cm"));
+	WriteLine("bool     = " + label("depth", loud = true));
+
+	WriteLine("f64      = " + to_str(area(2.0)));
+	WriteLine("f64named = " + to_str(area(pi = 3.0, r = 2.0)));
+}

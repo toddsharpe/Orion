@@ -1,0 +1,199 @@
+// A started block. `Function::Start` allocates a block's cells and runs its `#init` over them, and
+// every `Function::Tick` after that writes into the same ones -- so a `#state` port keeps its value
+// between ticks exactly as a `SolverState` cell does across two dispatches.
+//
+// The point is what the args bag carries: INPUTS. A cell is not an argument, and threading one through
+// the bag is what made `Function::Out` mean two different things depending on whether the port's type
+// happened to be a CLR reference. Here the instance owns it and the question does not arise.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A nanosecond timestamp.
+typedef i64 time;
+
+struct Run
+{
+	time start;
+	bool latched;
+}
+
+// A hold: the condition has to stay true for `hold` before it counts, and never counts back.
+void Hold(
+	#param str name,
+	#param time hold = 500000000:time,
+	#state Run run,
+	#input bool cond,
+	#input time now,
+	#output bool fired
+)
+{
+	#init
+	{
+		return true;
+	}
+
+	if (run.latched)
+	{
+		fired = true;
+		return;
+	}
+
+	if (cond == false)
+	{
+		run.start = 0:time;
+		fired = false;
+		return;
+	}
+
+	if (run.start == 0:time)
+	{
+		run.start = now;
+	}
+
+	if (now - run.start >= hold)
+	{
+		run.latched = true;
+		fired = true;
+	}
+}
+
+// A block whose `#init` seeds a cell to something a zeroed one is not, so startup is observable.
+void Opener(#param str name, #state i32 fd, #output i32 handle)
+{
+	#init
+	{
+		fd = 7;
+		return true;
+	}
+
+	fd = fd + 1;
+	handle = fd;
+}
+
+// One `#state` array and one `#state` struct holding an array: a cell has to arrive BUILT, not null,
+// or the first tick writes through a reference nobody made.
+struct Window
+{
+	i32[3] slot;
+	i32 count;
+}
+
+void Fill(#param str name, #state Window win, #state i32[3] raw, #input i32 value, #output i32 total)
+{
+	#init
+	{
+		return true;
+	}
+
+	raw[win.count % 3] = value;
+	win.slot[win.count % 3] = value;
+	win.count = win.count + 1;
+
+	total = win.slot[0] + win.slot[1] + win.slot[2];
+}
+
+// Read-only ports: nothing writable but the one output, which is the common stateless calc shape.
+void Scale(#param str name, #param i32 by = 2, #input i32 raw, #output i32 scaled)
+{
+	#init
+	{
+		return true;
+	}
+
+	scaled = raw * by;
+}
+
+#build bool Instance_SelfTest()
+{
+	const time step = 100000000:time;
+
+	// ---- cells persist across ticks, with nothing threaded ----
+
+	Instance h = Function::Start(#create Hold(name = "h"));
+	#assert(Instance::Get<Run>(h, "run").start == 0:time, "a cold cell is zeroed");
+	#assert(Instance::Get<Run>(h, "run").latched == false, "and nothing latched");
+
+	Function::Tick(h, ${cond = true, now = step});
+	#assert(Instance::Get<Run>(h, "run").start == step, "the first true sample starts the run");
+	#assert(Instance::Get<bool>(h, "fired") == false, "which is not the same as firing");
+
+	// Five more ticks reach the hold; the cell carried the start across all of them.
+	for (i32 i = 2; i <= 6; i++)
+	{
+		Function::Tick(h, ${cond = true, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(h, "fired") == (i == 6), "fires on the sixth tick and not before");
+	}
+	#assert(Instance::Get<Run>(h, "run").latched, "and the latch is in the cell");
+
+	// ---- an #output persists too ----
+
+	// A tick that returns early writes nothing, so the net holds what it last said -- the behaviour a
+	// block relies on when it declines to answer a stale sample.
+	Function::Tick(h, ${cond = false, now = step * 7:time});
+	#assert(Instance::Get<bool>(h, "fired"), "a latched hold still reports fired");
+
+	// ---- #init runs, and runs over the instance's own cells ----
+
+	Instance o = Function::Start(#create Opener(name = "o"));
+	#assert(Instance::Get<i32>(o, "fd") == 7, "#init seeded the cell");
+	Function::Tick(o, ${});
+	#assert(Instance::Get<i32>(o, "fd") == 8, "and the tick advanced what it seeded");
+	#assert(Instance::Get<i32>(o, "handle") == 8, "which the output reports");
+
+	// ---- a cell arrives built, not null ----
+
+	Instance f = Function::Start(#create Fill(name = "f"));
+	#assert(Instance::Get<Window>(f, "win").count == 0, "a struct cell is built and zeroed");
+	#assert(Instance::Get<i32[3]>(f, "raw").Length == 3, "an array cell has its elements");
+
+	Function::Tick(f, ${value = 5});
+	Function::Tick(f, ${value = 6});
+	Function::Tick(f, ${value = 7});
+	#assert(Instance::Get<i32>(f, "total") == 18, "three ticks filled the window inside the struct");
+	#assert(Instance::Get<i32[3]>(f, "raw")[1] == 6, "and the bare array cell too");
+
+	// ---- a cell is the instance's, and a tick may not reach past the inputs to it ----
+
+	// Naming a cell or an output in a tick is refused: a block's memory is reached by driving the inputs
+	// that produce it, not by writing it. The failing case is in Errors/instance_seed_cell.
+
+	// ---- two instances are two sets of cells ----
+
+	Instance a = Function::Start(#create Hold(name = "a"));
+	Instance b = Function::Start(#create Hold(name = "b"));
+	Function::Tick(a, ${cond = true, now = step});
+	#assert(Instance::Get<Run>(a, "run").start == step, "one advanced");
+	#assert(Instance::Get<Run>(b, "run").start == 0:time, "the other did not");
+
+	// ---- a #param is folded per instance ----
+
+	Instance twice = Function::Start(#create Scale(name = "twice"));
+	Instance thrice = Function::Start(#create Scale(name = "thrice", by = 3));
+	Function::Tick(twice, ${raw = 14});
+	Function::Tick(thrice, ${raw = 14});
+	#assert(Instance::Get<i32>(twice, "scaled") == 28, "the default #param");
+	#assert(Instance::Get<i32>(thrice, "scaled") == 42, "and the one this instance was created with");
+
+	return true;
+}
+
+#run
+{
+	Instance_SelfTest();
+}
+
+i32 main()
+{
+	// The same block driven on the target, so the ports the build drove are the ports it really has.
+	i32 fd = 0;
+	i32 handle = 0;
+
+	#run
+	{
+		Function op = #create Opener(name = "runtime");
+		#insert { ${op.Init}(fd); }
+		#insert { ${op}(fd, handle); }
+	}
+
+	WriteLine("fd     = " + to_str(fd));
+	WriteLine("handle = " + to_str(handle));
+	return 0;
+}

@@ -1,0 +1,22 @@
+// A #param folds to its value everywhere the name appears -- including an assignment target -- so a
+// port sharing the name could never be written. Caught at specialization, not as a codegen assertion.
+void Flags(
+	#param str name,
+	#param i32 code,
+	#input f64 source @ $"{name}_in",
+	#output u16 code @ $"{name}_code"
+	)
+{
+	code = cast<u16>(code);
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] fs = [ #create Flags(name = "f", code = 7) ]:Function;
+		Solver solver = Solver::New(fs);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

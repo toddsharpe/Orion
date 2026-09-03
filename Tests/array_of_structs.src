@@ -1,0 +1,33 @@
+// A sized array zeroes its elements whatever they are, so a struct one is a row of built structs.
+struct P
+{
+	i32 x;
+	str tag;
+}
+
+struct Nested
+{
+	P inner;
+}
+
+i32 main()
+{
+	P[2] arr;
+	arr[0].x = 7;
+	arr[0].tag = "set";
+
+	// The second element was never written, so it is what the declaration left there.
+	WriteLine("written " + to_str(arr[0].x) + " " + arr[0].tag);
+	WriteLine("zeroed  " + to_str(arr[1].x) + " [" + arr[1].tag + "]");
+
+	// A struct of structs, and a rectangular one, on the same footing.
+	Nested[2] deep;
+	deep[1].inner.x = 3;
+	WriteLine("deep    " + to_str(deep[1].inner.x) + " " + to_str(deep[0].inner.x));
+
+	P[2,2] grid;
+	grid[1,1].x = 9;
+	WriteLine("grid    " + to_str(grid[1,1].x) + " " + to_str(grid[0,0].x));
+
+	return 0;
+}

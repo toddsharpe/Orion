@@ -1,0 +1,14 @@
+void run()
+{
+	bool b = true;
+	i32 i = b ? 1 : 0;
+	WriteLine("Value: " + to_str(i));
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

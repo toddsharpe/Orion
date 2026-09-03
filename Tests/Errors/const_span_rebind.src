@@ -1,0 +1,14 @@
+// `const Span<T>` freezes the handle: writing through it is fine, re-pointing it is not.
+void probe(const Span<i32> xs, Span<i32> other)
+{
+	xs[0] = 1;
+	xs = other;
+}
+
+i32 main()
+{
+	i32[] a = [1, 2]:i32;
+	i32[] b = [3, 4]:i32;
+	probe(a, b);
+	return 0;
+}

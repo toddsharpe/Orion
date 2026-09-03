@@ -1,0 +1,35 @@
+// `@ net` binds a generated port to a net other than its name: Sink's `x` reads the `src_out` net.
+
+void Src(#param str name, #state i32 t = 0, #output i32 v @ $"{name}_out")
+{
+	v = t + 10;
+	t = t + 1;
+}
+
+void Sink(#param str name, #param str source)
+{
+	#run
+	{
+		#input i32 x @ ${source};
+		#insert { WriteLine("sink read net '" + ${source} + "' as x = " + to_str(x)); }
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Src(name = "src"), #create Sink(name = "sink", source = "src_out") ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 t = 0; t < 3; t++)
+			{
+				solver_cycle(state);
+			}
+		}
+	}
+	return 0;
+}

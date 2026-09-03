@@ -1,0 +1,179 @@
+// A discrete PID whose law is an ordinary function, so the `#run` below tests it during the compile.
+#using "Lib/Math.src"
+
+struct PidGains
+{
+	f64 kp;
+	f64 ki;
+	f64 kd;
+	// Anti-windup: the integrator saturates here, not at the output.
+	f64 i_limit;
+	f64 out_limit;
+}
+
+// Everything the law carries between cycles.
+struct PidState
+{
+	f64 integral;
+	f64 prev_error;
+}
+
+// The law returns both, so it stays a function of its arguments alone.
+struct PidResult
+{
+	PidState state;
+	f64 command;
+}
+
+// One tick. `dt` is seconds, so gains mean the same thing whatever rate the block is dispatched at.
+PidResult Pid_Step(const PidGains g, const PidState s, const f64 setpoint, const f64 measured, const f64 dt)
+{
+	const f64 error = setpoint - measured;
+
+	// Clamped as it accumulates, so a saturated output cannot wind the integrator up behind it.
+	const f64 integral = clamp<f64>(s.integral + error * dt, 0.0 - g.i_limit, g.i_limit);
+	const f64 derivative = (error - s.prev_error) / dt;
+
+	const f64 raw = g.kp * error + g.ki * integral + g.kd * derivative;
+	const f64 command = clamp<f64>(raw, 0.0 - g.out_limit, g.out_limit);
+
+	return PidResult
+	{
+		state = PidState{ integral = integral, prev_error = error },
+		command = command
+	};
+}
+
+// The state a cold start begins from.
+PidState Pid_Zero()
+{
+	return PidState{ integral = 0.0, prev_error = 0.0 };
+}
+
+// A first-order plant, `tau` seconds to 63% of a step, so a closed loop can be simulated and run.
+f64 Plant_Step(const f64 y, const f64 u, const f64 gain, const f64 tau, const f64 dt)
+{
+	return y + (gain * u - y) * (dt / tau);
+}
+
+// ---- self-test: build-time only, reached from the block below ----
+
+#build PidGains Pid_TestGains(f64 kp, f64 ki, f64 kd)
+{
+	return PidGains{ kp = kp, ki = ki, kd = kd, i_limit = 10.0, out_limit = 5.0 };
+}
+
+// Hold the error constant for `n` ticks and report where the law ends up.
+#build PidResult Pid_Drive(PidGains g, f64 setpoint, f64 measured, f64 dt, i32 n)
+{
+	PidResult r = PidResult{ state = Pid_Zero(), command = 0.0 };
+	for (i32 i = 0; i < n; i++)
+	{
+		r = Pid_Step(g, r.state, setpoint, measured, dt);
+	}
+	return r;
+}
+
+// Close the loop over the plant and report the settled value, which is what the gains are judged on.
+#build f64 Pid_Simulate(PidGains g, f64 setpoint, f64 dt, i32 ticks)
+{
+	PidState s = Pid_Zero();
+	f64 y = 0.0;
+
+	for (i32 i = 0; i < ticks; i++)
+	{
+		const PidResult r = Pid_Step(g, s, setpoint, y, dt);
+		s = r.state;
+		y = Plant_Step(y, r.command, 1.0, 0.5, dt);
+	}
+
+	return y;
+}
+
+// Every claim the law has to satisfy. A `#build` function, so none of this reaches a backend.
+#build bool Pid_SelfTest()
+{
+	// Proportional only: the command is exactly kp * error, with no history to accumulate.
+	const PidResult p = Pid_Drive(Pid_TestGains(2.0, 0.0, 0.0), 1.0, 0.0, 0.1, 1);
+	#assert(approx(p.command, 2.0, 0.000001), "PID P: expected kp * error");
+	#assert(approx(p.state.integral, 0.1, 0.000001), "PID P: integrator still accumulates");
+
+	// The integrator ramps the command while the error persists -- the part a P term cannot do.
+	const PidGains gi = Pid_TestGains(0.0, 1.0, 0.0);
+	const PidResult one = Pid_Drive(gi, 1.0, 0.0, 0.1, 1);
+	const PidResult ten = Pid_Drive(gi, 1.0, 0.0, 0.1, 10);
+	#assert(approx(one.command, 0.1, 0.000001), "PID I: one tick of error * dt");
+	#assert(ten.command > one.command, "PID I: the command must ramp while error persists");
+	#assert(approx(ten.command, 1.0, 0.000001), "PID I: ten ticks of error * dt");
+
+	// Anti-windup: hold an error far past the limit and the integrator must stop, not keep climbing.
+	const PidResult wound = Pid_Drive(gi, 100.0, 0.0, 0.1, 500);
+	#assert(approx(wound.state.integral, gi.i_limit, 0.000001), "PID windup: integrator must clamp at i_limit");
+	#assert(wound.command <= gi.out_limit, "PID windup: command must not exceed out_limit");
+
+	// The derivative sees the step once, on the tick the error appears, and not afterwards.
+	const PidGains gd = Pid_TestGains(0.0, 0.0, 1.0);
+	const PidResult first = Pid_Step(gd, Pid_Zero(), 1.0, 0.0, 0.1);
+	const PidResult second = Pid_Step(gd, first.state, 1.0, 0.0, 0.1);
+	#assert(approx(first.command, 5.0, 0.000001), "PID D: step of 1.0 over dt 0.1, clamped to out_limit");
+	#assert(approx(second.command, 0.0, 0.000001), "PID D: a held error has no further derivative");
+
+	// Sign: a measurement above the setpoint must drive the command the other way.
+	const PidResult over = Pid_Drive(Pid_TestGains(2.0, 0.0, 0.0), 0.0, 1.0, 0.1, 1);
+	#assert(over.command < 0.0, "PID sign: overshoot must command the other way");
+
+	// Closed loop: P alone keeps a steady-state offset of kp/(1+kp), and the integrator removes it.
+	const f64 p_only = Pid_Simulate(Pid_TestGains(2.0, 0.0, 0.0), 1.0, 0.02, 400);
+	const f64 with_i = Pid_Simulate(Pid_TestGains(2.0, 4.0, 0.05), 1.0, 0.02, 400);
+	#assert(approx(p_only, 0.666666, 0.0001), "PID loop: P alone must sit at kp/(1+kp)");
+	#assert(fabs<f64>(1.0 - with_i) < 0.01, "PID loop: PI must settle within 1% of the setpoint");
+	#assert(fabs<f64>(1.0 - with_i) < fabs<f64>(1.0 - p_only), "PID loop: the integrator must beat P alone");
+
+	return true;
+}
+
+// `#test`, not a file-scope `#run`: a `#run` is hoisted into the entry, so every includer would pay.
+#test Pid_SelfTest "PID loop"
+
+// ---- blocks ----
+
+// Ports in, law, state back out. The gains fold to literals at #create.
+void Pid(
+	#param str name,
+	#param f64 kp,
+	#param f64 ki,
+	#param f64 kd,
+	#param f64 i_limit,
+	#param f64 out_limit,
+	#param f64 dt,
+	#param str setpoint_src,
+	#param str measured_src,
+	#input f64 setpoint @ setpoint_src,
+	#prev f64 measured @ measured_src,
+	#output f64 command @ $"{name}_out",
+	#state f64 integral = 0.0,
+	#state f64 prev_error = 0.0
+)
+{
+	const PidGains gains = PidGains{ kp = kp, ki = ki, kd = kd, i_limit = i_limit, out_limit = out_limit };
+	const PidResult r = Pid_Step(gains, PidState{ integral = integral, prev_error = prev_error }, setpoint, measured, dt);
+
+	integral = r.state.integral;
+	prev_error = r.state.prev_error;
+	command = r.command;
+}
+
+void Plant(
+	#param str name,
+	#param f64 gain,
+	#param f64 tau,
+	#param f64 dt,
+	#param str command_src,
+	#input f64 u @ command_src,
+	#output f64 y @ $"{name}_out",
+	#state f64 level = 0.0
+)
+{
+	level = Plant_Step(level, u, gain, tau, dt);
+	y = level;
+}

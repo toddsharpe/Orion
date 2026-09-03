@@ -1,0 +1,64 @@
+// Types and constants the flight calcs share. Nothing here computes; the calcs beside it do.
+#using "Lib/types.src"
+#using "Lib/Math.src"
+#using "Lib/units.src"
+
+// A GPS fix, ordered by quality so a readiness test is a comparison rather than a set of equalities.
+enum GpsFix
+{
+	None,
+	Dead,
+	Fix2D,
+	Fix3D
+}
+
+// Metres per degree of latitude; PadLocation scales it by cos(latitude), once, at the pad.
+const f64<m/deg> MetersPerDeg = 111320.0:f64<m/deg>;
+
+// Standard atmosphere, as the barometric formula wants them: the exponent applies to a ratio, so it is a pure number.
+const f32 BaroExponent = 0.1903:f32;
+const f32<m> BaroScale = 44330.0:f32<m>;
+
+// One g in m/s^2: a reading cannot be integrated without it, which is exactly what `(m/s^2)/g` enforces.
+const f32<m/s^2/g> Gravity = 9.81:f32<m/s^2/g>;
+
+// Radians per degree for the f32 path; a radian is a ratio, so `deg/s * DegToRad` is a plain per-second.
+const f32<1/deg> DegToRad = 0.017453292:f32<1/deg>;
+
+// Seconds between two timestamps, so the nanosecond representation lives in one place.
+f32<s> Flight_Seconds(const time now, const time last)
+{
+	return cast<f32<s>>(cast<f32>(now - last) / 1000000000.0:f32);
+}
+
+// The length of a three-axis accelerometer reading; `sqrt` erases the measure, so it is restated on the way out.
+f32<g> Flight_Magnitude(const f32<g> x, const f32<g> y, const f32<g> z)
+{
+	return cast<f32<g>>(sqrt<f32>(x * x + y * y + z * z));
+}
+
+#build bool Flight_TypesSelfTest()
+{
+	// A fix is ordered, so "at least 3D" is one comparison.
+	#assert(GpsFix::Fix3D > GpsFix::Fix2D, "GpsFix: 3D must outrank 2D");
+	#assert(GpsFix::Fix2D > GpsFix::None, "GpsFix: a fix must outrank none");
+
+	// dt is seconds, and a tenth of a second is what a 10 Hz cycle hands over.
+	#assert(approx(cast<f64>(Flight_Seconds(100000000:time, 0:time)), 0.1, 0.000001), "Seconds: 100ms is 0.1s");
+	#assert(approx(cast<f64>(Flight_Seconds(0:time, 0:time)), 0.0, 0.000001), "Seconds: no elapsed time is zero");
+
+	// 3-4-5, and the one-axis case a resting accelerometer produces; in g, since a bare number cannot reach a measured parameter.
+	#assert(approx(cast<f64>(Flight_Magnitude(3.0:f32<g>, 4.0:f32<g>, 0.0:f32<g>)), 5.0, 0.0001), "Magnitude: 3-4-5");
+	#assert(approx(cast<f64>(Flight_Magnitude(0.0:f32<g>, 0.0:f32<g>, 0.0:f32<g>)), 0.0, 0.0001), "Magnitude: zero is zero");
+	#assert(approx(cast<f64>(Flight_Magnitude(0.0:f32<g>, 0.0:f32<g>, 0.0:f32<g> - 1.0:f32<g>)), 1.0, 0.0001), "Magnitude: sign does not matter");
+
+	// The conversions are the point of the measures: one g is 9.81 m/s^2, and a degree is 111 km of latitude.
+	#assert(approx(cast<f64>(1.0:f32<g> * Gravity), 9.81, 0.0001), "Gravity: one g is 9.81 m/s^2");
+	#assert(approx(1.0:f64<deg> * MetersPerDeg, 111320.0, 0.0001), "MetersPerDeg: a degree of latitude is 111 km");
+	#assert(approx(cast<f64>(180.0:f32<deg> * DegToRad), 3.14159265, 0.0001), "DegToRad: half a turn is pi");
+
+	return true;
+}
+
+// Run by `orion test`, not by whoever `#uses` this file.
+#test Flight_TypesSelfTest "Types"

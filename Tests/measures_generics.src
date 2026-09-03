@@ -1,0 +1,38 @@
+// A builtin that only reshapes a value keeps its measure, and a template's T can carry one.
+#measure m;
+#measure s;
+
+// The same shape as the library's clamp: T rides through, measure and all.
+T clamp<T>(const T x, const T lo, const T hi)
+{
+	return x < lo ? lo : (x > hi ? hi : x);
+}
+
+i32 main()
+{
+	// fabs returns its argument reshaped, so the measure survives without a restating cast.
+	const f32<m/s> v = -3.5:f32<m/s>;
+	const f32<m/s> speed = fabs<f32>(v);
+	WriteLine("speed = " + to_str(speed));
+
+	// fmin over two values in one measure keeps it; floor only reshapes too.
+	const f32<m/s> capped = fmin<f32>(speed, 3.0:f32<m/s>);
+	const f32<m/s> whole = floor<f32>(capped);
+	WriteLine("capped = " + to_str(capped) + " whole = " + to_str(whole));
+
+	// A template instantiated over a measured type carries it through parameters and return alike.
+	const f64<m> lo = 1.0:f64<m>;
+	const f64<m> hi = 8.0:f64<m>;
+	const f64<m> held = clamp<f64<m>>(12.0:f64<m>, lo, hi);
+	WriteLine("held = " + to_str(held));
+
+	// The bare instantiation lives beside the measured one.
+	const f64 plain = clamp<f64>(12.0, 1.0, 8.0);
+	WriteLine("plain = " + to_str(plain));
+
+	// Erased before codegen: at run time this is division, and the measure algebra already happened.
+	const f64<m/s> rate = held / 2.0:f64<s>;
+	WriteLine("rate = " + to_str(rate));
+
+	return 0;
+}

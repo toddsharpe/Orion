@@ -1,0 +1,9 @@
+// A measure has to be declared, exactly as a typedef does; a typo is not a new unit.
+#measure m;
+
+i32 main()
+{
+	const f64<metres> dist = 12.0:f64<metres>;
+	WriteLine(to_str(dist));
+	return 0;
+}

@@ -1,0 +1,55 @@
+// Structs are value types: assigning, passing or returning one copies. C++ always did this because it
+// emits a real struct; Python and JavaScript emit a class and used to alias, so the same program gave
+// different answers per backend. See Docs/Language.md.
+struct S { i32 x; i32 y; }
+
+void mutate(S s)
+{
+	s.x = 99;
+}
+
+S bump(const S s)
+{
+	S out = s;
+	out.x = out.x + 1;
+	return out;
+}
+
+// A struct holding a struct: the copy has to reach all the way down.
+struct Pair { S a; S b; }
+
+i32 main()
+{
+	S a = S{ x = 1, y = 2 };
+
+	// Assignment copies.
+	S b = a;
+	b.x = 99;
+	WriteLine("assign  a=" + to_str(a.x) + " b=" + to_str(b.x));
+
+	// A parameter is a copy, so the write cannot reach the caller.
+	mutate(a);
+	WriteLine("param   a=" + to_str(a.x));
+
+	// A return is a copy.
+	S c = bump(a);
+	WriteLine("return  a=" + to_str(a.x) + " c=" + to_str(c.x));
+
+	// Mutating a local is still legal; that is what the accumulator pattern relies on.
+	S acc = S{ x = 0, y = 0 };
+	for (i32 i = 0; i < 4; i++) { acc.x = acc.x + i; }
+	WriteLine("local   acc=" + to_str(acc.x));
+
+	// Array elements are independent values.
+	S[] arr = [a, a]:S;
+	arr[0].x = 7;
+	WriteLine("array   a=" + to_str(a.x) + " e0=" + to_str(arr[0].x) + " e1=" + to_str(arr[1].x));
+
+	// Nesting copies too.
+	Pair p = Pair{ a = a, b = a };
+	Pair q = p;
+	q.a.x = 42;
+	WriteLine("nested  p=" + to_str(p.a.x) + " q=" + to_str(q.a.x));
+
+	return 0;
+}

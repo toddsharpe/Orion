@@ -1,0 +1,9 @@
+// #input/#output append to the block a #build escape is assembling; outside one there is nothing to append to.
+i32 main()
+{
+	#run
+	{
+		#input i32 sample;
+	}
+	return 0;
+}

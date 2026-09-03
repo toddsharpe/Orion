@@ -1,0 +1,26 @@
+// A #src provider. The named entry runs at build time and returns the data; #src at the call site
+// freezes the returned List into the caller as a literal array. Because it runs at build time it could
+// read a manifest / glob a directory (File::ReadAll, etc.); this one builds inline so the test is
+// deterministic.
+#using "Lib/types.src"
+
+//The runtime-visible shape: Channel has no Type field, so a #src result can freeze into the program.
+#build List<Channel> channels(i32 count)
+{
+	List<Channel> out = List::New<Channel>();
+	for (i32 k = 0; k < count; k++)
+	{
+		out.Add(Channel{ name = $"field{k}", units = "counts" });
+	}
+	return out;
+}
+
+#build List<Device> devices(i32 count)
+{
+	List<Device> fields = List::New<Device>();
+	for (i32 k = 0; k < count; k++)
+	{
+		fields.Add(Device{ name = $"field{k}", type = Type::Of<i32>() });
+	}
+	return fields;
+}

@@ -1,0 +1,3 @@
+n_out (i32): 12
+by2_div (bool): true
+by5_div (bool): false

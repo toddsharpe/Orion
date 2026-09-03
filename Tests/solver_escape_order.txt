@@ -1,0 +1,12 @@
+-- cycle 0 --
+A static, before the first escape
+B escape one, in place
+C static, between the escapes
+D escape two, in place
+E static, after the last escape
+-- cycle 1 --
+A static, before the first escape
+B escape one, in place
+C static, between the escapes
+D escape two, in place
+E static, after the last escape

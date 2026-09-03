@@ -1,0 +1,19 @@
+// A #state port's initializer is written once before the first cycle, so it must be a constant.
+i32 now() { return 7; }
+
+void Blk(#param str name, #state i32 c = now(), #output i32 y @ $"{name}_out")
+{
+	c = c + 1;
+	y = c;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Blk(name = "k") ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

@@ -1,0 +1,59 @@
+// A fragment as a VALUE, parsed here: ${expr} holes carry build-time values rather than text.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+//A nanosecond timestamp.
+typedef i64 time;
+
+void Src(#param str name, #state i32 t = 0, #output i32 a, #output f64 b)
+{
+	a = t;
+	b = cast<f64>(t) * 1.5;
+	t = t + 1;
+}
+
+void Report(#param str name, #param List<Device> devices)
+{
+	#run
+	{
+		// Fragments as values: built in one pass, folded and emitted in another.
+		List<Code> lines = List::New<Code>();
+		for (const Device d in devices)
+		{
+			const Port p = Port::In(d.type, d.name);
+			// ${p} is a Port, so it becomes a REFERENCE to that port, not its name as text.
+			lines.Add(#code { WriteLine("  " + ${p.Name} + " = " + to_str(${p})); });
+		}
+
+		Code body = Code::Combine(lines);
+
+		#insert { WriteLine("--- " + ${name} + " --- (" + to_str(${Code::Length(body)}) + " lines)"); }
+		#insert body;
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		List<Device> wired = [
+			Device{ name = "a", type = Type::Of<i32>() },
+			Device{ name = "b", type = Type::Of<f64>() }
+		]:List<Device>;
+
+		Function[] blocks = [ #create Src(name = "src"), #create Report(name = "rep", devices = wired) ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+		#insert {
+			${Solver::Struct(solver)};
+			if (solver_init(state) == false) { return -1; }
+			for (i32 c = 0; c < 2; c++) { solver_cycle(state); }
+		}
+	}
+	return 0;
+}

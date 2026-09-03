@@ -1,0 +1,11 @@
+// A library that arms itself: the `#run` below is hoisted into the entry of whatever #uses it.
+#build i32 Lib_Answer()
+{
+	return 42;
+}
+
+#run
+{
+	#assert(Lib_Answer() == 42, "lib: the answer changed");
+	#insert { WriteLine("lib file-run ran first"); }
+}

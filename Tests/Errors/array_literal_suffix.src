@@ -1,0 +1,12 @@
+// A struct literal commits at `Type{`, so the unsuffixed array inside reports its own missing suffix.
+struct Tail
+{
+	f32[2] window;
+}
+
+i32 main()
+{
+	Tail t = Tail{ window = [1.0:f32, 2.0:f32] };
+	WriteLine(to_str(t.window[0]));
+	return 0;
+}

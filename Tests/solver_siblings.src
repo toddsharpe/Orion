@@ -1,0 +1,46 @@
+// Sibling #build escapes: a template may host more than one #build block at the same level; they
+// concatenate (in body order) into the one generator. Here `Report` has two sibling escapes -- the
+// first declares the input port and prints the value, the second prints a trailing tag line.
+
+void Counter(#param str name, #param i32 step, #state i32 acc = 0,
+			 #output i32 value @ $"{name}_out")
+{
+	value = acc;
+	acc = acc + step;
+}
+
+void Report(#param str name, #param str source)
+{
+	#run {
+		const Port v = Port::In(Type::Of<i32>(), source);
+		#insert { WriteLine("  " + ${name} + ": " + to_str(${v})); }
+	}
+	#run {
+		#insert { WriteLine("  " + ${name} + ": (end)"); }
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [
+			#create Counter(name = "count", step = 5),
+			#create Report(name = "report", source = "count_out")
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 c = 0; c < 3; c++)
+			{
+				WriteLine("cycle " + to_str(c));
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

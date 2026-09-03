@@ -1,0 +1,264 @@
+// Linear algebra over Vec2/Vec3/Quat structs: LinAlg.src's operations by value rather than by view.
+#using "Lib/Math.src"
+
+struct Vec2
+{
+	f64 x;
+	f64 y;
+}
+
+struct Vec3
+{
+	f64 x;
+	f64 y;
+	f64 z;
+}
+
+// (x, y, z, w) with w last, the order LinAlg.src stores a quaternion in.
+// A rotation, so every component is a ratio; one struct over either float width.
+struct Quat<T>
+{
+	T x;
+	T y;
+	T z;
+	T w;
+}
+
+// ---- Vec2 ----
+
+Vec2 v2_add(const Vec2 a, const Vec2 b)
+{
+	return Vec2{ x = a.x + b.x, y = a.y + b.y };
+}
+
+Vec2 v2_sub(const Vec2 a, const Vec2 b)
+{
+	return Vec2{ x = a.x - b.x, y = a.y - b.y };
+}
+
+Vec2 v2_scale(const Vec2 v, const f64 by)
+{
+	return Vec2{ x = v.x * by, y = v.y * by };
+}
+
+f64 v2_dot(const Vec2 a, const Vec2 b)
+{
+	return a.x * b.x + a.y * b.y;
+}
+
+f64 v2_length(const Vec2 v)
+{
+	return sqrt<f64>(v2_dot(v, v));
+}
+
+f64 v2_distance(const Vec2 a, const Vec2 b)
+{
+	return v2_length(v2_sub(a, b));
+}
+
+// A zero vector has no direction, so it comes back unchanged rather than as NaN.
+Vec2 v2_normalize(const Vec2 v)
+{
+	const f64 len = v2_length(v);
+	if (len == 0.0)
+	{
+		return v;
+	}
+	return v2_scale(v, 1.0 / len);
+}
+
+str v2_str(const Vec2 v)
+{
+	return "(" + to_str(v.x) + ", " + to_str(v.y) + ")";
+}
+
+// ---- Vec3 ----
+
+Vec3 v3_add(const Vec3 a, const Vec3 b)
+{
+	return Vec3{ x = a.x + b.x, y = a.y + b.y, z = a.z + b.z };
+}
+
+Vec3 v3_sub(const Vec3 a, const Vec3 b)
+{
+	return Vec3{ x = a.x - b.x, y = a.y - b.y, z = a.z - b.z };
+}
+
+Vec3 v3_scale(const Vec3 v, const f64 by)
+{
+	return Vec3{ x = v.x * by, y = v.y * by, z = v.z * by };
+}
+
+f64 v3_dot(const Vec3 a, const Vec3 b)
+{
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+f64 v3_length(const Vec3 v)
+{
+	return sqrt<f64>(v3_dot(v, v));
+}
+
+f64 v3_distance(const Vec3 a, const Vec3 b)
+{
+	return v3_length(v3_sub(a, b));
+}
+
+// A zero vector has no direction, so it comes back unchanged rather than as NaN.
+Vec3 v3_normalize(const Vec3 v)
+{
+	const f64 len = v3_length(v);
+	if (len == 0.0)
+	{
+		return v;
+	}
+	return v3_scale(v, 1.0 / len);
+}
+
+// The cross product is only defined at three dimensions, which is why there is no v2_cross.
+Vec3 v3_cross(const Vec3 a, const Vec3 b)
+{
+	return Vec3{
+		x = a.y * b.z - a.z * b.y,
+		y = a.z * b.x - a.x * b.z,
+		z = a.x * b.y - a.y * b.x
+	};
+}
+
+// Reflect d about the unit normal n: d - 2 (d . n) n.
+Vec3 v3_reflect(const Vec3 d, const Vec3 n)
+{
+	const f64 k = 2.0 * v3_dot(d, n);
+	return v3_sub(d, v3_scale(n, k));
+}
+
+str v3_str(const Vec3 v)
+{
+	return "(" + to_str(v.x) + ", " + to_str(v.y) + ", " + to_str(v.z) + ")";
+}
+
+// ---- Quat ----
+
+Quat<T> q_identity<T>()
+{
+	return Quat<T>{ x = 0.0:T, y = 0.0:T, z = 0.0:T, w = 1.0:T };
+}
+
+// Hamilton product: the rotation b followed by the rotation a.
+Quat<T> q_mul<T>(const Quat<T> a, const Quat<T> b)
+{
+	return Quat<T>{
+		x = a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+		y = a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+		z = a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+		w = a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z
+	};
+}
+
+// The inverse rotation, for a unit quaternion: negate the vector part.
+Quat<T> q_conjugate<T>(const Quat<T> q)
+{
+	return Quat<T>{ x = 0.0:T - q.x, y = 0.0:T - q.y, z = 0.0:T - q.z, w = q.w };
+}
+
+// A rotation of `angle` radians about a unit axis.
+Quat<f64> q_from_axis(const Vec3 axis, const f64 angle)
+{
+	const f64 half = angle * 0.5;
+	const f64 s = sin<f64>(half);
+	return Quat<f64>{ x = axis.x * s, y = axis.y * s, z = axis.z * s, w = cos<f64>(half) };
+}
+
+// Apply a unit quaternion to a vector: v + 2w(q x v) + 2(q x (q x v)), avoiding a matrix.
+Vec3 q_rotate(const Quat<f64> q, const Vec3 v)
+{
+	const Vec3 u = Vec3{ x = q.x, y = q.y, z = q.z };
+	const Vec3 uv = v3_cross(u, v);
+	const Vec3 uuv = v3_cross(u, uv);
+	return v3_add(v, v3_scale(v3_add(v3_scale(uv, q.w), uuv), 2.0));
+}
+
+str q_str<T>(const Quat<T> q)
+{
+	return "(" + to_str(q.x) + ", " + to_str(q.y) + ", " + to_str(q.z) + ", " + to_str(q.w) + ")";
+}
+
+// The length of the four components; exactly one is what makes a quaternion a rotation at all.
+T q_norm<T>(const Quat<T> q)
+{
+	return sqrt<T>(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
+}
+
+// ---- self-test ----------------------------------------------------------------------------
+// The struct parallel of LinAlg's: exact except the normalizations and rotations, compared with a tolerance.
+#build bool Vec_SelfTest()
+{
+	// --- Vec3, matching the vector section of LinAlg's self-test ---
+	Vec3 a = Vec3{ x = 3.0, y = 4.0, z = 0.0 };
+	#assert(v3_length(a) == 5.0, "v3_length of the 3-4-5 triangle");
+
+	Vec3 b = Vec3{ x = 0.0, y = 0.0, z = 2.0 };
+	#assert(approx(v3_distance(a, b), 5.385164807134504, 1e-9), "v3_distance");
+
+	// v3_add returns a new vector rather than writing through a Span, as vadd does.
+	#assert(v3_str(v3_add(a, b)) == "(3.0, 4.0, 2.0)", "v3_add");
+	#assert(v3_str(v3_sub(a, b)) == "(3.0, 4.0, -2.0)", "v3_sub");
+
+	Vec3 unit = v3_normalize(a);
+	#assert(approx(unit.x, 0.6, 1e-9) && approx(unit.y, 0.8, 1e-9), "v3_normalize scales to a unit vector");
+	#assert(approx(v3_length(unit), 1.0, 1e-9), "a normalized vector has length one");
+
+	// Normalizing does not disturb its argument, which is the whole point of a value.
+	#assert(v3_str(a) == "(3.0, 4.0, 0.0)", "v3_normalize leaves its argument alone");
+
+	// A zero vector has no direction and comes back unchanged rather than NaN.
+	Vec3 zero = Vec3{ x = 0.0, y = 0.0, z = 0.0 };
+	#assert(v3_str(v3_normalize(zero)) == "(0.0, 0.0, 0.0)", "v3_normalize leaves a zero vector alone");
+	#assert(!is_nan<f64>(v3_normalize(zero).x), "normalizing a zero vector must not produce NaN");
+
+	// x cross y is z, the orientation check.
+	Vec3 x = Vec3{ x = 1.0, y = 0.0, z = 0.0 };
+	Vec3 y = Vec3{ x = 0.0, y = 1.0, z = 0.0 };
+	#assert(v3_str(v3_cross(x, y)) == "(0.0, 0.0, 1.0)", "x cross y is z");
+
+	// Reflecting a downward ray off a floor sends it upward.
+	Vec3 d = Vec3{ x = 1.0, y = 0.0 - 1.0, z = 0.0 };
+	#assert(v3_str(v3_reflect(d, y)) == "(1.0, 1.0, 0.0)", "v3_reflect turns a downward ray upward");
+
+	#assert(v3_dot(a, a) == 25.0, "v3_dot of a vector with itself is its length squared");
+
+	// --- Vec2 ---
+	Vec2 p = Vec2{ x = 3.0, y = 4.0 };
+	Vec2 q = Vec2{ x = 0.0, y = 1.0 };
+	#assert(v2_length(p) == 5.0 && v2_dot(p, q) == 4.0, "v2_length and v2_dot");
+	#assert(v2_str(v2_add(p, q)) == "(3.0, 5.0)" && v2_str(v2_sub(p, q)) == "(3.0, 3.0)", "v2_add and v2_sub");
+	#assert(v2_str(v2_scale(p, 2.0)) == "(6.0, 8.0)", "v2_scale");
+	#assert(approx(v2_distance(p, q), 4.242640687119285, 1e-9), "v2_distance");
+	#assert(v2_str(v2_normalize(p)) == "(0.6, 0.8)", "v2_normalize");
+
+	// --- Quat ---
+	Quat<f64> rot = q_from_axis(Vec3{ x = 0.0, y = 0.0, z = 1.0 }, PI * 0.5);
+
+	// A quarter turn about z carries x onto y.
+	Vec3 turned = q_rotate(rot, x);
+	#assert(approx(turned.x, 0.0, 1e-9) && approx(turned.y, 1.0, 1e-9) && approx(turned.z, 0.0, 1e-9),
+		"a quarter turn about z carries x onto y");
+
+	// The conjugate undoes it.
+	Vec3 back = q_rotate(q_conjugate<f64>(rot), turned);
+	#assert(approx(back.x, 1.0, 1e-9) && approx(back.y, 0.0, 1e-9) && approx(back.z, 0.0, 1e-9),
+		"the conjugate undoes the rotation");
+
+	// The identity leaves a vector alone, and composing it changes nothing.
+	Quat<f64> id = q_identity<f64>();
+	#assert(q_str<f64>(id) == "(0.0, 0.0, 0.0, 1.0)", "q_identity");
+	#assert(v3_str(q_rotate(q_mul<f64>(id, id), x)) == "(1.0, 0.0, 0.0)", "composing identities changes nothing");
+
+	// Two quarter turns about z make a half turn, carrying x onto -x.
+	Vec3 half = q_rotate(q_mul<f64>(rot, rot), x);
+	#assert(approx(half.x, 0.0 - 1.0, 1e-9) && approx(half.y, 0.0, 1e-9), "two quarter turns make a half turn");
+
+	return true;
+}
+
+#test Vec_SelfTest "Vec2, Vec3 and Quat"

@@ -1,0 +1,60 @@
+bool trace(str tag, bool r)
+{
+	WriteLine("eval " + tag);
+	return r;
+}
+
+//The right operand of && runs only when the left is true, and of || only when the left is false.
+void test()
+{
+	bool a = trace("a", false) && trace("b", true);
+	WriteLine("a=" + to_str(a));
+	bool b = trace("c", true) && trace("d", false);
+	WriteLine("b=" + to_str(b));
+	bool c = trace("e", true) || trace("f", false);
+	WriteLine("c=" + to_str(c));
+	bool d = trace("g", false) || trace("h", true);
+	WriteLine("d=" + to_str(d));
+
+	//The guard makes the index safe, so the subscript must not run when the guard fails.
+	i32[] xs = [4, 5, 0, 7]:i32;
+	i32 i = 0;
+	while (i < xs.Length && xs[i] != 0)
+	{
+		i++;
+	}
+	WriteLine("i=" + to_str(i));
+
+	i32 j = xs.Length;
+	if (j < xs.Length && xs[j] == 0)
+	{
+		WriteLine("unreachable");
+	}
+	WriteLine("guarded");
+
+	//Chained, so the second && only decides once the first has.
+	i32 n = 0;
+	for (i32 k = 0; k < xs.Length; k++)
+	{
+		if (k < xs.Length && xs[k] > 0 && xs[k] < 6)
+		{
+			n++;
+		}
+	}
+	WriteLine("n=" + to_str(n));
+
+	//Nested inside a do/while, whose test sits at the bottom.
+	i32 p = 0;
+	do
+	{
+		p++;
+	}
+	while (p < 3 || trace("i", false));
+	WriteLine("p=" + to_str(p));
+}
+
+i32 main()
+{
+	test();
+	return 0;
+}

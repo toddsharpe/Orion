@@ -1,0 +1,16 @@
+// Off a solver block an `#output` is the caller's own variable, so there is no cell to start.
+void split(i32 v, #output i32 lo = 3, #output i32 hi)
+{
+	lo = v % 10;
+	hi = v / 10;
+}
+
+i32 main()
+{
+	i32 lo = 0;
+	i32 hi = 0;
+	split(47, lo, hi);
+	WriteLine(to_str(lo) + " " + to_str(hi));
+
+	return 0;
+}

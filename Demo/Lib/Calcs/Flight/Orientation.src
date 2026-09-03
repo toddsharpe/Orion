@@ -1,0 +1,316 @@
+// Attitude as a quaternion, Madgwick: integrate the gyro, correct toward gravity by one gradient step.
+#using "Lib/types.src"
+#using "Lib/Vec.src"
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Types.src"
+
+// Filter gain, a per-second since it is subtracted from a rate: higher tracks the accelerometer, lower trusts the gyro.
+const f32<1/s> OrientationBeta = 0.1:f32<1/s>;
+
+// Below this the accelerometer reads no usable direction, so the gyro carries the estimate alone.
+const f32<g> OrientationMinAcc = 0.000001:f32<g>;
+
+// The same floor on the gradient, which is a bare number and so needs a constant of its own.
+const f32 OrientationMinNorm = 0.000001:f32;
+
+struct OrientationState
+{
+	Quat<f32> q;
+
+	// Zero means "no previous sample": the first tick establishes the clock rather than integrating.
+	time last;
+}
+
+// Scaled to unit length, only a unit quaternion being a rotation; a degenerate one falls back to identity.
+Quat<f32> Orientation_Normalize(const Quat<f32> q)
+{
+	const f32 n = q_norm<f32>(q);
+	if (n < OrientationMinNorm)
+	{
+		return q_identity<f32>();
+	}
+	return Quat<f32>{ w = q.w / n, x = q.x / n, y = q.y / n, z = q.z / n };
+}
+
+// How far apart two attitudes are: the dot is the cosine of half the angle, and `q` and `-q` are one.
+f32<deg> Orientation_AngleBetween(const Quat<f32> a, const Quat<f32> b)
+{
+	const f32 d = fabs<f32>(a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z);
+	return 2.0:f32 * acos<f32>(clamp<f32>(d, 0.0:f32, 1.0:f32)) * 180.0:f32<deg> / cast<f32>(PI);
+}
+
+OrientationState Orientation_Zero()
+{
+	return OrientationState{ q = q_identity<f32>(), last = 0:time };
+}
+
+// One tick, body frame below the remap; body X is chip Z.
+void Orientation(
+	#param str name,
+	#param f32<1/s> beta = 0.1:f32<1/s>,
+	#param str time_src = "cycle_time",
+	#state OrientationState orient,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<deg/s> gyroX @ "Imu.GyroX",
+	#input f32<deg/s> gyroY @ "Imu.GyroY",
+	#input f32<deg/s> gyroZ @ "Imu.GyroZ",
+	#input f32<g> accX @ "Imu.AccX",
+	#input f32<g> accY @ "Imu.AccY",
+	#input f32<g> accZ @ "Imu.AccZ",
+	#input bool updated @ "Imu.Updated",
+	#input f32<deg/s> biasX @ "Imu.GyroBiasX",
+	#input f32<deg/s> biasY @ "Imu.GyroBiasY",
+	#input f32<deg/s> biasZ @ "Imu.GyroBiasZ",
+	#input time now @ time_src,
+	#output f32 q0 = 1.0:f32 @ "Orient.Q0",
+	#output f32 q1 = 0.0:f32 @ "Orient.Q1",
+	#output f32 q2 = 0.0:f32 @ "Orient.Q2",
+	#output f32 q3 = 0.0:f32 @ "Orient.Q3"
+)
+{
+	// The identity, not zero: a zeroed quaternion is not a rotation, and normalizing one divides by zero.
+	#init
+	{
+		orient = Orientation_Zero();
+		return true;
+	}
+
+	// Not dispatched: attitude and clock hold, but `#init` still ran, so a cold instance is the identity.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// First sample: start the clock. There is no interval to integrate over yet.
+	if (orient.last == 0:time)
+	{
+		orient.last = now;
+		q0 = orient.q.w;
+		q1 = orient.q.x;
+		q2 = orient.q.y;
+		q3 = orient.q.z;
+		return;
+	}
+
+	// A stale IMU carries nothing new: integrating again advances attitude on a measurement already used.
+	if (updated == false)
+	{
+		return;
+	}
+
+	// Chip axes onto the airframe's: a remap moves an axis and never changes what it measures.
+	const f32<deg/s> bodyGyroX = gyroZ - biasZ;
+	const f32<deg/s> bodyGyroY = gyroY - biasY;
+	const f32<deg/s> bodyGyroZ = -(gyroX - biasX);
+	const f32<g> bodyAccX = accZ;
+	const f32<g> bodyAccY = accY;
+	const f32<g> bodyAccZ = -accX;
+
+	const f32<s> dt = Flight_Seconds(now, orient.last);
+	orient.last = now;
+
+	// Radians per second, which the quaternion derivative wants: a radian is a ratio, so this is a bare per-second.
+	const f32<1/s> wx = bodyGyroX * DegToRad;
+	const f32<1/s> wy = bodyGyroY * DegToRad;
+	const f32<1/s> wz = bodyGyroZ * DegToRad;
+
+	const f32 p0 = orient.q.w;
+	const f32 p1 = orient.q.x;
+	const f32 p2 = orient.q.y;
+	const f32 p3 = orient.q.z;
+
+	// The correction, zero unless the accelerometer has something to say.
+	f32 s0 = 0.0:f32;
+	f32 s1 = 0.0:f32;
+	f32 s2 = 0.0:f32;
+	f32 s3 = 0.0:f32;
+
+	const f32<g> accNorm = Flight_Magnitude(bodyAccX, bodyAccY, bodyAccZ);
+	if (accNorm > OrientationMinAcc)
+	{
+		// Direction only: how hard the vehicle is accelerating is exactly the part that is not gravity.
+		const f32 ax = bodyAccX / accNorm;
+		const f32 ay = bodyAccY / accNorm;
+		const f32 az = bodyAccZ / accNorm;
+
+		// The objective: rotate [0,0,1] by q, subtract what was measured, zero when the attitude explains it.
+		const f32 f1 = 2.0:f32 * (p1 * p3 - p0 * p2) - ax;
+		const f32 f2 = 2.0:f32 * (p0 * p1 + p2 * p3) - ay;
+		const f32 f3 = 2.0:f32 * (0.5:f32 - p1 * p1 - p2 * p2) - az;
+
+		// Its gradient, by the Jacobian transpose.
+		const f32 g0 = -2.0:f32 * p2 * f1 + 2.0:f32 * p1 * f2;
+		const f32 g1 = 2.0:f32 * p3 * f1 + 2.0:f32 * p0 * f2 - 4.0:f32 * p1 * f3;
+		const f32 g2 = -2.0:f32 * p0 * f1 + 2.0:f32 * p3 * f2 - 4.0:f32 * p2 * f3;
+		const f32 g3 = 2.0:f32 * p1 * f1 + 2.0:f32 * p2 * f2;
+
+		// Normalized, so beta is a step size in attitude and not in whatever units the error came out in.
+		const f32 gradient = sqrt<f32>(g0 * g0 + g1 * g1 + g2 * g2 + g3 * g3);
+		if (gradient > OrientationMinNorm)
+		{
+			s0 = g0 / gradient;
+			s1 = g1 / gradient;
+			s2 = g2 / gradient;
+			s3 = g3 / gradient;
+		}
+	}
+
+	// Integrate the rate, less the correction.
+	orient.q = Orientation_Normalize(Quat<f32>
+	{
+		w = p0 + (0.5:f32 * (-p1 * wx - p2 * wy - p3 * wz) - beta * s0) * dt,
+		x = p1 + (0.5:f32 * (p0 * wx + p2 * wz - p3 * wy) - beta * s1) * dt,
+		y = p2 + (0.5:f32 * (p0 * wy - p1 * wz + p3 * wx) - beta * s2) * dt,
+		z = p3 + (0.5:f32 * (p0 * wz + p1 * wy - p2 * wx) - beta * s3) * dt
+	});
+
+	q0 = orient.q.w;
+	q1 = orient.q.x;
+	q2 = orient.q.y;
+	q3 = orient.q.z;
+}
+
+// ---- self-test ----
+
+// The four attitude nets, back as the one thing they are.
+#build Quat<f32> Orientation_Attitude(Instance o)
+{
+	return Quat<f32>
+	{
+		w = Instance::Get<f32>(o, "q0"),
+		x = Instance::Get<f32>(o, "q1"),
+		y = Instance::Get<f32>(o, "q2"),
+		z = Instance::Get<f32>(o, "q3")
+	};
+}
+
+// A started block whose clock is already running, so a scenario integrates from its very first tick.
+#build Instance Orientation_Fresh(str name, time step)
+{
+	Instance o = Function::Start(#create Orientation(name = name));
+	Function::Tick(o, ${enabled = true, gyroX = 0.0:f32, gyroY = 0.0:f32, gyroZ = 0.0:f32,
+		accX = 0.0:f32, accY = 0.0:f32, accZ = 0.0:f32, updated = true,
+		biasX = 0.0:f32, biasY = 0.0:f32, biasZ = 0.0:f32, now = step});
+	return o;
+}
+
+// Hold the inputs steady for `n` ticks of `step`, written in the BODY frame and remapped on the way in.
+#build void Orientation_Drive(
+	Instance o, const f32<deg/s> wx, const f32<deg/s> wy, const f32<deg/s> wz,
+	const f32<g> ax, const f32<g> ay, const f32<g> az,
+	const time step, const i32 from, const i32 n)
+{
+	for (i32 i = from; i < from + n; i++)
+	{
+		Function::Tick(o, ${enabled = true, gyroX = -wz, gyroY = wy, gyroZ = wx,
+			accX = -az, accY = ay, accZ = ax, updated = true,
+			biasX = 0.0:f32, biasY = 0.0:f32, biasZ = 0.0:f32, now = step * cast<time>(i)});
+	}
+}
+
+#build bool Orientation_SelfTest()
+{
+	const time step = 10000000:time;   // 10 ms, a 100 Hz cycle
+	const f32<g> level = 1.0:f32<g>;   // gravity on body +Z, which the objective above treats as "down"
+
+	// A cold start is the identity, and a zero quaternion is not a rotation at all.
+	#assert(approx(cast<f64>(q_norm<f32>(q_identity<f32>())), 1.0, 0.000001),
+		"Orientation: the identity is a unit quaternion");
+	#assert(approx(cast<f64>(q_norm<f32>(Orientation_Normalize(Quat<f32>{ w = 0.0:f32, x = 0.0:f32, y = 0.0:f32, z = 0.0:f32 }))), 1.0, 0.000001),
+		"Orientation: a degenerate quaternion falls back to a real one");
+
+	// `#init` is what makes a cold start an attitude: a zeroed cell is the quaternion that is not one.
+	Instance cold = Function::Start(#create Orientation(name = "orientation_cold"));
+	#assert(Instance::Get<OrientationState>(cold, "orient").last == 0:time, "Orientation: a cold start has no clock");
+	#assert(approx(cast<f64>(Instance::Get<OrientationState>(cold, "orient").q.w), 1.0, 0.000001),
+		"Orientation: and #init started it at the identity");
+
+	// The PUBLISHED attitude too, which `#init` cannot reach: it is the outputs' own initializer.
+	#assert(approx(cast<f64>(Orientation_AngleBetween(Orientation_Attitude(cold), q_identity<f32>())), 0.0, 0.000001),
+		"Orientation: an undispatched block publishes the identity, not a zero quaternion");
+
+	// The first tick starts the clock and rotates nothing.
+	Orientation_Drive(cold, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<g>, 0.0:f32<g>, level, step, 1, 1);
+	#assert(Instance::Get<OrientationState>(cold, "orient").last == step, "Orientation: the first tick starts the clock");
+	#assert(approx(cast<f64>(Orientation_AngleBetween(Orientation_Attitude(cold), q_identity<f32>())), 0.0, 0.001),
+		"Orientation: the first tick integrates nothing");
+
+	// The estimate is always a rotation: whatever it is fed, the quaternion stays unit length.
+	Instance spun = Orientation_Fresh("orientation_spun", step);
+	Orientation_Drive(spun, 200.0:f32<deg/s>, -130.0:f32<deg/s>, 70.0:f32<deg/s>, 0.3:f32<g>, -0.2:f32<g>, 0.9:f32<g>, step, 2, 500);
+	#assert(approx(cast<f64>(q_norm<f32>(Orientation_Attitude(spun))), 1.0, 0.0001),
+		"Orientation: the estimate stays a unit quaternion");
+
+	// Sitting level and still, the filter holds the attitude that explains gravity.
+	Instance rest = Orientation_Fresh("orientation_rest", step);
+	Orientation_Drive(rest, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<g>, 0.0:f32<g>, level, step, 2, 500);
+	#assert(Orientation_AngleBetween(Orientation_Attitude(rest), q_identity<f32>()) < 1.0:f32<deg>,
+		"Orientation: a level, still vehicle stays level");
+
+	// A gyro-only rotation integrates: 90 deg/s for a second is a quarter turn, and gravity cannot pin yaw.
+	Instance yaw = Orientation_Fresh("orientation_yaw", step);
+	Orientation_Drive(yaw, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 90.0:f32<deg/s>, 0.0:f32<g>, 0.0:f32<g>, level, step, 2, 100);
+	#assert(approx(cast<f64>(Orientation_AngleBetween(Orientation_Attitude(yaw), q_identity<f32>())), 90.0, 5.0),
+		"Orientation: 90 deg/s for a second is a quarter turn");
+
+	// And it keeps going, so the integration is not saturating.
+	Instance more = Orientation_Fresh("orientation_more", step);
+	Orientation_Drive(more, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 90.0:f32<deg/s>, 0.0:f32<g>, 0.0:f32<g>, level, step, 2, 200);
+	#assert(Orientation_AngleBetween(Orientation_Attitude(more), q_identity<f32>())
+		> Orientation_AngleBetween(Orientation_Attitude(yaw), q_identity<f32>()),
+		"Orientation: the rotation keeps accumulating");
+
+	// In free fall the accelerometer offers no direction, so the gyro rolls the estimate off level.
+	Instance tipped = Orientation_Fresh("orientation_tipped", step);
+	Orientation_Drive(tipped, 45.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<g>, 0.0:f32<g>, 0.0:f32<g>, step, 2, 100);
+	const f32<deg> before = Orientation_AngleBetween(Orientation_Attitude(tipped), q_identity<f32>());
+	#assert(before > 30.0:f32<deg>, "Orientation: free fall let the gyro roll the estimate well off level");
+
+	// Gravity returns and the vehicle is still: the accelerometer must pull the estimate back.
+	Orientation_Drive(tipped, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 0.0:f32<g>, 0.0:f32<g>, level, step, 102, 2000);
+	#assert(Orientation_AngleBetween(Orientation_Attitude(tipped), q_identity<f32>()) < before,
+		"Orientation: the accelerometer must correct a wrong attitude");
+
+	// Free fall proper: no direction to correct toward, so the gyro carries it rather than dividing by zero.
+	Instance falling = Orientation_Fresh("orientation_falling", step);
+	Orientation_Drive(falling, 0.0:f32<deg/s>, 0.0:f32<deg/s>, 90.0:f32<deg/s>, 0.0:f32<g>, 0.0:f32<g>, 0.0:f32<g>, step, 2, 100);
+	#assert(approx(cast<f64>(q_norm<f32>(Orientation_Attitude(falling))), 1.0, 0.0001),
+		"Orientation: free fall must not produce a degenerate attitude");
+	#assert(approx(cast<f64>(Orientation_AngleBetween(Orientation_Attitude(falling), q_identity<f32>())), 90.0, 1.0),
+		"Orientation: in free fall the gyro carries the estimate alone");
+
+	// A stale IMU must not advance the attitude, however far the clock has moved on.
+	const Quat<f32> held = Orientation_Attitude(yaw);
+	Function::Tick(yaw, ${enabled = true, gyroX = 0.0:f32, gyroY = 0.0:f32, gyroZ = 90.0:f32,
+		accX = -level, accY = 0.0:f32, accZ = 0.0:f32, updated = false,
+		biasX = 0.0:f32, biasY = 0.0:f32, biasZ = 0.0:f32, now = step * 10000:time});
+	#assert(approx(cast<f64>(Orientation_AngleBetween(Orientation_Attitude(yaw), held)), 0.0, 0.000001),
+		"Orientation: an un-updated IMU must not move the attitude");
+
+	// The bias is subtracted, not ignored: a still vehicle whose gyro reads its own offset must not turn.
+	Instance biased = Orientation_Fresh("orientation_biased", step);
+	for (i32 i = 2; i < 502; i++)
+	{
+		Function::Tick(biased, ${enabled = true, gyroX = 2.0:f32, gyroY = -1.0:f32, gyroZ = 3.0:f32,
+			accX = -level, accY = 0.0:f32, accZ = 0.0:f32, updated = true,
+			biasX = 2.0:f32, biasY = -1.0:f32, biasZ = 3.0:f32, now = step * cast<time>(i)});
+	}
+	#assert(Orientation_AngleBetween(Orientation_Attitude(biased), q_identity<f32>()) < 1.0:f32<deg>,
+		"Orientation: a gyro reading its own bias is not a rotation");
+
+	// Disabled: attitude and clock hold, and `#init` still ran, so what is held is a real rotation.
+	Instance still = Function::Start(#create Orientation(name = "orientation_held"));
+	#assert(approx(cast<f64>(Instance::Get<OrientationState>(still, "orient").q.w), 1.0, 0.000001),
+		"Orientation: an undispatched block is still started at the identity");
+	Function::Tick(still, ${enabled = false, gyroX = 0.0:f32, gyroY = 0.0:f32, gyroZ = 200.0:f32,
+		accX = -level, accY = 0.0:f32, accZ = 0.0:f32, updated = true,
+		biasX = 0.0:f32, biasY = 0.0:f32, biasZ = 0.0:f32, now = step * 1000:time});
+	#assert(Instance::Get<OrientationState>(still, "orient").last == 0:time, "Orientation: a disabled tick does not start the clock");
+	#assert(approx(cast<f64>(Instance::Get<OrientationState>(still, "orient").q.w), 1.0, 0.000001),
+		"Orientation: and rotates nothing");
+
+	return true;
+}
+
+#test Orientation_SelfTest "Attitude filter"

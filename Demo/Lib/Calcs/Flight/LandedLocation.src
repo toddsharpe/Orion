@@ -1,0 +1,98 @@
+// Where the vehicle came down: captured once, on the first usable fix after landing, then held.
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Types.src"
+
+struct LandedLocationState
+{
+	// False until landing is detected AND a usable fix arrives; the fields below mean nothing until it.
+	bool captured;
+
+	f64<deg> latitude;
+	f64<deg> longitude;
+}
+
+// One tick, taking both `landed` and `valid`; this one DOES latch, unlike PadLocation.
+void LandedLocation(
+	#param str name,
+	#state LandedLocationState site,
+	#input bool enabled @ $"{name}_enabled",
+	#input bool landed @ "Landed.Detected",
+	#input bool valid @ "Gps.Loc.Valid",
+	#input f64<deg> latitude @ "Gps.Loc.Lat",
+	#input f64<deg> longitude @ "Gps.Loc.Lng",
+	#output f64<deg> landedLatitude @ "Landed.Lat",
+	#output f64<deg> landedLongitude @ "Landed.Lng"
+)
+{
+	// Not dispatched: nothing captured -- the gate is what stops a relaunch re-capturing on a stale latch.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// Captured once: the receiver wanders while the vehicle sits there, and the answer must not.
+	if (site.captured == false && landed && valid)
+	{
+		site.captured = true;
+		site.latitude = latitude;
+		site.longitude = longitude;
+	}
+
+	landedLatitude = site.latitude;
+	landedLongitude = site.longitude;
+}
+
+// ---- self-test ----
+
+#build bool LandedLocation_SelfTest()
+{
+	const f64<deg> lat = 32.9905:f64<deg>;
+	const f64<deg> lng = -106.9750:f64<deg>;
+
+	Instance site = Function::Start(#create LandedLocation(name = "landedlocation_selftest"));
+	#assert(Instance::Get<LandedLocationState>(site, "site").captured == false, "LandedLocation: a cold start has captured nothing");
+
+	// Both conditions are required, and neither alone will do.
+	Function::Tick(site, ${enabled = true, landed = false, valid = true, latitude = lat, longitude = lng});
+	#assert(Instance::Get<LandedLocationState>(site, "site").captured == false, "LandedLocation: a good fix in flight is not a landing site");
+	#assert(approx(Instance::Get<f64>(site, "landedLatitude"), 0.0, 0.0000001), "LandedLocation: and reports nothing");
+
+	Function::Tick(site, ${enabled = true, landed = true, valid = false, latitude = lat, longitude = lng});
+	#assert(Instance::Get<LandedLocationState>(site, "site").captured == false, "LandedLocation: a landing with no usable fix captures nothing");
+
+	Function::Tick(site, ${enabled = true, landed = false, valid = false, latitude = lat, longitude = lng});
+	#assert(Instance::Get<LandedLocationState>(site, "site").captured == false, "LandedLocation: neither is certainly not both");
+
+	// Both together capture.
+	Function::Tick(site, ${enabled = true, landed = true, valid = true, latitude = lat, longitude = lng});
+	#assert(Instance::Get<LandedLocationState>(site, "site").captured, "LandedLocation: landed with a usable fix captures");
+	#assert(approx(Instance::Get<f64>(site, "landedLatitude"), lat, 0.0000001), "LandedLocation: latitude is what was handed over");
+	#assert(approx(Instance::Get<f64>(site, "landedLongitude"), lng, 0.0000001), "LandedLocation: longitude too");
+
+	// Held: the receiver wanders while the vehicle sits there, and the answer must not wander with it.
+	Function::Tick(site, ${enabled = true, landed = true, valid = true, latitude = lat + 0.0005:f64<deg>, longitude = lng - 0.0005:f64<deg>});
+	#assert(approx(Instance::Get<f64>(site, "landedLatitude"), lat, 0.0000001), "LandedLocation: a later fix must not move the site");
+	#assert(approx(Instance::Get<f64>(site, "landedLongitude"), lng, 0.0000001), "LandedLocation: in either axis");
+
+	// And losing the fix afterwards does not lose the answer, which is the point of capturing it.
+	Function::Tick(site, ${enabled = true, landed = true, valid = false, latitude = 0.0, longitude = 0.0});
+	#assert(Instance::Get<LandedLocationState>(site, "site").captured, "LandedLocation: the site survives losing the fix");
+	#assert(approx(Instance::Get<f64>(site, "landedLatitude"), lat, 0.0000001), "LandedLocation: and still reads where it landed");
+
+	// A site in the southern and eastern hemispheres works the same way; nothing here assumes a sign.
+	Instance other = Function::Start(#create LandedLocation(name = "landedlocation_other"));
+	Function::Tick(other, ${enabled = true, landed = true, valid = true, latitude = -33.86, longitude = 151.20});
+	#assert(approx(Instance::Get<f64>(other, "landedLatitude"), -33.86, 0.0000001), "LandedLocation: southern latitudes capture too");
+	#assert(approx(Instance::Get<f64>(other, "landedLongitude"), 151.20, 0.0000001), "LandedLocation: and eastern longitudes");
+
+	// Disabled: the tick that would certainly have captured -- landed, valid, a real position -- does not.
+	Instance held = Function::Start(#create LandedLocation(name = "landedlocation_held"));
+	Function::Tick(held, ${enabled = false, landed = true, valid = true, latitude = lat, longitude = lng});
+	#assert(Instance::Get<LandedLocationState>(held, "site").captured == false, "LandedLocation: a disabled tick captures nothing");
+	#assert(approx(Instance::Get<f64>(held, "landedLatitude"), 0.0, 0.0000001), "LandedLocation: and reports nothing");
+
+	return true;
+}
+
+#test LandedLocation_SelfTest "Landing site capture"

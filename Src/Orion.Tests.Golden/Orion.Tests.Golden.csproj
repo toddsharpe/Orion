@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- The golden corpus (Tests/*.src paired with Tests/*.txt), compiled to all three backends and run. -->
+	<PropertyGroup>
+		<!-- Pinned so vcvars64.bat's Platform=x64 cannot move the output to bin\x64\, which the runner rejects. -->
+		<Platform>AnyCPU</Platform>
+		<TargetFramework>net9.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<EnableMSTestRunner>true</EnableMSTestRunner>
+		<OutputType>Exe</OutputType>
+		<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+		<TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+		<PackageReference Include="Microsoft.Testing.Extensions.TrxReport" Version="1.4.3" />
+		<PackageReference Include="MSTest" Version="3.6.4" />
+		<!-- The C# backend's toolchain: in-process, so a case costs a compile rather than a `dotnet build`. -->
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
+	</ItemGroup>
+
+	<!-- Not for its types; this is here so MSBuild builds the compiler before the cases run. -->
+	<ItemGroup>
+		<ProjectReference Include="..\Orion\Orion.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+	</ItemGroup>
+
+</Project>

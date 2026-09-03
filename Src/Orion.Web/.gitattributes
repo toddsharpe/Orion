@@ -1,0 +1,5 @@
+# New Orion files use CRLF line endings.
+* text=auto eol=crlf
+*.wasm binary
+*.png binary
+*.ico binary

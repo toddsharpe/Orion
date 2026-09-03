@@ -1,0 +1,165 @@
+// Spacecraft single-axis attitude control, wired entirely from reusable #param solver blocks.
+//
+//   Command ---> Gyro(+noise) ---> Kalman x2 ---> PID
+//   (discrete)   (gaussian)        (reused)       (setpoint = Command, measurement = Kalman)
+//
+// The mission Command is a discrete voltage (a stepping target); the Gyro corrupts the true attitude
+// with a deterministic gaussian sensor noise. One Kalman block is reused twice with different
+// measurement-noise assumptions (a tight tracker and a smooth one), and the PID drives the smoothed
+// estimate toward the commanded attitude. Every block is a #param template specialized at build time
+// and wired by net; #state carries each block's memory across the cyclic executive.
+
+// Discrete mission profile: the target attitude steps through a fixed sequence.
+void Command(#param str name, #state i32 t = 0, #output f64 target @ $"{name}_out")
+{
+	f64[] mission = [0.0, 0.0, 10.0, 10.0, 10.0, 10.0, 10.0, -5.0, -5.0, -5.0, -5.0, -5.0]:f64;
+	target = mission[t % mission.Length];
+	t = t + 1;
+}
+
+// Gyro: reads the true attitude and adds a deterministic gaussian sensor noise.
+void Gyro(#param str name, #param str source, #state i32 t = 0,
+		  #input f64 truth @ source, #output f64 measured @ $"{name}_out")
+{
+	f64[] noise = [0.6, -0.4, 0.9, -1.1, 0.3, 0.7, -0.8, 0.2, -0.5, 1.0, -0.3, 0.4]:f64;
+	measured = truth + noise[t % noise.Length];
+	t = t + 1;
+}
+
+// 1-D Kalman filter. Reused with different measurement noise R (trust in the sensor).
+void Kalman(
+	#param str name,
+	#param str source,
+	#param f64 q,          // process noise
+	#param f64 r,          // measurement noise
+	#state f64 x = 0.0,    // estimate
+	#state f64 p = 1.0,    // covariance
+	#input f64 z @ source,
+	#output f64 estimate @ $"{name}_out"
+)
+{
+	p = p + q;                    // predict
+	f64 gain = p / (p + r);       // Kalman gain
+	x = x + gain * (z - x);       // update
+	p = (1.0 - gain) * p;
+	estimate = x;
+}
+
+// PID controller: two inputs (setpoint + measurement), drives their error to zero.
+void PID(
+	#param str name,
+	#param str setpoint,
+	#param str measurement,
+	#param f64 kp,
+	#param f64 ki,
+	#param f64 kd,
+	#state f64 integral = 0.0,
+	#state f64 prev = 0.0,
+	#input f64 sp @ setpoint,
+	#input f64 meas @ measurement,
+	#output f64 command @ $"{name}_out"
+)
+{
+	f64 error = sp - meas;
+	integral = integral + error;
+	f64 derivative = error - prev;
+	command = kp * error + ki * integral + kd * derivative;
+	prev = error;
+}
+
+// Telemetry view. Authored and instantiated exactly like the declarative #param templates above
+// (Command/Kalman/PID) -- but its body is a #run { } escape that assembles the block at build time
+// from the manifest (one `global_name,typecode` per line). #input/#output / #insert (targetless -- they
+// append to the function being assembled) add one wired input + one print per line. Declarative
+// signature, imperative body -- no builder plumbing, no separate Function handle.
+void Display(#param str name, #param str manifest)
+{
+	#run {
+		File f = File::Open(manifest);
+		while (File::HasLine(f))
+		{
+			Span<str> part = Str::Split(File::ReadLine(f), ",");
+			str net = part[0];
+			str type = part[1];
+			const Port p = Port::In(Type::Parse(type), net);
+			#insert { WriteLine(${net} + " (" + ${type} + "): " + to_str(${p})); }
+		}
+	}
+}
+
+// One parsed manifest line.
+#build struct PackField
+{
+	str name;
+	Type type;
+}
+
+// Telemetry packer: same manifest as Display, but instead of printing it serializes the current net
+// values into a big-endian byte buffer (a UDP-style packet) and prints it as hex. Also a #param
+// template with a #build escape -- more involved than Display (it lays out each field's offset and
+// the buffer size at build time from the type codes), yet authored/instantiated the same way.
+void Pack(#param str name, #param str manifest)
+{
+	#run {
+		// Read the manifest once into a list of fields, accumulating the total packet size as we go.
+		List<PackField> fields = List::New<PackField>();
+		i32 total = 0;
+		File f = File::Open(manifest);
+		while (File::HasLine(f))
+		{
+			Span<str> part = Str::Split(File::ReadLine(f), ",");
+			PackField field = PackField{ name = part[0], type = Type::Parse(part[1]) };
+			fields.Add(field);
+			total = total + field.type.Size;
+		}
+
+		// Zero-initialized buffer sized to the packet (u8[N] is a sized, zero-init array allocation).
+		#insert $"u8[{total}] packet = u8[{total}];";
+
+		// One pass over the collected fields: wired #input binding + big-endian pack call.
+		i32 off = 0;
+		i32 i = 0;
+		while (i < fields.Length)
+		{
+			PackField field = fields[i];
+			const Port value = Port::In(field.type, field.name);
+			#insert { pack_be<${field.type}>(packet, ${off}:u32, ${value}); }
+			off = off + field.type.Size;
+			i = i + 1;
+		}
+
+		#insert { WriteLine("packet: " + bytes_hexstr(packet)); }
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [
+			#create Command(name = "cmd"),
+			#create Gyro(name = "gyro", source = "cmd_out"),
+			#create Kalman(name = "kf_tight",  source = "gyro_out", q = 0.01, r = 0.5),
+			#create Kalman(name = "kf_smooth", source = "gyro_out", q = 0.01, r = 4.0),
+			#create PID(name = "pid", setpoint = "cmd_out", measurement = "kf_smooth_out",
+				kp = 0.8, ki = 0.05, kd = 0.2),
+			#create Display(name = "telemetry", manifest = "demo_claude_solver.watch"),
+			#create Pack(name = "packer", manifest = "demo_claude_solver.watch")
+		]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			WriteLine("=== Attitude Control Telemetry ===");
+			for (i32 cycle = 0; cycle < 12; cycle++)
+			{
+				WriteLine("-- cycle " + to_str(cycle) + " --");
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

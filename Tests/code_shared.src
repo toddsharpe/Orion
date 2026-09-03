@@ -1,0 +1,16 @@
+// A fragment splices as written: one may declare a local that the next two use. Emitting a fragment
+// twice is fine so long as it declares nothing, which is what makes the accumulator pattern work.
+i32 main()
+{
+	#run
+	{
+		Code seed = #code { i32 total = 0; };
+		Code step = #code { total += 3; };
+
+		#insert seed;
+		#insert step;
+		#insert step;
+		#insert { WriteLine("total = " + to_str(total)); }
+	}
+	return 0;
+}

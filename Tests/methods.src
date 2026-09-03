@@ -1,0 +1,36 @@
+// A builtin's methods are whatever its class declares public, the same rule its properties follow.
+// The receiver carries the type argument, so `xs.Add(v)` needs no `<T>` of its own.
+i32 main()
+{
+	#run
+	{
+		List<str> names = List::New<str>();
+		names.Add("alpha");
+		names.Add("beta");
+		names.AddUnique("beta");
+
+		#insert { WriteLine("count    = " + to_str(${names.Length})); }
+		#insert { WriteLine("has beta = " + to_str(${names.Contains("beta")})); }
+
+		//A method on the result of an index, and a map merged with `+` rather than a With call.
+		Map<str, i32> widths = Map::New<str, i32>();
+		widths = widths + Map<str, i32>{ "u8" = 1, "u16" = 2 };
+		widths = widths + Map<str, i32>{ "u32" = 4 };
+
+		#insert { WriteLine("keys     = " + to_str(${widths.Keys.Length})); }
+		#insert { WriteLine("u16      = " + to_str(${widths["u16"]})); }
+		#insert { WriteLine("has u64  = " + to_str(${widths.Has("u64")})); }
+	}
+
+	//Frozen into a real array by the same method, spliced as a literal.
+	str[] frozen = #run
+	{
+		List<str> xs = List::New<str>();
+		xs.Add("one");
+		xs.Add("two");
+		return xs.ToArray();
+	};
+
+	WriteLine("frozen   = " + frozen[0] + "," + frozen[1] + " of " + to_str(frozen.Length));
+	return 0;
+}

@@ -1,0 +1,11 @@
+// A read-only view field refuses wherever it sits; the struct holding it need not be const for that.
+struct Frozen { ConstSpan<i32> data; }
+
+i32 main()
+{
+	i32[] backing = [1, 2]:i32;
+	Frozen f = Frozen{ data = backing };
+	f.data[0] = 9;
+	WriteLine(to_str(backing[0]));
+	return 0;
+}

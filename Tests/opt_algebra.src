@@ -1,0 +1,39 @@
+// Algebraic simplification (B12): each identity collapses to an existing operand
+// (x+0, 0+x, x-0, x*1, 1*x, x/1 -> x;  x*0, 0*x -> 0). The result must be unchanged,
+// proving the rewrites preserve semantics.
+i32 ident(i32 x)
+{
+	i32 a = x + 0;
+	i32 b = 0 + x;
+	i32 c = x - 0;
+	i32 d = x * 1;
+	i32 e = 1 * x;
+	i32 f = x / 1;
+	i32 z = x * 0;
+	i32 w = 0 * x;
+	return a + b + c + d + e + f + z + w;
+}
+
+// The same identities hold on floats. Annihilation does NOT: x * 0.0 is NaN when x is
+// inf/nan, so it stays as written.
+f64 fident(f64 x)
+{
+	f64 a = x + 0.0;
+	f64 b = 0.0 + x;
+	f64 c = x - 0.0;
+	f64 d = x * 1.0;
+	f64 e = 1.0 * x;
+	f64 f = x / 1.0;
+	f64 z = x * 0.0;
+	return a + b + c + d + e + f + z;
+}
+
+i32 main()
+{
+	// 5 + 5 + 5 + 5 + 5 + 5 + 0 + 0 = 30
+	WriteLine(to_str(ident(5)));
+
+	// 2.5 * 6 + 0.0 = 15.0
+	WriteLine(to_str(fident(2.5)));
+	return 0;
+}

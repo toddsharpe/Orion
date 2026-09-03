@@ -1,0 +1,18 @@
+// Solving names its output -- SolverState, solver_init, solver_cycle -- so it happens once per program.
+void Gain(#param str name, #param i32 n, #output i32 y @ $"{name}_out")
+{
+	y = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Solver first = Solver::New([ #create Gain(name = "a", n = 1) ]:Function);
+		Solver::Solve(first);
+
+		Solver second = Solver::New([ #create Gain(name = "b", n = 2) ]:Function);
+		Solver::Solve(second);
+	}
+	return 0;
+}

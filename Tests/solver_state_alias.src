@@ -1,0 +1,61 @@
+// A `#state` port initializer is rendered to text and re-parsed as `state.<cell> = <literal>;`, so the
+// rendered literal has to carry the port's own type. An alias derives from the primitive it names, so
+// rendering asked the primitive first and wrote the representation -- which re-parsed as `i64` and would
+// not assign to the `time`-typed cell it names.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A nanosecond timestamp.
+typedef i64 time;
+
+void Clock(
+	#param str name,
+	#param time step,
+	#state time t = 5000:time,
+	#output time now @ $"{name}_now"
+)
+{
+	t = t + step;
+	now = t;
+}
+
+// The same thing one type deeper: a #state alias with no initializer still zeroes, and the two forms
+// have to agree about the cell's type.
+void Counter(#param str name, #state time seen, #output time total @ $"{name}_total")
+{
+	seen = seen + 1:time;
+	total = seen;
+}
+
+// A #param arrives from the build as a bare CLR scalar, so it has to be folded back at the type it was
+// declared with: as an i32 literal an alias was lost, and 3 seconds of nanoseconds -- past int range --
+// silently truncated to 1705032704.
+void Dwell(#param str name, #param time hold, #output time held @ $"{name}_held")
+{
+	held = hold;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [
+			#create Clock(name = "clk", step = 100:time),
+			#create Counter(name = "cnt"),
+			#create Dwell(name = "dwell", hold = 3000000000:time)
+		]:Function;
+
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 3; i++)
+			{
+				solver_cycle(state);
+				${Solver::ViewState(solver)};
+			}
+		}
+	}
+
+	return 0;
+}

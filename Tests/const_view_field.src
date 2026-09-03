@@ -1,0 +1,24 @@
+// `const` never freezes the storage a view inside it points at; a view FIELD answers as a view variable does.
+i32 scale(i32 v)
+{
+	return v * 2;
+}
+
+i32 main()
+{
+	// An RTTI descriptor is a global, so its view fields outlive the call and may be stored and written.
+	const RtFunction f = Function::Get("scale");
+	WriteLine(f.Name + " takes " + to_str(f.Inputs.Length));
+
+	// The write the rule turns on: `f` is const, `f.Inputs` is not, so the view decides and this lands.
+	RtPort held = f.Inputs[0];
+	f.Inputs[0] = held;
+	WriteLine("input " + f.Inputs[0].Name + ":" + f.Inputs[0].Type.Name);
+
+	// The same answer one level up, where it always worked: the handle is const, the buffer is not.
+	i32[] backing = [1, 2]:i32;
+	const Span<i32> direct = backing;
+	direct[0] = 9;
+	WriteLine("direct = " + to_str(backing[0]));
+	return 0;
+}

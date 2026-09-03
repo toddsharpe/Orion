@@ -1,0 +1,49 @@
+struct Point { i32 X; i32 Y; }
+struct Box { Point Lo; Point Hi; }
+Point make(i32 a, i32 b)
+{
+	Point p = Point{};
+	p.X = a;
+	p.Y = b;
+	return p;
+}
+void test()
+{
+	Point[] pts = [Point{X=1,Y=2}, Point{X=3,Y=4}, Point{X=5,Y=6}]:Point;
+	i32 sum = 0;
+	for (i32 i = 0; i < pts.Length; i++)
+	{
+		sum += pts[i].X + pts[i].Y;
+	}
+	WriteLine("sum=" + to_str(sum));
+	WriteLine("pts1.X=" + to_str(pts[1].X));
+	WriteLine("make(7,9).Y=" + to_str(make(7, 9).Y));
+	Box b = Box{};
+	b.Lo = make(0, 0);
+	b.Hi = make(10, 20);
+	WriteLine("box hi.Y=" + to_str(b.Hi.Y));
+
+	// Writing through a chain: a field of a field, and a field of an element. A target is any
+	// expression now, so these are the same production as `x = v`.
+	b.Lo.X = 5;
+	b.Lo.Y = b.Hi.X + 1;
+	pts[0].X = 100;
+	pts[2].Y = pts[0].X + b.Lo.X;
+	WriteLine("lo=" + to_str(b.Lo.X) + "," + to_str(b.Lo.Y));
+	WriteLine("pts0.X=" + to_str(pts[0].X) + " pts2.Y=" + to_str(pts[2].Y));
+
+	// Compound assignment through a chain reads and writes the same location.
+	b.Hi.Y += 3;
+	WriteLine("hi.Y=" + to_str(b.Hi.Y));
+
+	// A chain on a call result, two deep.
+	Box[] boxes = [Box{ Lo = make(1, 2), Hi = make(3, 4) }]:Box;
+	WriteLine("boxes0.Hi.X=" + to_str(boxes[0].Hi.X));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

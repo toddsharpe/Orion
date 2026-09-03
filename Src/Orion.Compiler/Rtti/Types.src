@@ -1,0 +1,35 @@
+// The RTTI descriptors. Bound before the tables, which are typed by them.
+
+struct RtType
+{
+	str Name;
+	TypeKind Kind;
+	i32 Size;
+	i32 Length;
+	Ref<RtType> Element;
+	Span<RtField> Fields;
+}
+
+struct RtField
+{
+	str Name;
+	Ref<RtType> Type;
+	i32 Offset;
+}
+
+struct RtPort
+{
+	str Name;
+	Ref<RtType> Type;
+	ParamDirection Direction;
+}
+
+struct RtFunction
+{
+	str Name;
+	Ref<RtType> Return;
+	Span<RtPort> Inputs;
+	Span<RtPort> Outputs;
+	Span<RtPort> State;
+}
+

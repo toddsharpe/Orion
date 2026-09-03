@@ -1,0 +1,6 @@
+count    = 2
+has beta = true
+keys     = 3
+u16      = 2
+has u64  = false
+frozen   = one,two of 2

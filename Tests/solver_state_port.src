@@ -1,0 +1,37 @@
+// A #state PORT: hoisted by the solver into one SolverState cell per instance, never wired, read and written.
+void Counter(
+	#param str name,
+	#param i32 step = 1,
+	#state i32 c = step + 1,
+	#output i32 count @ $"{name}_count"
+)
+{
+	count = c;
+	c = c + step;
+}
+
+// Two instances of one template get two distinct cells, so their counters advance independently.
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Counter(name = "a"),
+			#create Counter(name = "b", step = 10)
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 4; i++)
+			{
+				solver_cycle(state);
+				${Solver::ViewState(solver)};
+			}
+		}
+	}
+
+	return 0;
+}

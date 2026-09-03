@@ -1,0 +1,169 @@
+// An `#output` aliases: the write has to reach the caller. That is the one exception to structs being
+// values, and it has to hold at BUILD time as well as at run time -- a `#build` test that drives a
+// function with an out parameter is otherwise reading a stale value and asserting on nothing.
+//
+// The build stage emits a struct as a CLR class, so a struct `#output` used to appear to work as long
+// as the callee mutated a FIELD of it. A scalar out parameter, and a whole-struct assignment, were
+// both silently dropped: the build saw the old value while all three backends saw the write. Writable
+// parameters are emitted byref now, so every line below reads the same in both stages.
+
+struct S { i32 v; i32 w; }
+
+// The control: an ordinary struct parameter is a copy, and the write must NOT escape.
+void PlainParam(S s)
+{
+	s.v = 99;
+}
+
+void OutStructField(#output S s)
+{
+	s.v = 42;
+}
+
+// The whole struct, not one field: assigning the parameter used to rebind a local at build time.
+void OutStructWhole(#output S s)
+{
+	s = S{ v = 7, w = 8 };
+}
+
+void OutScalar(#output i32 x)
+{
+	x = 42;
+}
+
+void OutBool(#output bool b)
+{
+	b = true;
+}
+
+void OutFloat(#output f32 f)
+{
+	f = 1.5:f32;
+}
+
+void OutStr(#output str s)
+{
+	s = "written";
+}
+
+// An out parameter handed straight to another one: the address has to carry through, not a copy of it.
+void OutChain(#output i32 x)
+{
+	OutScalar(x);
+}
+
+// Read AND written, which is what makes it an inout rather than a result slot.
+void OutAccumulate(#output i32 x)
+{
+	x = x + 1;
+}
+
+str Check()
+{
+	S a = S{ v = 1, w = 2 };
+	PlainParam(a);
+
+	S field = S{ v = 1, w = 2 };
+	OutStructField(field);
+
+	S whole = S{ v = 1, w = 2 };
+	OutStructWhole(whole);
+
+	i32 x = 0;
+	OutScalar(x);
+
+	bool b = false;
+	OutBool(b);
+
+	f32 f = 0.0:f32;
+	OutFloat(f);
+
+	str s = "";
+	OutStr(s);
+
+	i32 chained = 0;
+	OutChain(chained);
+
+	i32 acc = 40;
+	OutAccumulate(acc);
+	OutAccumulate(acc);
+
+	// The argument is a place, not just a name: a struct field is an address too.
+	S holder = S{ v = 0, w = 0 };
+	OutScalar(holder.w);
+
+	return "copy=" + to_str(a.v)
+		+ " field=" + to_str(field.v)
+		+ " whole=" + to_str(whole.v) + "," + to_str(whole.w)
+		+ " scalar=" + to_str(x)
+		+ " bool=" + to_str(b)
+		+ " f32=" + to_str(f)
+		+ " str=" + s
+		+ " chain=" + to_str(chained)
+		+ " acc=" + to_str(acc)
+		+ " into_field=" + to_str(holder.w);
+}
+
+// Every claim, checked during the compile. A failing one is a compile error, so the goldens below can
+// only be produced by a build where all of them hold.
+#build bool OutParam_SelfTest()
+{
+	S a = S{ v = 1, w = 2 };
+	PlainParam(a);
+	#assert(a.v == 1, "a plain struct parameter must stay a copy");
+
+	S field = S{ v = 1, w = 2 };
+	OutStructField(field);
+	#assert(field.v == 42, "struct #output: a field write must reach the caller");
+	#assert(field.w == 2, "struct #output: and leave the rest alone");
+
+	S whole = S{ v = 1, w = 2 };
+	OutStructWhole(whole);
+	#assert(whole.v == 7 && whole.w == 8, "struct #output: assigning the whole struct must reach the caller");
+
+	i32 x = 0;
+	OutScalar(x);
+	#assert(x == 42, "scalar #output must reach the caller");
+
+	bool b = false;
+	OutBool(b);
+	#assert(b, "bool #output must reach the caller");
+
+	f32 f = 0.0:f32;
+	OutFloat(f);
+	#assert(f == 1.5:f32, "f32 #output must reach the caller");
+
+	str s = "";
+	OutStr(s);
+	#assert(s == "written", "str #output must reach the caller");
+
+	i32 chained = 0;
+	OutChain(chained);
+	#assert(chained == 42, "an #output passed through another must still reach the caller");
+
+	i32 acc = 40;
+	OutAccumulate(acc);
+	OutAccumulate(acc);
+	#assert(acc == 42, "an #output is read as well as written");
+
+	S holder = S{ v = 0, w = 0 };
+	OutScalar(holder.w);
+	#assert(holder.w == 42, "#output into a struct field");
+	#assert(holder.v == 0, "and only that field");
+
+	return true;
+}
+
+#run
+{
+	OutParam_SelfTest();
+}
+
+i32 main()
+{
+	// The same program run twice: folded during the compile, and executed on the target. Both lines
+	// have to agree, which is the whole point.
+	WriteLine("build  : " + #run Check());
+	WriteLine("runtime: " + Check());
+	return 0;
+}

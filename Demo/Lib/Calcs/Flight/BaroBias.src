@@ -1,0 +1,100 @@
+// The reference the flight is measured against: today's weather at the pad, averaged while still.
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/RollingAvg.src"
+
+// How much history the reference holds; the barometer is slow, so a short window settles quickly.
+const i32 BaroWindow = 50;
+
+// One tick; `updated` gates it, or the slower barometer would fill the window with duplicates.
+void BaroBias(
+	#param str name,
+	#state RollingAvg<BaroWindow> avg,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<Pa> pressure @ "Baro.Pressure",
+	#input bool updated @ "Baro.Updated",
+	#output f32<Pa> bias @ "Baro.BiasPressure",
+	#output bool calibrated @ "Baro.Calibrated"
+)
+{
+	// Not dispatched: window, mean and both nets hold -- averaging through boost walks the reference off.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	if (updated)
+	{
+		RollingAvg_Add<BaroWindow>(avg, pressure);
+	}
+
+	// The window is bare f32 storage, so the measure is restated on the way out: the reference is a pressure Altitude divides by.
+	bias = cast<f32<Pa>>(RollingAvg_Value<BaroWindow>(avg));
+	calibrated = RollingAvg_Ready<BaroWindow>(avg);
+}
+
+// ---- self-test ----
+
+#build bool BaroBias_SelfTest()
+{
+	const f32<Pa> sea_level = 101325.0:f32<Pa>;
+
+	Instance baro = Function::Start(#create BaroBias(name = "barobias_selftest"));
+	const i32 window = RollingAvg_Capacity<BaroWindow>(Instance::Get<RollingAvg<BaroWindow>>(baro, "avg"));
+
+	Function::Tick(baro, ${enabled = true, pressure = sea_level, updated = false});
+	#assert(Instance::Get<bool>(baro, "calibrated") == false, "BaroBias: a cold start is not calibrated");
+	#assert(approx(cast<f64>(Instance::Get<f32>(baro, "bias")), 0.0, 0.000001), "BaroBias: and has no reference yet");
+
+	// A stale barometer must not calibrate: one reading a thousand times over is one measurement.
+	for (i32 i = 0; i < 1000; i++)
+	{
+		Function::Tick(baro, ${enabled = true, pressure = sea_level, updated = false});
+	}
+	#assert(Instance::Get<bool>(baro, "calibrated") == false, "BaroBias: an un-updated barometer must not calibrate");
+	#assert(Instance::Get<RollingAvg<BaroWindow>>(baro, "avg").count == 0, "BaroBias: and must put nothing in the window");
+
+	// A steady pressure averages to itself, and calibration completes exactly at a full window.
+	for (i32 i = 0; i < window - 1; i++)
+	{
+		Function::Tick(baro, ${enabled = true, pressure = sea_level, updated = true});
+	}
+	#assert(Instance::Get<bool>(baro, "calibrated") == false, "BaroBias: one sample short of a window is not calibrated");
+	#assert(approx(cast<f64>(Instance::Get<f32>(baro, "bias")), 101325.0, 0.01), "BaroBias: but the running mean is already right");
+
+	Function::Tick(baro, ${enabled = true, pressure = sea_level, updated = true});
+	#assert(Instance::Get<bool>(baro, "calibrated"), "BaroBias: a full window is calibrated");
+	#assert(approx(cast<f64>(Instance::Get<f32>(baro, "bias")), 101325.0, 0.01), "BaroBias: a steady pressure averages to itself");
+
+	// Averaging is what it is for: noise either side of the truth cancels rather than accumulating.
+	Instance noisy = Function::Start(#create BaroBias(name = "barobias_noisy"));
+	for (i32 i = 0; i < window; i++)
+	{
+		// Alternating +/- 10 Pa, which is the shape of barometer noise on a still day.
+		Function::Tick(noisy, ${enabled = true, pressure = sea_level + (is_even(i) ? 10.0:f32<Pa> : -10.0:f32<Pa>), updated = true});
+	}
+	#assert(Instance::Get<bool>(noisy, "calibrated"), "BaroBias: noise still fills the window");
+	#assert(approx(cast<f64>(Instance::Get<f32>(noisy, "bias")), 101325.0, 0.01), "BaroBias: symmetric noise must cancel");
+
+	// The bias tracks the weather rather than latching, so a pad sat on for a long time stays honest.
+	for (i32 i = 0; i < window; i++)
+	{
+		Function::Tick(baro, ${enabled = true, pressure = 100000.0:f32<Pa>, updated = true});
+	}
+	#assert(approx(cast<f64>(Instance::Get<f32>(baro, "bias")), 100000.0, 0.01), "BaroBias: a full pass replaces the reference");
+
+	// Disabled: nothing moves, and a fresh reading with `updated` set is the strongest case for it.
+	Instance held = Function::Start(#create BaroBias(name = "barobias_held"));
+	for (i32 i = 0; i < 10; i++)
+	{
+		Function::Tick(held, ${enabled = true, pressure = sea_level, updated = true});
+	}
+	const f32 before = Instance::Get<f32>(held, "bias");
+	Function::Tick(held, ${enabled = false, pressure = 50000.0:f32<Pa>, updated = true});
+	#assert(Instance::Get<RollingAvg<BaroWindow>>(held, "avg").count == 10, "BaroBias: a disabled tick adds nothing to the window");
+	#assert(Instance::Get<f32>(held, "bias") == before, "BaroBias: and leaves the reference exactly as it was");
+
+	return true;
+}
+
+#test BaroBias_SelfTest "Barometric reference pressure"

@@ -1,0 +1,201 @@
+// Height and rate: integrate the accelerometer for the shape, pull toward the barometer for the truth.
+#using "Lib/types.src"
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Types.src"
+
+// How much of the estimate survives a barometer sample: high, so the barometer corrects rather than overwrites.
+const f32 AltitudeAlpha = 0.98:f32;
+
+// How hard a disagreement pushes the RATE, per second: gentle but non-zero, or the zero error integrates unopposed.
+const f32<1/s> AltitudeVelocityGain = 0.1:f32<1/s>;
+
+// Nothing this vehicle does exceeds it, so a garbage sample cannot run the estimate away.
+const f32<m/s> AltitudeVelocityClamp = 500.0:f32<m/s>;
+
+struct AltitudeState
+{
+	f32<m> altitude;
+	f32<m/s> velocity;
+
+	// Zero means "no previous sample": the first tick establishes the clock rather than integrating.
+	time last;
+}
+
+// Metres above the reference pressure: the two pressures divide out, so `BaroScale` is the only measure in the formula.
+f32<m> Altitude_FromPressure(const f32<Pa> pressure, const f32<Pa> reference)
+{
+	return BaroScale * (1.0:f32 - pow<f32>(pressure / reference, BaroExponent));
+}
+
+// One tick, in g positive up; `acc_sign` is the IMU mounting.
+void Altitude(
+	#param str name,
+	#param f32 alpha = 0.98:f32,
+	#param f32 acc_sign = -1.0:f32,
+	#param str time_src = "cycle_time",
+	#state AltitudeState alt,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<Pa> pressure @ "Baro.Pressure",
+	#input bool baroUpdated @ "Baro.Updated",
+	#input f32<Pa> reference @ "Baro.BiasPressure",
+	#input f32<g> accX @ "Imu.AccX",
+	#input bool imuUpdated @ "Imu.Updated",
+	#input time now @ time_src,
+	#output f32<m> altitude @ "Alt.Altitude",
+	#output f32<m/s> velocity @ "Alt.Velocity"
+)
+{
+	// Not dispatched: estimate, rate and clock hold -- and an uncalibrated reference would read -inf metres.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// First sample: start the clock, or integrating from the epoch lands somewhere absurd.
+	if (alt.last == 0:time)
+	{
+		alt.last = now;
+		altitude = alt.altitude;
+		velocity = alt.velocity;
+		return;
+	}
+
+	const f32<s> dt = Flight_Seconds(now, alt.last);
+	alt.last = now;
+
+	// Predict between barometer samples: `g * (m/s^2)/g * s` is an m/s, and `clamp` carries the measure through.
+	if (imuUpdated)
+	{
+		alt.velocity = clamp<f32<m/s>>(
+			alt.velocity + (acc_sign * accX - 1.0:f32<g>) * Gravity * dt,
+			-AltitudeVelocityClamp,
+			AltitudeVelocityClamp);
+	}
+	alt.altitude = alt.altitude + alt.velocity * dt;
+
+	// Correct: nudge both toward the barometer, which bounds the drift. The error is a height, so the gain is a per-second.
+	if (baroUpdated)
+	{
+		const f32<m> error = Altitude_FromPressure(pressure, reference) - alt.altitude;
+		alt.altitude = alt.altitude + (1.0:f32 - alpha) * error;
+		alt.velocity = alt.velocity + AltitudeVelocityGain * error;
+	}
+
+	altitude = alt.altitude;
+	velocity = alt.velocity;
+}
+
+// ---- self-test ----
+
+// Hold the inputs steady for `n` ticks of `step`; a cold instance spends tick 0 starting the clock.
+#build void Altitude_Drive(
+	Instance a, const f32<Pa> pressure, const bool baroUpdated, const f32<Pa> reference,
+	const f32<g> accVertical, const time step, const i32 n)
+{
+	for (i32 i = 1; i <= n; i++)
+	{
+		Function::Tick(a, ${enabled = true, pressure = pressure, baroUpdated = baroUpdated, reference = reference,
+			accX = accVertical, imuUpdated = true, now = step * cast<time>(i)});
+	}
+}
+
+// Built with `acc_sign = 1.0`, so `accX` reads as vertical acceleration; the mounting is pinned below.
+#build Instance Altitude_Fresh(str name)
+{
+	return Function::Start(#create Altitude(name = name, acc_sign = 1.0:f32));
+}
+
+#build bool Altitude_SelfTest()
+{
+	const f32<Pa> pad = 101325.0:f32<Pa>;
+	const time step = 10000000:time;   // 10 ms, a 100 Hz cycle
+
+	// The barometric formula: the reference is zero metres, at roughly 8.4 m per 100 Pa near sea level.
+	#assert(approx(cast<f64>(Altitude_FromPressure(pad, pad)), 0.0, 0.001),
+		"Altitude: the reference pressure is zero metres");
+	#assert(Altitude_FromPressure(pad - 100.0:f32<Pa>, pad) > 0.0:f32<m>,
+		"Altitude: lower pressure is higher up");
+	#assert(approx(cast<f64>(Altitude_FromPressure(pad - 100.0:f32<Pa>, pad)), 8.4, 0.5),
+		"Altitude: about 8.4m per hectopascal near sea level");
+	#assert(Altitude_FromPressure(pad + 100.0:f32<Pa>, pad) < 0.0:f32<m>,
+		"Altitude: higher pressure is below the pad");
+
+	Instance first = Altitude_Fresh("altitude_first");
+	#assert(Instance::Get<AltitudeState>(first, "alt").last == 0:time, "Altitude: a cold start has no clock");
+
+	// The first tick sets the clock and integrates nothing.
+	Altitude_Drive(first, pad, true, pad, 1.0:f32<g>, step, 1);
+	#assert(Instance::Get<AltitudeState>(first, "alt").last == step, "Altitude: the first tick starts the clock");
+	#assert(approx(cast<f64>(Instance::Get<f32>(first, "altitude")), 0.0, 0.000001), "Altitude: the first tick integrates nothing");
+	#assert(approx(cast<f64>(Instance::Get<f32>(first, "velocity")), 0.0, 0.000001), "Altitude: and no rate either");
+
+	// Sitting on the pad: 1 g of gravity is not acceleration, so the estimate stays put.
+	Instance rest = Altitude_Fresh("altitude_rest");
+	Altitude_Drive(rest, pad, true, pad, 1.0:f32<g>, step, 500);
+	#assert(approx(cast<f64>(Instance::Get<f32>(rest, "altitude")), 0.0, 0.01), "Altitude: a resting vehicle stays at zero");
+	#assert(approx(cast<f64>(Instance::Get<f32>(rest, "velocity")), 0.0, 0.01), "Altitude: a resting vehicle has no rate");
+
+	// Free fall: 0 g read, the barometer held at the pad, and the rate must still go clearly negative.
+	Instance drop = Altitude_Fresh("altitude_drop");
+	Altitude_Drive(drop, pad, true, pad, 0.0:f32<g>, step, 100);
+	#assert(Instance::Get<f32>(drop, "velocity") < 0.0:f32, "Altitude: free fall must show a downward rate");
+
+	// The barometer is what stops the drift: a biased accelerometer integrated alone runs away.
+	Instance bounded = Altitude_Fresh("altitude_bounded");
+	Altitude_Drive(bounded, pad, true, pad, 1.05:f32<g>, step, 2000);
+	#assert(fabs<f32>(Instance::Get<f32>(bounded, "altitude")) < 5.0:f32, "Altitude: the barometer must bound an accelerometer bias");
+
+	// Without the barometer the same bias integrates away unopposed, which is the thing being bounded.
+	Instance loose = Altitude_Fresh("altitude_loose");
+	Altitude_Drive(loose, pad, false, pad, 1.05:f32<g>, step, 2000);
+	#assert(fabs<f32>(Instance::Get<f32>(loose, "altitude")) > fabs<f32>(Instance::Get<f32>(bounded, "altitude")),
+		"Altitude: an uncorrected bias must drift further than a corrected one");
+
+	// A real climb is followed: the barometer says a height, and the estimate converges on it.
+	const f32<Pa> aloft = pad - 1200.0:f32<Pa>;
+	Instance climb = Altitude_Fresh("altitude_climb");
+	Altitude_Drive(climb, aloft, true, pad, 1.0:f32<g>, step, 2000);
+	#assert(approx(cast<f64>(Instance::Get<f32>(climb, "altitude")), cast<f64>(Altitude_FromPressure(aloft, pad)), 1.0),
+		"Altitude: the estimate must converge on what the barometer says");
+
+	// The clamp is a backstop: a garbage sample cannot put the rate somewhere unphysical.
+	Instance absurd = Altitude_Fresh("altitude_absurd");
+	Altitude_Drive(absurd, pad, false, pad, 1000.0:f32<g>, step, 2000);
+	#assert(cast<f32<m/s>>(Instance::Get<f32>(absurd, "velocity")) <= AltitudeVelocityClamp, "Altitude: the rate must stay clamped");
+
+	// A stale IMU stops the integration but not the clock: the estimate coasts at the rate it had.
+	Instance stale = Altitude_Fresh("altitude_stale");
+	Altitude_Drive(stale, pad, false, pad, 2.0:f32<g>, step, 50);
+	const f32 climbing = Instance::Get<f32>(stale, "velocity");
+	#assert(climbing > 0.0:f32, "Altitude: a full g of net thrust builds a rate");
+	Function::Tick(stale, ${enabled = true, pressure = pad, baroUpdated = false, reference = pad, accX = 2.0:f32<g>,
+		imuUpdated = false, now = step * 51:time});
+	#assert(Instance::Get<f32>(stale, "velocity") == climbing, "Altitude: a stale IMU sample must not integrate again");
+	#assert(Instance::Get<f32>(stale, "altitude") > 0.0:f32, "Altitude: but the estimate still coasts at the rate it had");
+
+	// The mounting sign turns the board's axis into vertical: chip X down the nose reads -1 g at rest.
+	Instance mounted = Function::Start(#create Altitude(name = "altitude_mounted"));
+	Altitude_Drive(mounted, pad, true, pad, -1.0:f32<g>, step, 500);
+	#assert(approx(cast<f64>(Instance::Get<f32>(mounted, "altitude")), 0.0, 0.01),
+		"Altitude: the default mounting reads a resting vehicle at rest");
+
+	// Disabled: the estimate holds and so does the clock, even under a tick of thrust.
+	Instance held = Altitude_Fresh("altitude_held");
+	Altitude_Drive(held, pad, false, pad, 2.0:f32<g>, step, 50);
+	const f32 heldAlt = Instance::Get<f32>(held, "altitude");
+	const f32 heldVel = Instance::Get<f32>(held, "velocity");
+	Function::Tick(held, ${enabled = false, pressure = pad, baroUpdated = true, reference = pad,
+		accX = 9.0:f32<g>, imuUpdated = true, now = step * 51:time});
+	#assert(Instance::Get<f32>(held, "altitude") == heldAlt, "Altitude: a disabled tick must not integrate");
+	#assert(Instance::Get<f32>(held, "velocity") == heldVel, "Altitude: nor correct against the barometer");
+	#assert(Instance::Get<AltitudeState>(held, "alt").last == step * 50:time, "Altitude: and must not advance the clock");
+
+	// A zero reference is what an ungated pad dispatch hands this calc, and the result is -inf.
+	#assert(Altitude_FromPressure(pad, 0.0:f32<Pa>) < -1000000.0:f32<m>,
+		"Altitude: an uncalibrated reference is what the gate exists to prevent");
+
+	return true;
+}
+
+#test Altitude_SelfTest "Altitude and vertical rate"

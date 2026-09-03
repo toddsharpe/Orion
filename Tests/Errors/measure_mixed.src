@@ -1,0 +1,12 @@
+// Two measures are two types: adding them is the mistake the measure exists to catch.
+#measure m;
+#measure s;
+
+i32 main()
+{
+	const f64<m> dist = 12.0:f64<m>;
+	const f64<s> dt = 4.0:f64<s>;
+	const f64<m> sum = dist + dt;
+	WriteLine(to_str(sum));
+	return 0;
+}

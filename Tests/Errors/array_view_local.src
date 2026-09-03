@@ -1,0 +1,13 @@
+// `T[]` infers a length from its initializer, and a view has none to give.
+void probe(ConstSpan<u8> src)
+{
+	u8[] alias = src;
+	WriteLine(to_str(alias[0]));
+}
+
+i32 main()
+{
+	u8[4] b;
+	probe(b);
+	return 0;
+}

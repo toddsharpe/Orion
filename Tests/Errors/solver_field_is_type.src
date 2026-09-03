@@ -1,0 +1,23 @@
+// A net named for a struct emits `Sample Sample;`, which MSVC accepts and g++ rejects; the struct renames, not the net.
+struct Sample
+{
+	i32 raw;
+}
+
+void Sensor(#param str name, #output Sample sample @ "Sample")
+{
+	sample.raw = 1;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [#create Sensor(name = "s")]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

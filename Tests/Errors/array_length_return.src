@@ -1,0 +1,12 @@
+// The same check on a return: `i32[2]` is not an `i32[3]`.
+i32[3] three()
+{
+	i32[2] two = [1, 2]:i32;
+	return two;
+}
+
+i32 main()
+{
+	i32[3] xs = three();
+	return xs[0];
+}

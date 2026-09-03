@@ -1,0 +1,41 @@
+// A sized array declares without an initializer: the type already says how much zeroed storage.
+
+f64[3] make()
+{
+	f64[3] out;
+	out[0] = 1.0;
+	out[2] = 3.0;
+	return out;
+}
+
+// Rectangular types work the same way, and a #state one still initializes once.
+f64[2,2] grid()
+{
+	f64[2,2] m;
+	m[0,0] = 7.0;
+	m[1,1] = 9.0;
+	return m;
+}
+
+i32 count()
+{
+	#state i32[3] seen;
+	seen[0] = seen[0] + 1;
+	return seen[0];
+}
+
+i32 main()
+{
+	f64[3] a = make();
+	WriteLine(to_str(a[0]) + " " + to_str(a[1]) + " " + to_str(a[2]));
+
+	f64[2,2] g = grid();
+	WriteLine(to_str(g[0,0]) + " " + to_str(g[1,1]));
+
+	// Zeroed means zeroed: every element the code did not write reads as 0.
+	u8[4] z;
+	WriteLine("zeroed=" + to_str(z[0]) + to_str(z[3]));
+
+	WriteLine("state=" + to_str(count()) + to_str(count()));
+	return 0;
+}

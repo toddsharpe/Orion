@@ -1,0 +1,21 @@
+functions: 6
+  [0] scale
+  [1] fields
+  [2] ports
+  [3] report
+  [4] use
+  [5] main
+scale -> void
+  in    n:i32
+  out   doubled:i32
+  state seen:i32
+report -> void
+  in    name:str
+Sample: 7 bytes, 3 fields
+  +0 raw:u16 (2)
+  +2 scaled:i32 (4)
+  +6 valid:bool (1)
+ports -> void
+  in    label:str
+  in    ports:Span<RtPort> of RtPort
+nope: not found

@@ -1,0 +1,26 @@
+// `#prev` claims a net is a cycle behind, so a driver listed EARLIER makes the claim untrue.
+void First(#param str name, #output i32 value @ "shared")
+{
+	value = 1;
+}
+
+void Second(#param str name, #prev i32 value @ "shared")
+{
+	WriteLine(to_str(value));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create First(name = "first"),
+			#create Second(name = "second")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+	}
+
+	return 0;
+}

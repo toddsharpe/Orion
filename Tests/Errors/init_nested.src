@@ -1,0 +1,8 @@
+// #init runs once before any cycle, so nesting it inside control flow has no meaning.
+void Blk(#param str name, #output i32 v @ $"{name}_v")
+{
+	if (true) { #init { return true; } }
+	v = 1;
+}
+
+i32 main() { return 0; }

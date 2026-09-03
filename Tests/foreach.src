@@ -1,0 +1,57 @@
+// foreach over arrays: build-time and runtime, nested, with a break-free counted lowering.
+i32 sum(ConstSpan<i32> xs)
+{
+	i32 total = 0;
+	for (const i32 x in xs)
+	{
+		total = total + x;
+	}
+	return total;
+}
+
+// foreach directly over a build-time List<T> (no ToArray): the binder freezes it to an array.
+// `const` makes the element write-once. Result is spliced in as a literal by #run.
+#build str listsum()
+{
+	List<i32> ns = List::New<i32>();
+	ns.Add(2);
+	ns.Add(3);
+	ns.Add(7);
+	i32 total = 0;
+	for (const i32 n in ns)
+	{
+		total = total + n;
+	}
+	return "listsum=" + to_str(total);
+}
+
+void test()
+{
+	i32[] nums = [3, 1, 4, 1, 5, 9]:i32;
+	WriteLine("sum=" + to_str(sum(nums)));
+
+	str joined = "";
+	for (str w in ["a", "bb", "ccc"]:str)
+	{
+		joined = joined + w + ",";
+	}
+	WriteLine("joined=" + joined);
+
+	i32 pairs = 0;
+	for (i32 a in nums)
+	{
+		for (str b in ["x", "y"]:str)
+		{
+			pairs = pairs + 1;
+		}
+	}
+	WriteLine("pairs=" + to_str(pairs));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	WriteLine(#run listsum());
+	return 0;
+}

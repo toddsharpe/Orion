@@ -1,0 +1,18 @@
+// Sugar inside a generic: the clone comes from the parse tree, so it is desugared on instantiation.
+#build str describe<T>(const T v)
+{
+	Map<str, T> m = Map<str, T>{ "a" = v, "b" = v };
+	return $"{m.Length} entries, first={m["a"]}";
+}
+
+T twice<T>(const T v)
+{
+	return v + v;
+}
+
+i32 main()
+{
+	WriteLine(#run describe<i32>(7));
+	WriteLine(to_str(twice<f64>(1.5)) + " " + to_str(twice<i32>(21)));
+	return 0;
+}

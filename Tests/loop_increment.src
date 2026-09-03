@@ -1,0 +1,33 @@
+// The other side of the const-increment rule: `++` on anything not const, a loop's own iterator included.
+struct P { i32 x; }
+
+void bump(Span<i32> v)
+{
+	v[0]++;
+}
+
+i32 main()
+{
+	i32 n = 0;
+	for (i32 i = 0; i < 3; i++)
+	{
+		n++;
+	}
+	n--;
+
+	i32[2] xs = [1, 2]:i32;
+	xs[0]++;
+
+	// `const Span<T>` freezes the handle, not the buffer, so an element write is one it allows.
+	const Span<i32> view = xs;
+	view[1]++;
+	bump(xs);
+
+	P p = P{ x = 1 };
+	p.x++;
+
+	WriteLine("n = " + to_str(n));
+	WriteLine("xs = " + to_str(xs[0]) + "," + to_str(xs[1]));
+	WriteLine("p.x = " + to_str(p.x));
+	return 0;
+}

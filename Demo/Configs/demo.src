@@ -1,0 +1,57 @@
+//The net list a deployment changes, read by `#src`: walked during the compile, so only the packing ships.
+#using "Lib/types.src"
+
+//The converter's raw counts, one net per channel.
+#build List<Device> raw_config()
+{
+	List<Device> raw = List::New<Device>();
+	for (i32 i = 0; i < 4; i++)
+	{
+		raw.Add(Device{ name = $"adc_{i}_raw", type = Type::Of<u16>() });
+	}
+
+	return raw;
+}
+
+//The same channels in engineering units, which is what everything downstream reads.
+#build List<Device> scaled_config()
+{
+	List<Device> scaled = List::New<Device>();
+	for (i32 i = 0; i < 4; i++)
+	{
+		scaled.Add(Device{ name = $"adc_{i}", type = Type::Of<f64>() });
+	}
+
+	return scaled;
+}
+
+//What travels: counts, measurements, the loop's signals and the mode -- an enum, a struct and an array.
+#build List<Device> telem_config()
+{
+	return raw_config() + scaled_config() + [
+		//A typedef travels as its representation, but the schema names it, so nanoseconds read as nanoseconds.
+		Device{ name = "cycle_time", type = Type::Parse("time") },
+		Device{ name = "sp_value", type = Type::Of<f64>() },
+		Device{ name = "ctrl_out", type = Type::Of<f64>() },
+		Device{ name = "plant_out", type = Type::Of<f64>() },
+		Device{ name = "stats_min", type = Type::Of<f64>() },
+		Device{ name = "stats_mean", type = Type::Of<f64>() },
+		Device{ name = "stats_max", type = Type::Of<f64>() },
+		Device{ name = "mode_state", type = Type::Of<AppState>() },
+		Device{ name = "mode_status", type = Type::Of<Status>() },
+		Device{ name = "mode_recent", type = Type::Parse("u32[4]") }
+	]:List<Device>;
+}
+
+//A second, smaller frame -- is the node healthy -- over nets that ride `telem_config` too: a channel is a view.
+#build List<Device> health_config()
+{
+	return [
+		Device{ name = "cycle_time", type = Type::Parse("time") },
+		Device{ name = "mode_state", type = Type::Of<AppState>() },
+		Device{ name = "mode_status", type = Type::Of<Status>() },
+		Device{ name = "stats_min", type = Type::Of<f64>() },
+		Device{ name = "stats_mean", type = Type::Of<f64>() },
+		Device{ name = "stats_max", type = Type::Of<f64>() }
+	]:List<Device>;
+}

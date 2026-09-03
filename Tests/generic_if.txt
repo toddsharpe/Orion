@@ -1,0 +1,12 @@
+struct payload=3
+scalar 8
+seq=9
+value=5
+count arr = 3
+count scalar = 7
+width i32 = i32
+width nanos = alias of 250
+mode Coast
+not a mode 42
+bits = 64
+bytes = 1

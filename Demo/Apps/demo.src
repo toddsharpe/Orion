@@ -1,0 +1,271 @@
+//A control loop over a simulated plant, holding a rate and putting frames on the wire for decode.py:
+//  setpoint -> PID -> plant -> ADC -> calibrate -> stats -> mode -> heartbeat -> telemetry
+//The PID sees last cycle's plant output, one sample of delay; clock and socket are the platform's.
+#using "Lib/types.src"
+#using "Lib/Common.src"
+#using "Lib/Math.src"
+#using "Lib/PID.src"
+#using "Lib/Telemetry.src"
+#using "Services.src"
+
+//Stage 2: what the loop chases, stepped rather than constant so the response is worth looking at.
+void Setpoint(
+	#param str name,
+	#param f64 low,
+	#param f64 high,
+	#param i32 hold,
+	#state i32 held = 0,
+	#state bool raised = false,
+	#output f64 setpoint @ $"{name}_value"
+)
+{
+	held = held + 1;
+	if (held >= hold)
+	{
+		held = 0;
+		raised = !raised;
+	}
+
+	if (raised)
+	{
+		setpoint = high;
+	}
+	else
+	{
+		setpoint = low;
+	}
+}
+
+//Stage 5: the converter, one net per channel, each a noisy reading with a trim of its own.
+void Sensors(
+	#param str name,
+	#param List<Device> channels,
+	#param str source,
+	#input f64 process @ source,
+	#state u32 noise = 2463534242:u32
+)
+{
+	//One advance of the noise state per cycle, shared by every channel below.
+	noise = rand_next(noise);
+	const f64 jitter = rand_unit(noise) * 4.0;
+
+	#run {
+		#assert(channels.Length > 0, "Sensors needs at least one channel");
+
+		for (i32 i = 0; i < channels.Length; i++)
+		{
+			const Device channel = channels[i];
+			#assert(channel.type == Type::Of<u16>(), "Sensors drives u16 counts");
+
+			//Each channel sits a little differently on the same signal, the way four real parts would.
+			const f64 offset = cast<f64>(i) * 12.0;
+			const Port raw = Port::Out(channel.type, channel.name);
+
+			//12-bit counts at 40 per unit, clamped to full scale; `clamp<f64>` instantiates from this splice.
+			#insert {
+				${raw} = cast<u16>(clamp<f64>(process * 40.0 + ${offset} + jitter, 0.0, 4095.0));
+			}
+		}
+	}
+}
+
+//Stage 6: counts back to engineering units, one linear transform per channel.
+void Calibrate(
+	#param str name,
+	#param List<Device> raw,
+	#param List<Device> scaled,
+	#param f64 gain,
+	#param f64 offset
+)
+{
+	#run {
+		#assert(raw.Length == scaled.Length, "Calibrate needs one scaled net per raw net");
+
+		for (i32 i = 0; i < raw.Length; i++)
+		{
+			const Device src = raw[i];
+			const Device dst = scaled[i];
+			#assert(src.type == Type::Of<u16>(), "Calibrate reads u16 counts");
+			#assert(dst.type == Type::Of<f64>(), "Calibrate writes f64 measurements");
+
+			//Each channel's own trim removes the offset the converter added, so the four agree again.
+			const f64 trim = cast<f64>(i) * -0.3;
+			const Port counts = Port::In(src.type, src.name);
+			const Port measured = Port::Out(dst.type, dst.name);
+			#insert { ${measured} = ${gain} * cast<f64>(${counts}) + ${offset} + ${trim}; }
+		}
+	}
+}
+
+//Stage 7: min / mean / max across the channels, unrolled at build time and published as nets.
+void Stats(#param str name, #param List<Device> sources)
+{
+	#run {
+		const i32 n = sources.Length;
+		#assert(n > 0, "Stats needs at least one channel");
+
+		List<Port> inputs = List::New<Port>();
+		for (const Device src in sources)
+		{
+			#assert(src.type == Type::Of<f64>(), "Stats reads f64 measurements");
+			inputs.Add(Port::In(src.type, src.name));
+		}
+
+		const Port lo_net = Port::Out(Type::Of<f64>(), $"{name}_min");
+		const Port avg_net = Port::Out(Type::Of<f64>(), $"{name}_mean");
+		const Port hi_net = Port::Out(Type::Of<f64>(), $"{name}_max");
+
+		const Port first = inputs[0];
+		#insert {
+			f64 lo = ${first};
+			f64 hi = ${first};
+			f64 sum = 0.0;
+		}
+
+		for (const Port p in inputs)
+		{
+			#insert {
+				if (${p} < lo) { lo = ${p}; }
+				if (${p} > hi) { hi = ${p}; }
+				sum += ${p};
+			}
+		}
+
+		#insert {
+			${lo_net} = lo;
+			${avg_net} = sum / cast<f64>(${n});
+			${hi_net} = hi;
+		}
+	}
+}
+
+//Stage 8: the operating mode, published three ways -- bare enum, bundled struct, and a window of four.
+void Mode(
+	#param str name,
+	#param str mean_src,
+	#param str peak_src,
+	#param f64 ready_above,
+	#param f64 fault_above,
+	#input  f64 mean @ mean_src,
+	#input  f64 peak @ peak_src,
+	#state  AppState phase = AppState::Init,
+	#state  u16 cycles = 0:u16,
+	#output AppState state @ $"{name}_state",
+	#output Status status @ $"{name}_status",
+	#output u32[4] recent @ $"{name}_recent"
+)
+{
+	const AppState was = phase;
+
+	//One transition per cycle, so the mode is always a step behind a fault rather than jumping to it.
+	switch (phase)
+	{
+		case AppState::Init:
+		{
+			phase = AppState::Warmup;
+		}
+		case AppState::Warmup:
+		{
+			if (mean > ready_above) { phase = AppState::Run; }
+		}
+		case AppState::Run:
+		{
+			if (peak > fault_above) { phase = AppState::Fault; }
+		}
+		default:
+		{
+		}
+	}
+
+	//Cycles spent in the mode now being reported, reset whenever it changes.
+	if (phase == was) { cycles = cycles + 1:u16; } else { cycles = 1:u16; }
+
+	state = phase;
+	status.state = phase;
+	status.held = cycles;
+	status.mean = mean;
+
+	//An `#output` reads back last cycle's value, so the window shifts in place, oldest first.
+	for (i32 i = 0; i < 3; i++)
+	{
+		recent[i] = recent[i + 1];
+	}
+	recent[3] = cast<u32>(phase);
+}
+
+//Stage 9: proof of life on the console, one line per `every` cycles; the frame is the real output.
+void Heartbeat(
+	#param str name,
+	#param i32 every,
+	#param str setpoint_src,
+	#param str measured_src,
+	#input time cycle_time,
+	#input f64 setpoint @ setpoint_src,
+	#input f64 measured @ measured_src,
+	#state i32 held = 0,
+	#state i32 count = 0
+)
+{
+	held = held + 1;
+	count = count + 1;
+
+	if (held >= every)
+	{
+		held = 0;
+		WriteLine("cycle " + to_str(count)
+			+ " t=" + to_str(cast<i64>(cycle_time)) + "ns"
+			+ " sp=" + to_str(setpoint)
+			+ " plant=" + to_str(measured));
+	}
+}
+
+//`main` is `#build`, so it all runs during the compile and what is left is the surface a platform drives.
+#build i32 main()
+{
+	const str config_file = "Configs/demo.src";
+
+	List<Device> raw = #src config_file raw_config();
+	List<Device> scaled = #src config_file scaled_config();
+	List<Device> telem = #src config_file telem_config();
+	List<Device> health = #src config_file health_config();
+
+	//Both frames' shapes are settled here, during the compile, so they are known before anything is built.
+	WriteLine($"orion: {telem.Length} nets, {PayloadSize(telem)} bytes of payload per frame");
+	WriteLine($"orion: {health.Length} nets, {PayloadSize(health)} bytes of payload per health frame");
+
+	{
+		//100 Hz is what the platform holds the loop to, so dt is 0.01s; `Solver::Export` is told the same.
+		const f64 dt = 0.01;
+
+		Function[] blocks =
+		[
+			//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
+			#create CycleStart(name = "cycle", dt_ns = Hz_100),
+			//Two seconds per half at 100 Hz: long enough to settle, short enough that a step is never far away.
+			#create Setpoint(name = "sp", low = 20.0, high = 60.0, hold = 200),
+			#create Pid(
+				name = "ctrl", kp = 2.0, ki = 4.0, kd = 0.05,
+				i_limit = 50.0, out_limit = 100.0, dt = dt,
+				setpoint_src = "sp_value", measured_src = "plant_out"),
+			#create Plant(name = "plant", gain = 1.0, tau = 0.5, dt = dt, command_src = "ctrl_out"),
+			#create Sensors(name = "adc", channels = raw, source = "plant_out"),
+			#create Calibrate(name = "cal", raw = raw, scaled = scaled, gain = 0.025, offset = 0.0),
+			#create Stats(name = "stats", sources = scaled),
+			#create Mode(
+				name = "mode", mean_src = "stats_mean", peak_src = "stats_max",
+				ready_above = 5.0, fault_above = 90.0),
+			#create Heartbeat(
+				name = "beat", every = 100,
+				setpoint_src = "sp_value", measured_src = "plant_out"),
+			#create TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry")),
+			//A second channel on its own service, reading nets the blocks above already drive.
+			#create TelemetryWriter(name = "health", devices = health, service = ServiceOf("Vehicle.Health"))
+		]:Function;
+
+		//Export rather than Solve: the state becomes a global, and this is where the rate is stated.
+		Solver solver = Solver::New(blocks);
+		Solver::Export(solver, Hz_100);
+	}
+
+	return 0;
+}

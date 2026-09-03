@@ -1,0 +1,10 @@
+build counter -> void
+  in    step:i32 4
+  out   total:i32 4
+  state running:i32 4
+total = 10
+run   counter -> void
+  in    step:i32 4
+  out   total:i32 4
+  state running:i32 4
+in is a primitive

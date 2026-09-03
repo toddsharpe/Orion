@@ -1,0 +1,16 @@
+// A const struct is const all the way down: the list it holds is reached through it and frozen with it.
+struct Bag { str name; List<i32> items; }
+
+#build str probe()
+{
+	List<i32> held = List::New<i32>();
+	const Bag bag = Bag{ name = "b", items = held };
+	bag.items.Add(7);
+	return to_str(held.Length);
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

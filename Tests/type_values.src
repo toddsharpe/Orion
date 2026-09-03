@@ -1,0 +1,58 @@
+// A type as a build-time VALUE: Type::Of<T>() from a written type, Type::Parse from a name in data.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+//A nanosecond timestamp.
+typedef i64 time;
+
+#build List<Device> manifest()
+{
+	return [
+		Device{ name = "count", type = Type::Of<u16>() },
+		Device{ name = "level", type = Type::Of<f64>() },
+		Device{ name = "armed", type = Type::Of<bool>() }
+	]:List<Device>;
+}
+
+i32 main()
+{
+	#run
+	{
+		const List<Device> devices = manifest();
+
+		i32 total = 0;
+		for (const Device d in devices)
+		{
+			#insert { WriteLine(${d.name} + ": " + ${d.type.Name} + " is " + to_str(${d.type.Size}) + " bytes"); }
+			total += d.type.Size;
+		}
+		#insert { WriteLine("frame = " + to_str(${total}) + " bytes"); }
+
+		// Equality is on the type, not on a string that happens to spell it.
+		const Device first = devices[0];
+		#assert(first.type == Type::Of<u16>(), "the first channel is u16");
+
+		// The comparison drives build-time control flow, which is what it is for.
+		str shape = "mixed";
+		if (devices[0].type == devices[2].type) { shape = "uniform"; }
+		#insert { WriteLine("first vs last -> " + ${shape}); }
+
+		i32 wide = 0;
+		for (const Device d in devices)
+		{
+			if (d.type == Type::Of<f64>()) { wide += 1; }
+		}
+		#insert { WriteLine("f64 channels -> " + to_str(${wide})); }
+
+		// A name that arrived as data becomes a type once, at the boundary.
+		const Type parsed = Type::Parse("i64");
+		#insert { WriteLine("parsed " + ${parsed.Name} + " -> " + to_str(${parsed.Size}) + " bytes"); }
+	}
+
+	return 0;
+}
