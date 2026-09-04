@@ -16,6 +16,7 @@
  *   onigasm                2.2.5
  *   monaco-textmate        3.0.1
  *   monaco-editor-textmate 4.0.0
+ *   mermaid                11.17.2
  *
  * .NET interop: three static [JSInvokable] methods in assembly "Orion.Web",
  * invoked via DotNet.invokeMethodAsync('Orion.Web', '<Method>', ...args).
@@ -32,6 +33,7 @@
 	const MONACO_VERSION = '0.52.2';
 	const MONACO_BASE = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min`;
 	const MONACO_VS = `${MONACO_BASE}/vs`;
+	const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.esm.min.mjs';
 
 	// Interop constants.
 	const INTEROP_ASSEMBLY = 'Orion.Web';
@@ -948,8 +950,15 @@
 	// Mermaid is big, so load it only when the Graph tab is first shown.
 	async function ensureMermaid() {
 		if (mermaidLib) return mermaidLib;
-		const mod = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
-		mermaidLib = mod.default || mod;
+		// Mermaid bundles UMD code (fastdom, via cytoscape) that hands itself to any global define(); Monaco's AMD loader is one, and rejects the anonymous call.
+		const define = window.define;
+		window.define = undefined;
+		try {
+			const mod = await import(MERMAID_URL);
+			mermaidLib = mod.default || mod;
+		} finally {
+			window.define = define;
+		}
 		mermaidLib.initialize({ startOnLoad: false, theme: prefersDark() ? 'dark' : 'default', securityLevel: 'loose' });
 		return mermaidLib;
 	}
