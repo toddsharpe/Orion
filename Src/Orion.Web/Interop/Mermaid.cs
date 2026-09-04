@@ -12,8 +12,12 @@ namespace Orion.Web.Interop
 	// Every diagram the playground draws, as Mermaid source, shared by the whole-program Graph tab and the per-function Analysis tab so a call graph looks the same wherever it is shown.
 	internal static class Mermaid
 	{
-		// A single-line label: Mermaid quotes it, so only the quote itself and newlines need handling.
+		// A single-line label, always written inside quotes so a parenthesis or a pipe in it is text: only the quote itself and newlines need handling.
 		public static string Escape(string s) => (s ?? string.Empty).Replace("\"", "'").Replace("\n", " ");
+
+		// An edge with a label: `-->|"text"|`, the quoted form Mermaid parses as text rather than as node syntax.
+		private static StringBuilder Edge(this StringBuilder sb, string from, string arrow, string label, string to) =>
+			sb.Append("  ").Append(from).Append(' ').Append(arrow).Append("|\"").Append(Escape(label)).Append("\"| ").Append(to).Append('\n');
 
 		// A multi-line label: Mermaid renders these as HTML, so a TAC containing `<` or `&` would otherwise be swallowed as markup.
 		public static string EscapeLines(IEnumerable<string> lines)
@@ -56,7 +60,7 @@ namespace Orion.Web.Interop
 				foreach (KeyValuePair<CallGraph.Node, CallGraph.Edge> e in n.Outgoing)
 				{
 					string to = Id(e.Key);
-					sb.Append("  ").Append(from).Append(" -->|").Append(Escape(e.Value.Value.ToString())).Append("| ").Append(to).Append('\n');
+					sb.Edge(from, "-->", e.Value.Value.ToString(), to);
 					if (visited.Add(e.Key))
 						queue.Enqueue(e.Key);
 				}
@@ -118,8 +122,7 @@ namespace Orion.Web.Interop
 					if (producer.TryGetValue(root, out SourceFunctionSymbol prod))
 					{
 						//A `#prev` read is last cycle's value, so it draws as a dotted feedback edge.
-						sb.Append("  ").Append(Id(prod)).Append(p.Delayed ? " -.->|" : " -->|")
-							.Append(Escape(p.Net)).Append(p.Delayed ? " (prev)| " : "| ").Append(Id(f)).Append('\n');
+						sb.Edge(Id(prod), p.Delayed ? "-.->" : "-->", p.Delayed ? p.Net + " (prev)" : p.Net, Id(f));
 					}
 					else
 					{
@@ -160,7 +163,7 @@ namespace Orion.Web.Interop
 				Id(node);
 			foreach (ControlFlowGraph.Node node in cfg.Nodes)
 				foreach (KeyValuePair<ControlFlowGraph.Node, ControlFlowGraph.Edge> e in node.Outgoing)
-					sb.Append("  ").Append(Id(node)).Append(" -->|").Append(Escape(e.Value.Value.ToString())).Append("| ").Append(Id(e.Key)).Append('\n');
+					sb.Edge(Id(node), "-->", e.Value.Value.ToString(), Id(e.Key));
 
 			return sb.ToString();
 		}
@@ -180,7 +183,7 @@ namespace Orion.Web.Interop
 
 			string Edge(string from, string name, string to)
 			{
-				sb.Append("  ").Append(from).Append(" -->|").Append(Escape(name)).Append("| ").Append(to).Append('\n');
+				sb.Edge(from, "-->", name, to);
 				return from;
 			}
 
