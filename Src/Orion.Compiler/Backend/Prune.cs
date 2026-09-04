@@ -1,4 +1,5 @@
-﻿using Orion.Graphs;
+﻿using Orion.Diagnostics;
+using Orion.Graphs;
 using Orion.Symbols;
 using System;
 using System.Collections.Generic;
@@ -9,30 +10,40 @@ namespace Orion.Backend
 	//Whole-program symbol DCE: drops build-only symbols, unreachable functions, and types nothing live mentions.
 	internal static class Prune
 	{
-		internal static void Run(SymbolTable root)
+		internal static void Run(SymbolTable root, List<Message> messages)
 		{
+			//Build-only symbols are the library's scaffolding, dozens per compile, so they go as a count; what the program itself lost is named.
+			int build = 0;
 			foreach (SymbolTable table in root.Traverse())
 			{
-				Drop<FunctionSymbol>(table, i => i.IsBuild);
-				Drop<TypeSymbol>(table, i => i.IsBuild);
-				Drop<LabelSymbol>(table, i => i.IsBuild);
-				Drop<NamedDataSymbol>(table, i => i.IsBuild);
+				build += Drop<FunctionSymbol>(table, i => i.IsBuild);
+				build += Drop<TypeSymbol>(table, i => i.IsBuild);
+				build += Drop<LabelSymbol>(table, i => i.IsBuild);
+				build += Drop<NamedDataSymbol>(table, i => i.IsBuild);
 			}
+			messages.Trace($"Dropped {Messages.Count(build, "build-only symbol")}");
 
 			List<SourceFunctionSymbol> live = [.. Reachable(root).OfType<SourceFunctionSymbol>()];
 			foreach (SymbolTable table in root.Traverse())
-				Drop<SourceFunctionSymbol>(table, i => !live.Contains(i) && !Rtti.Generator.Owns(i));
+				Drop<SourceFunctionSymbol>(table, i => !live.Contains(i) && !Rtti.Generator.Owns(i), messages, "unreachable function");
 
 			HashSet<TypeSymbol> used = LiveTypes(root, live);
 			foreach (SymbolTable table in root.Traverse())
 				Drop<TypeSymbol>(table, i => (i is StructTypeSymbol or EnumTypeSymbol or ArrayTypeSymbol)
-					&& !used.Contains(i) && !Rtti.Generator.Owns(i));
+					&& !used.Contains(i) && !Rtti.Generator.Owns(i), messages, "unused type");
+
+			messages.Trace($"Kept {Messages.Count(live.Count, "function")} and {Messages.Count(used.Count, "type")}");
 		}
 
-		private static void Drop<T>(SymbolTable table, Func<T, bool> dead) where T : Symbol
+		private static int Drop<T>(SymbolTable table, Func<T, bool> dead, List<Message> messages = null, string why = null) where T : Symbol
 		{
-			foreach (T symbol in table.GetAll<T>().Where(dead).ToList())
+			List<T> dropped = table.GetAll<T>().Where(dead).ToList();
+			foreach (T symbol in dropped)
+			{
 				table.Remove(symbol);
+				messages?.Trace($"Pruned {why} {(symbol as INamedSymbol)?.Name ?? symbol.ToString()}");
+			}
+			return dropped.Count;
 		}
 
 		internal static bool Surfaced(IEnumerable<FunctionSymbol> functions) =>

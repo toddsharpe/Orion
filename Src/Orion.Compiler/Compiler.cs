@@ -1,4 +1,4 @@
-using Orion.Ast;
+﻿using Orion.Ast;
 using Orion.Backend.StIr;
 using Orion.Backend;
 using Orion.BuildTime.Builtins;
@@ -219,31 +219,47 @@ namespace Orion
 		private static readonly IReadOnlyList<Phase> Table =
 		[
 			new("Frontend", "Inputs",
-				(ctx, _) => { },
+				(ctx, m) => m.Trace($"Compiling {ctx.Options.Input} for {ctx.Options.Lang}, from {ctx.Session.Root}"),
 				ctx => new InputsState(ctx.Options.Input, ctx.Options.WorkingDirectory, string.Join("; ", ctx.Session.Includes), ctx.Options.Lang.ToString())),
 
 			new("Frontend", "Parser",
-				(ctx, m) => ctx.Files = Parsing.GatherAsts(ctx.Options.Input, m),
+				(ctx, m) =>
+				{
+					ctx.Files = Parsing.GatherAsts(ctx.Options.Input, m);
+					foreach (CompilerFile file in ctx.Files)
+						m.Trace($"Parsed {file.Summary()}");
+				},
 				ctx => new FilesState(ctx.Files)),
 
 			//Also assembles the working set: the combined unit and the root table the stages fill.
 			new("Frontend", "Combined",
-				(ctx, _) =>
+				(ctx, m) =>
 				{
 					ctx.Unit = new TranslationUnit { Blocks = ctx.Files.SelectMany(i => i.Ast.Blocks).ToList() };
 					ctx.Combined = new CompilerFile(ctx.Unit, new InputFile("Combined", string.Empty));
 					ctx.Root = GlobalTable.Create();
+					m.Trace($"Combined {Messages.Count(ctx.Files.Count, "file")} into {Messages.Count(ctx.Unit.Blocks.Count, "block")}");
 				},
 				ctx => new UnitState(ctx.Combined)),
 
 			.. Pipeline.PrePasses,
 
 			new("Frontend", "Binding",
-				(ctx, m) => Binding.BindAst(ctx.Unit, ctx.Root, m),
+				(ctx, m) =>
+				{
+					Binding.BindAst(ctx.Unit, ctx.Root, m);
+					List<SymbolTable> tables = [.. ctx.Root.Traverse()];
+					m.Trace($"Bound {Messages.Count(tables.SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Distinct().Count(), "function")}, {Messages.Count(tables.SelectMany(i => i.GetAll<StructTypeSymbol>()).Distinct().Count(), "struct")} and {Messages.Count(tables.SelectMany(i => i.GetAll<EnumTypeSymbol>()).Distinct().Count(), "enum")}");
+				},
 				ctx => new TableState(ctx.Root)),
 
 			new("Frontend", "IR",
-				(ctx, m) => TacBuilder.Run(ctx.Unit, m),
+				(ctx, m) =>
+				{
+					TacBuilder.Run(ctx.Unit, m);
+					foreach (Ast.Function func in ctx.Unit.Blocks.OfType<Ast.Function>())
+						m.Trace($"{func.Name}: {Messages.Count(func.Symbol.Tacs.Count, "TAC")}");
+				},
 				ctx => new TableState(ctx.Root)),
 
 			new("BuildTime", "BuildRegions",
@@ -255,13 +271,14 @@ namespace Orion
 				ctx => new TableState(ctx.Root)),
 
 			new("BuildTime", "Generate",
-				(ctx, _) => Emitter.Run(ctx.Root),
+				(ctx, m) => Emitter.Run(ctx.Root, m),
 				ctx => new GenerateState(ctx.Root, BuildAssembly.Builder)),
 
 			new("BuildTime", "Execute",
 				(ctx, m) =>
 				{
 					ctx.Main = CallGraph.Create(ctx.Root).Get(Language.Entry);
+					m.Trace($"Build entry: {ctx.Main.Value.Name}");
 
 					string orig = Environment.CurrentDirectory;
 					Environment.CurrentDirectory = string.IsNullOrEmpty(ctx.Options.WorkingDirectory) ? orig : ctx.Options.WorkingDirectory;
@@ -291,6 +308,8 @@ namespace Orion
 				{
 					foreach (SourceFunctionSymbol func in ctx.Runtime)
 					{
+						int before = func.Tacs.Count;
+						m.Trace($"== {func.Name}: {Messages.Count(before, "TAC")} ==");
 						LiteralEval.Run(func, m);
 						IdentityCast.Run(func, m);
 						TempCondense.Run(func, m);
@@ -298,6 +317,7 @@ namespace Orion
 						CommonSubexpr.Run(func, m);
 						DeadStoreElim.Run(func, m);
 						ResultDrop.Run(func, m);
+						m.Trace($"== {func.Name}: {before} -> {Messages.Count(func.Tacs.Count, "TAC")} ==");
 					}
 				},
 				ctx => new TableState(ctx.Root)),
@@ -310,6 +330,8 @@ namespace Orion
 					ctx.Roots = [.. ctx.Root.Traverse().SelectMany(t => t.GetAll<SourceFunctionSymbol>())
 						.Where(i => i.IsExport)
 						.Distinct().Select(i => graph[i])];
+					m.Trace($"Export roots: {(ctx.Roots.Count == 0 ? "none" : string.Join(", ", ctx.Roots.Select(i => i.Value.Name)))}");
+					m.Trace($"Runtime functions: {Messages.Count(ctx.Runtime.Count, "function")}");
 
 					foreach (CallGraph.Node entry in ctx.Roots)
 						foreach ((FunctionSymbol, FunctionSymbol) item in entry.BuildCalls())
@@ -331,16 +353,20 @@ namespace Orion
 			new("Backend", "Prepare",
 				(ctx, m) =>
 				{
+					m.Trace($"{ctx.Options.Lang}: static locals {(ctx.Target.StaticLocals ? "kept" : "rewritten")}, out params {(ctx.Target.ByRefParams ? "by ref" : "by value")}");
 					foreach (SourceFunctionSymbol func in ctx.Runtime)
 						ctx.Target.Prepare(func, m);
 				},
 				ctx => new TableState(ctx.Root)),
 
 			new("Backend", "StIr",
-				(ctx, _) =>
+				(ctx, m) =>
 				{
 					foreach (SourceFunctionSymbol func in ctx.Runtime)
+					{
 						func.St = Relooper.Structure(func.Tacs);
+						m.Trace($"{func.Name}: {Messages.Count(func.Tacs.Count, "TAC")} -> {Messages.Count(func.St.DescendantsAndSelf().Count(), "node")}");
+					}
 				},
 				ctx => new TableState(ctx.Root)),
 
@@ -353,43 +379,50 @@ namespace Orion
 				ctx => new TableState(ctx.Root)),
 
 			new("Backend", "Optimize",
-				(ctx, _) =>
-				{
-					foreach (SourceFunctionSymbol func in ctx.Runtime)
-						func.St = Fuse.Optimize(func.St);
-				},
+				(ctx, m) => Restructure(ctx, m, Fuse.Optimize),
 				ctx => new TableState(ctx.Root)),
 
 			new("Backend", "Guards",
-				(ctx, _) =>
-				{
-					foreach (SourceFunctionSymbol func in ctx.Runtime)
-						func.St = Guards.Flatten(func.St);
-				},
+				(ctx, m) => Restructure(ctx, m, Guards.Flatten),
 				ctx => new TableState(ctx.Root)),
 
 			new("Backend", "ControlFlow",
-				(ctx, _) =>
-				{
-					foreach (SourceFunctionSymbol func in ctx.Runtime)
-						func.St = ControlFlow.Expand(func.St, ctx.Target);
-				},
+				(ctx, m) => Restructure(ctx, m, st => ControlFlow.Expand(st, ctx.Target)),
 				ctx => new TableState(ctx.Root)),
 
 			new("Backend", "Prune",
-				(ctx, _) => Prune.Run(ctx.Root),
+				(ctx, m) => Prune.Run(ctx.Root, m),
 				ctx => new TableState(ctx.Root)),
 
 			//Codegen's entry is the runtime main on the pruned graph, not Execute's build entry.
 			new("Backend", "Codegen",
-				(ctx, _) =>
+				(ctx, m) =>
 				{
 					ctx.Main = CallGraph.Create(ctx.Root).Find(Language.Entry);
 					ctx.Output = ctx.Target.Backend.Render(ctx.Root, ctx.Main);
 					ctx.Header = ctx.Options.HeaderName == null ? null : ctx.Target.Backend.RenderHeader(ctx.Root, ctx.Main);
+					m.Trace($"Entry: {ctx.Main?.Value.Name ?? "none (library)"}");
+					m.Trace($"Rendered {Messages.Count(ctx.Root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Distinct().Count(), "function")} as {Messages.Count(ctx.Output.Split('\n').Length, "line")} of {ctx.Options.Lang}{(ctx.Header == null ? "" : $", plus {ctx.Options.HeaderName}")}");
 				},
 				ctx => new CodegenState(ctx.Main, ctx.Root, new Emitted(ctx.Output, ctx.Options.Lang), ctx.Session.Output)),
 		];
+
+		//One structured-IR pass over every runtime function, naming each one whose shape it changed.
+		private static void Restructure(Compilation ctx, List<Message> m, Func<StCtrl, StCtrl> pass)
+		{
+			int unchanged = 0;
+			foreach (SourceFunctionSymbol func in ctx.Runtime)
+			{
+				int before = func.St.DescendantsAndSelf().Count();
+				func.St = pass(func.St);
+				int after = func.St.DescendantsAndSelf().Count();
+				if (after == before)
+					unchanged++;
+				else
+					m.Trace($"{func.Name}: {before} -> {Messages.Count(after, "node")}");
+			}
+			m.Trace($"Unchanged: {Messages.Count(unchanged, "function")}");
+		}
 
 		public static string SetRoot(string entry, string given, out List<Message> messages, Func<string, string> read = null)
 		{

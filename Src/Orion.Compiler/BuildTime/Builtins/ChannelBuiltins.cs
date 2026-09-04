@@ -63,8 +63,13 @@ namespace Orion.BuildTime.Builtins
 		{
 
 			bool library = !root.GetAll<SourceFunctionSymbol>().Any(f => f.IsRuntimeEntry);
+			if (_channels.Count == 0)
+				messages.Trace($"No channels declared{(library ? "; accessors emitted for the library" : "")}");
 			if (_channels.Count == 0 && !library)
 				return;
+
+			foreach (Chan chan in _channels)
+				messages.Trace($"Channel service {chan.Service}: {(chan.Publish ? "tx" : "rx")}, {Messages.Count(chan.Bytes, "byte")}, depth {chan.Depth}");
 
 			SourceFunctionSymbol host = root.GetAll<SourceFunctionSymbol>().FirstOrDefault(f => !f.IsBuild)
 				?? root.GetAll<SourceFunctionSymbol>().FirstOrDefault();

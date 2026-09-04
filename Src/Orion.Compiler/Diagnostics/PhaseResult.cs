@@ -29,5 +29,11 @@ namespace Orion.Diagnostics
 		//The diagnostics alone: what a host reports, with the trace left to the phase view.
 		public static IEnumerable<Message> Errors(this IEnumerable<Message> messages) =>
 			messages.Where(i => i.Type == MessageType.Error);
+
+		//A line for the phase view; what a pass did, never what went wrong.
+		public static void Trace(this List<Message> messages, string text, InputRegion region = null) =>
+			messages.Add(new Message(text, region ?? InputRegion.None, MessageType.Trace));
+
+		public static string Count(int n, string noun) => $"{n} {noun}{(n == 1 ? "" : "s")}";
 	}
 }
