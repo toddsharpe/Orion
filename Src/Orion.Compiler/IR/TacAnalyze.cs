@@ -60,6 +60,7 @@ namespace Orion.IR
 				if (isVoid)
 				{
 					exit.Tacs.AddLast(new ReturnVoidTac());
+					messages.Trace($"{func.Name}: implicit return at {exit.Name}");
 				}
 				else
 				{

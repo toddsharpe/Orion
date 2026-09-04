@@ -99,6 +99,7 @@ namespace Orion.Frontend
 				declared[name] = mangled;
 				Compiler.Session.BuildCells[mangled] = type;
 				Compiler.Session.BuildCellSources[mangled] = name;
+				messages.Trace($"{function.Name}: #build {name} -> cell {mangled}", function.Body[i].Region);
 
 				function.Body[i] = Assign(mangled, value, function.Body[i].Region);
 			}

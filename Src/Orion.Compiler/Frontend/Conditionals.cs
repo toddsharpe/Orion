@@ -154,6 +154,8 @@ namespace Orion.Frontend
 		private static List<Statement> Choose(StaticIf statement, FoldEnv env, List<Message> messages)
 		{
 			bool? taken = Taken(statement.Clause, statement.Region, env, messages);
+			if (taken != null)
+				messages.Trace($"#if {statement.Clause} -> {(taken.Value ? "then" : "else")}", statement.Region);
 
 			//Neither branch: there is no value to choose with, so keeping one would only cascade.
 			return taken == null ? [] : taken.Value ? statement.Body : statement.ElseBody;

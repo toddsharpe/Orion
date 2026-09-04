@@ -1,4 +1,4 @@
-using Orion.Diagnostics;
+﻿using Orion.Diagnostics;
 using Orion.IR;
 using Orion.Symbols;
 using System.Collections.Generic;
@@ -188,6 +188,7 @@ namespace Orion.BuildTime.Builtins
 				.OfType<CallTac>()
 				.Select(i => (Symbol)i.Function), ReferenceEqualityComparer.Instance);
 
+			messages.Trace($"Checked {Messages.Count(_blocks.Count, "block")} for an #init nothing runs");
 			foreach ((string Template, string Params, OrionFunction Func, InputRegion Region) instance in _blocks.Values)
 			{
 				SourceFunctionSymbol block = instance.Func?.Function;

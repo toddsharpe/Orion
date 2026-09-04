@@ -1,4 +1,4 @@
-using Orion.Ast;
+﻿using Orion.Ast;
 using Orion.BuildTime.Builtins;
 using Orion.BuildTime;
 using Orion.Diagnostics;
@@ -26,7 +26,10 @@ namespace Orion.Rtti
 		{
 			//RTTI is opt-in (--rtti): without it nothing declares, so a use is an unknown name.
 			if (!Compiler.Session.Rtti)
+			{
+				messages.Trace("RTTI off (--rtti)");
 				return;
+			}
 
 			SymbolTable scope = root;
 
@@ -50,12 +53,16 @@ namespace Orion.Rtti
 		public static void Fill(SymbolTable root, List<Message> messages)
 		{
 			if (!Compiler.Session.Rtti)
+			{
+				messages.Trace("RTTI off (--rtti)");
 				return;
+			}
 
 			List<SourceFunctionSymbol> functions = [.. root.Traverse()
 				.SelectMany(i => i.GetAll<SourceFunctionSymbol>())
 				.Where(i => !i.IsBuild && !Owns(i))
 				.Distinct()];
+			messages.Trace($"Tables for {Messages.Count(functions.Count, "function")}");
 
 			Tables(root, Collect(functions));
 		}

@@ -1,3 +1,4 @@
+﻿using Orion.Diagnostics;
 using Orion.IR;
 using Orion.Symbols;
 using Orion.Util;
@@ -13,11 +14,14 @@ namespace Orion.Clr
 	//Tacs -> IL for the build-time executor, not a backend: it runs re-entrantly during the build itself.
 	internal static class Emitter
 	{
-		public static void Run(SymbolTable root)
+		public static void Run(SymbolTable root, List<Message> messages)
 		{
 			foreach (SourceFunctionSymbol func in root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()))
 				if (!Rtti.Generator.Owns(func))
+				{
 					Generate(func);
+					messages.Trace($"Emitted {func.Name}{(func.IsBuild ? " (#build)" : "")}");
+				}
 
 			BuildAssembly.Close();
 		}
