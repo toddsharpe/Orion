@@ -33,9 +33,8 @@ namespace Orion.Web.Interop
 
 		internal static AnalysisNode Phase(PhaseResult phase)
 		{
-			List<AnalysisNode> children = new List<AnalysisNode>();
-			if (phase.Messages.Count > 0)
-				children.Add(Leaf("messages", "Messages", phase.Messages));
+			//Every phase lists its messages, so a quiet one reads as quiet rather than as missing.
+			List<AnalysisNode> children = new List<AnalysisNode> { Leaf("messages", "Messages", phase.Messages) };
 
 			foreach (PropertyInfo info in phase.State?.GetType().GetProperties() ?? [])
 			{
@@ -134,7 +133,10 @@ namespace Orion.Web.Interop
 			switch (entry.Kind)
 			{
 				case "messages":
-					return Text(null, string.Join("\n", ((IEnumerable<Message>)entry.Value).Select(m => m.Text)));
+				{
+					IEnumerable<Message> messages = (IEnumerable<Message>)entry.Value;
+					return Text(null, messages.Any() ? string.Join("\n", messages.Select(m => m.Text)) : "No messages.");
+				}
 
 				case "ast":
 					return Text(null, AstOutline((CompilerFile)entry.Value));
