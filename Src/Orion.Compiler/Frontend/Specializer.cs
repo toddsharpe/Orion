@@ -77,6 +77,16 @@ namespace Orion.Frontend
 						port.Region, MessageType.Error));
 			}
 
+			//A default is substituted as a literal at `#create`, so anything else written there could never apply.
+			foreach (Function t in templates.Values)
+				foreach (Parameter p in t.Parameters.Where(p => p.Directive == ParamDirective.Param && p.Default != null))
+					if (p.Default is not Value { Literal: not null } && !IsEmptyCollection(p.Default))
+						messages.Add(new Message(
+							$"Block '{t.Name}': the default for `#param {p.Name}` is not a literal, so `#create` could " +
+							$"never apply it. A #param default is a literal or an empty collection (`List::New<T>()`); " +
+							$"anything else is passed at `#create`.",
+							p.Region, MessageType.Error));
+
 			//#init runs once before any cycle: one per block, at the top level where that can be true.
 			foreach (Function t in templates.Values)
 			{
@@ -277,6 +287,14 @@ namespace Orion.Frontend
 		}
 
 		//Convert a build-time value (from a ${...} field) into the literal used for the fold/net.
+		//`List::New<T>()`, `Map::New<K, V>()` or `[]:List<T>`: the one non-literal a `#param` default may be.
+		public static bool IsEmptyCollection(Expression expr) => expr switch
+		{
+			Call { Function: "List::New" or "Map::New", Arguments.Count: 0 } => true,
+			ArrayExpr { Elements.Length: 0, TypeName.IsGeneric: true } => true,
+			_ => false,
+		};
+
 		public static Literal ToLiteral(object value)
 		{
 			return value switch

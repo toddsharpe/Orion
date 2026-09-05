@@ -97,6 +97,22 @@ namespace Orion.BuildTime.Builtins
 			return 0;
 		}
 
+		//A new, empty instance of the collection a `#param` is declared as; null when the name is not one.
+		private static object Empty(Ast.TypeName declared)
+		{
+			TypeSymbol type = Resolve(Env.Context.Function.Table.GetRoot(), declared);
+			return type is BuiltinTypeSymbol builtin && Surface.IsCollection(type) ? Activator.CreateInstance(builtin.Type) : null;
+		}
+
+		private static TypeSymbol Resolve(SymbolTable root, Ast.TypeName name)
+		{
+			if (!name.IsGeneric)
+				return root.TryGet(name.Name, out TypeSymbol type) ? type : null;
+
+			List<TypeSymbol> inner = [.. name.Generics.Select(i => Resolve(root, i))];
+			return inner.Contains(null) ? null : Surface.ResolveGenericType(root, name.GenericType, inner);
+		}
+
 		public static OrionFunction Block(string name, object args)
 		{
 			return Instantiate(name, args, null);
@@ -126,6 +142,8 @@ namespace Orion.BuildTime.Builtins
 					env[p.Name] = Frontend.Specializer.ToLiteral(v, p.TypeName);
 				else if (p.Default is Ast.Value dv && dv.Literal != null)
 					env[p.Name] = dv.Literal;
+				else if (Frontend.Specializer.IsEmptyCollection(p.Default) && Empty(p.TypeName) is object fresh)
+					env[p.Name] = Frontend.Specializer.ToLiteral(fresh, p.TypeName);
 				else
 				{
 					Env.Report($"Solver block '{name}' is missing #param '{p.Name}'.");
