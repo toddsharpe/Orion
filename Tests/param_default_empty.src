@@ -1,0 +1,43 @@
+// A #param default may be an empty collection, and a `T` read back through Function::Out keeps the
+// type it was asked for: a typedef stays the typedef rather than the i64 under it.
+typedef i64 time;
+
+void Tags(#param str name, #param List<str> tags = List::New<str>(), #param Map<str, i32> weights = Map::New<str, i32>(), #output i32 n)
+{
+	#run
+	{
+		#insert { n = ${tags.Length + weights.Length}; }
+	}
+}
+
+void Clock(#param str name, #input time tick, #output time at)
+{
+	at = tick + 1:time;
+}
+
+i32 main()
+{
+	i32 none = 0;
+	i32 some = 0;
+	i32 later = 0;
+
+	#run
+	{
+		List<str> two = ["a", "b"]:List<str>;
+		Function empty = #create Tags(name = "empty");
+		Function given = #create Tags(name = "given", tags = two);
+		i32 a = Function::Out<i32>(empty, ${}, "n");
+		i32 b = Function::Out<i32>(given, ${}, "n");
+		#insert { none = ${a}; some = ${b}; }
+
+		Function clock = #create Clock(name = "clock");
+		time t = Function::Out<time>(clock, ${tick = 41:time}, "at");
+		bool after = t > 41:time;
+		#insert { later = ${after} ? 1 : 0; }
+	}
+
+	WriteLine("none = " + to_str(none));
+	WriteLine("some = " + to_str(some));
+	WriteLine("later = " + to_str(later));
+	return 0;
+}

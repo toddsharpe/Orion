@@ -448,6 +448,17 @@ namespace Orion.Frontend
 
 		public static void Visit(BindContext ctx, Const @const)
 		{
+			//A List or Map lives at build time only; the literal visit has no runtime shape for one and would throw.
+			if (@const.TypeName.IsGeneric && Surface.GenericTypes.ContainsKey(@const.TypeName.GenericType))
+			{
+				ctx.Messages.Add(new Message(
+					$"{Where(ctx)}: Constant {@const.Name} is a {@const.TypeName.Name}, a build-time collection, and a " +
+					$"file-scope constant is a value the program carries. Declare it inside a #build function, or make " +
+					$"it a fixed array.",
+					@const.Region, MessageType.Error));
+				return;
+			}
+
 			if (@const.Value != null)
 			{
 				BindConstant(ctx, @const.TypeName, @const.Name, @const.Value, @const.Region);

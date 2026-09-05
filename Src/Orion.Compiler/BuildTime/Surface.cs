@@ -289,7 +289,10 @@ namespace Orion.BuildTime
 			Type[] clrArgs = [.. typeArgs.Select(BuildAssembly.GetClrType)];
 			MethodInfo concrete = open.MakeGenericMethod(clrArgs);
 
-			TypeSymbol retType = ClrTypes.FromClrType(root, concrete.ReturnType);
+			//A `T` return is the type argument as written, so `Function::Out<time>` is a time and not the i64 under it.
+			TypeSymbol retType = open.ReturnType.IsGenericParameter
+				? typeArgs[open.ReturnType.GenericParameterPosition]
+				: ClrTypes.FromClrType(root, concrete.ReturnType);
 			List<ParamDataSymbol> parameters = [.. concrete.GetParameters().Select(i => Formal(root, i))];
 
 			//Same rule as a non-generic builtin: [BuildOnly] is what makes it build-only, not genericity.

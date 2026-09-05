@@ -25,7 +25,7 @@ void Ramp(#param str name, #state i32 t = 1, #output i32 level @ "level")
 
 | directive | |
 |---|---|
-| `#param` | a build-time constant. The block is specialized on it, so it is *gone* by run time |
+| `#param` | a build-time constant. The block is specialized on it, so it is *gone* by run time. A default is a literal or an empty collection (`= List::New<T>()`); `#create` supplies anything else |
 | `#input` | a net this block reads. It may not be written |
 | `#prev` | the same, but the net is driven *later* in the cycle, so the value is last cycle's |
 | `#output` | the net this block drives. Declining to write it holds the previous value |
