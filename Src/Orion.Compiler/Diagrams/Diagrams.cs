@@ -89,8 +89,8 @@ namespace Orion.Diagrams
 					if (p.Direction != ParamDirection.In || string.IsNullOrEmpty(p.Net))
 						continue;
 
-					//A field net is driven by whoever drives its root: the name before the dot.
-					string root = p.Net.Split('.')[0];
+					//A net is driven by name, else as a field of a struct net: whoever drives the name before the dot.
+					string root = producer.ContainsKey(p.Net) ? p.Net : p.Net.Split('.')[0];
 					if (producer.TryGetValue(root, out SourceFunctionSymbol prod))
 					{
 						//A `#prev` read is last cycle's value, so it draws as a dashed feedback edge.

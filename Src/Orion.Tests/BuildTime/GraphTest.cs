@@ -106,5 +106,36 @@ i32 main()
 			StringAssert.Contains(dot, "\"x0\" [label=\"outside\", style=\"filled,dashed\"");
 			StringAssert.Contains(dot, "\"x0\" -> \"s1\":\"outside\":w");
 		}
+
+		[TestMethod]
+		public void SolverGraphWiresADottedNetByItsWholeName()
+		{
+			CompilerResult result = Harness.Compile(@"
+void Body(#param str name, #output i32 rate @ ""Body.RateX"")
+{
+	rate = 1;
+}
+
+void Watch(#param str name, #input i32 rate @ ""Body.RateX"")
+{
+	WriteLine(to_str(rate));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Body(name = ""body""), #create Watch(name = ""watch"") ]:Function;
+		Output::Write(""net.dot"", Graph::Dot(Solver::Graph(Solver::New(blocks))));
+	}
+	return 0;
+}
+");
+			result.AssertNoErrors();
+
+			string dot = result.Outputs.Single().Text;
+			StringAssert.Contains(dot, "\"s0\":\"Body_RateX\":e -> \"s1\":\"Body_RateX\":w");
+			Assert.IsFalse(dot.Contains("\"x0\""), dot);
+		}
 	}
 }
