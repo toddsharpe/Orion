@@ -57,6 +57,11 @@ bound and lowered on the spot and inserted at the callsite.
 Afterwards `Channels` emits the ring storage and accessors (every `Channel::Tx` has run by then), and
 `Blocks` reports any block that declares an `#init` nothing will run.
 
+Anything the build filed with `Output::Write` comes out as `CompilerResult.Outputs`, a name below the
+output directory and its text; the diagrams in `Diagrams/` (the call graph, a solver's netlist, a
+function's CFG and structured IR) are `Graph`s that `Dot` writes as Graphviz text, which is what the
+playground draws and what `orion compile` hands to `dot -Tpdf`.
+
 ## RTTI
 
 With `--rtti`, the compiler describes the finished program back to itself. The descriptors and

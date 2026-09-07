@@ -74,6 +74,12 @@ dotnet run --project ./Src/Orion -- compile Demo/Apps/tour.src --lang cpp -o bui
 | `--header`, `-H` | where the generated C++ surface header goes; defaults to beside the output |
 | `--log`, `-L` | send the build transcript to a file instead of the console; defaults to `<output>.log` beside the output |
 | `--verbose`, `-v` | the phase-by-phase trace, with timings |
+| `--dot` | the Graphviz `dot` that renders each `.dot` the build writes to a PDF; `GRAPHVIZ_DOT` or the `PATH` when unset |
+
+A build may file extra outputs with `Output::Write` — the demo's state machine and netlist come out
+as `MainSm.dot` and `rocket_net.dot` beside the code — and each `.dot` becomes a PDF when Graphviz is
+installed (`apt install graphviz`, `winget install graphviz`); without it the `.dot` is still written
+and the compile warns once.
 
 `test` sweeps a source root, compiles every library file in it into one program, and runs each `#test`
 it finds:

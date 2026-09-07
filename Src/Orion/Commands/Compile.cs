@@ -117,6 +117,7 @@ namespace Orion.Commands
 		//Given no path it still means "log", so it takes an optional value and an empty one stands for the default place.
 		private static readonly Option<string> LogOption = new Option<string>("--log", "-L") { Description = "Send the build transcript to a file rather than the console; beside the output when given no path.", Arity = ArgumentArity.ZeroOrOne };
 		private static readonly Option<bool> NoTestOption = new Option<bool>("--no-test") { Description = "Leave the program's #tests unrun, so a broken one still writes the output." };
+		private static readonly Option<string> DotOption = new Option<string>("--dot") { Description = "Graphviz dot executable that renders each .dot output to a PDF; GRAPHVIZ_DOT or the PATH when unset." };
 
 		internal static Command Build()
 		{
@@ -134,6 +135,7 @@ namespace Orion.Commands
 				HeaderOption,
 				LogOption,
 				NoTestOption,
+				DotOption,
 			};
 			command.SetAction(result => Execute(
 				result.GetValue(InputArgument),
@@ -148,7 +150,8 @@ namespace Orion.Commands
 				result.GetValue(HeaderOption),
 				//An absent `--log` is not the same as one given no path: the first means no log, the second the default place.
 				result.GetResult(LogOption) == null ? null : result.GetValue(LogOption) ?? string.Empty,
-				result.GetValue(NoTestOption)));
+				result.GetValue(NoTestOption),
+				result.GetValue(DotOption)));
 			return command;
 		}
 
@@ -164,7 +167,8 @@ namespace Orion.Commands
 			string lang,
 			string header,
 			string log,
-			bool noTest)
+			bool noTest,
+			string dot = null)
 		{
 			string inputBaseName = Path.GetFileNameWithoutExtension(input);
 
@@ -248,6 +252,18 @@ namespace Orion.Commands
 			{
 				File.WriteAllText(logFile, string.IsNullOrWhiteSpace(result.BuildOutput) ? "" : result.BuildOutput.TrimEnd() + Environment.NewLine);
 				Console.WriteLine($"Wrote: {logFile}");
+			}
+
+			//Every Output::Write lands below the output directory; a .dot is also rendered to a PDF beside itself.
+			foreach (OutputFile extra in result.Outputs)
+			{
+				string path = Path.Combine(outputDir, extra.Name);
+				Directory.CreateDirectory(Path.GetDirectoryName(path));
+				File.WriteAllText(path, extra.Text);
+				Console.WriteLine($"Wrote: {path}");
+
+				if (Path.GetExtension(path).Equals(".dot", StringComparison.OrdinalIgnoreCase))
+					Graphviz.Render(path, dot);
 			}
 
 			return 0;

@@ -1,49 +1,32 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Orion.BuildTime;
 using Orion.Graphs;
 using Orion.IR;
 using Orion.Backend.StIr;
 using Orion.Symbols;
 
-namespace Orion.Web.Interop
+namespace Orion.Diagrams
 {
-	// Every diagram the playground draws, as Mermaid source, shared by the whole-program Graph tab and the per-function Analysis tab so a call graph looks the same wherever it is shown.
-	internal static class Mermaid
+	//Every diagram the compiler draws of its own state, as a Graph: the call graph, a solver's netlist, and a function's CFG and structured IR.
+	public static class Diagrams
 	{
-		// A single-line label, always written inside quotes so a parenthesis or a pipe in it is text: only the quote itself and newlines need handling.
-		public static string Escape(string s) => (s ?? string.Empty).Replace("\"", "'").Replace("\n", " ");
+		//Left-justified lines: `\l` ends each one, so a TAC list reads as code rather than centred text.
+		private static string Lines(IEnumerable<string> lines) => string.Concat(lines.Select(i => i + "\\l"));
 
-		// An edge with a label: `-->|"text"|`, the quoted form Mermaid parses as text rather than as node syntax.
-		private static StringBuilder Edge(this StringBuilder sb, string from, string arrow, string label, string to) =>
-			sb.Append("  ").Append(from).Append(' ').Append(arrow).Append("|\"").Append(Escape(label)).Append("\"| ").Append(to).Append('\n');
-
-		// A multi-line label: Mermaid renders these as HTML, so a TAC containing `<` or `&` would otherwise be swallowed as markup.
-		public static string EscapeLines(IEnumerable<string> lines)
+		//The call graph, BFS from the root, edges labelled by their flags.
+		public static Graph CallGraph(CallGraph.Node root)
 		{
-			IEnumerable<string> escaped = lines.Select(line => (line ?? string.Empty)
-				.Replace("&", "&amp;")
-				.Replace("<", "&lt;")
-				.Replace(">", "&gt;")
-				.Replace("\"", "'"));
-			return string.Join("<br/>", escaped);
-		}
-
-		// The call graph as a flowchart (BFS from the root, edges labelled by their flags).
-		public static string CallGraph(CallGraph.Node root)
-		{
-			StringBuilder sb = new StringBuilder("graph TD\n");
+			Graph g = new Graph("Call graph");
 			Dictionary<CallGraph.Node, string> ids = new Dictionary<CallGraph.Node, string>();
-			int seq = 0;
 
 			string Id(CallGraph.Node n)
 			{
 				if (!ids.TryGetValue(n, out string id))
 				{
-					id = "n" + seq++;
+					id = "n" + ids.Count;
 					ids[n] = id;
-					sb.Append("  ").Append(id).Append("[\"").Append(Escape(n.Value.Name)).Append("\"]\n");
+					g.Node(id, n.Value.Name, n == root ? NodeKind.Entry : NodeKind.Plain);
 				}
 				return id;
 			}
@@ -59,17 +42,14 @@ namespace Orion.Web.Interop
 				string from = Id(n);
 				foreach (KeyValuePair<CallGraph.Node, CallGraph.Edge> e in n.Outgoing)
 				{
-					string to = Id(e.Key);
-					sb.Edge(from, "-->", e.Value.Value.ToString(), to);
+					g.Edge(from, Id(e.Key), e.Value.Value.ToString());
 					if (visited.Add(e.Key))
 						queue.Enqueue(e.Key);
 				}
 			}
 
-			return sb.ToString();
+			return g;
 		}
-
-		// The solver netlist: one node per block and an edge from each net's producer to its consumers, with an undriven #input shown as an external source so a wiring error is visible.
 
 		//A block dispatched on a slot says so on its node; every cycle is the default and is unlabelled.
 		private static string Rate(SourceFunctionSymbol f)
@@ -78,39 +58,31 @@ namespace Orion.Web.Interop
 				return string.Empty;
 
 			string phase = f.Phase == 0 ? string.Empty : $" +{Millis(f.Phase)}";
-			return $"<br/>every {Millis(f.Period)}{phase}";
+			return $"\\nevery {Millis(f.Period)}{phase}";
 		}
 
 		private static string Millis(long ns) => $"{ns / 1000000.0:0.###}ms";
 
-		public static string Netlist(Solver solver)
+		//The solver netlist: one ported node per block and an edge from each net's producer to its consumers, with an undriven #input shown as an external source so a wiring error is visible.
+		public static Graph Netlist(Solver solver)
 		{
-			StringBuilder sb = new StringBuilder("graph LR\n");
+			Graph g = new Graph("Netlist", leftToRight: true) { Concentrate = true };
 			Dictionary<SourceFunctionSymbol, string> ids = new Dictionary<SourceFunctionSymbol, string>();
-			int seq = 0;
-
-			string Id(SourceFunctionSymbol f)
-			{
-				if (!ids.TryGetValue(f, out string id))
-				{
-					id = "s" + seq++;
-					ids[f] = id;
-					sb.Append("  ").Append(id).Append("([\"").Append(Escape(f.Name)).Append(Rate(f)).Append("\"])\n");
-				}
-				return id;
-			}
 
 			// net -> the block whose #output drives it
 			Dictionary<string, SourceFunctionSymbol> producer = new Dictionary<string, SourceFunctionSymbol>();
 			foreach (SourceFunctionSymbol f in solver.Blocks)
-				foreach (ParamDataSymbol p in f.Parameters)
-					if (p.Direction == ParamDirection.Out && !string.IsNullOrEmpty(p.Net))
-						producer[p.Net] = f;
+			{
+				ids[f] = "s" + ids.Count;
+				Node node = g.Node(ids[f], f.Name + Rate(f));
+				node.Inputs = [.. f.Parameters.Where(p => p.Direction == ParamDirection.In && !string.IsNullOrEmpty(p.Net)).Select(p => p.Net)];
+				node.Outputs = [.. f.Parameters.Where(p => p.Direction == ParamDirection.Out && !string.IsNullOrEmpty(p.Net)).Select(p => p.Net)];
+				foreach (string net in node.Outputs)
+					producer[net] = f;
+			}
 
-			foreach (SourceFunctionSymbol f in solver.Blocks)
-				Id(f);
-
-			int ext = 0;
+			//An undriven net is one external source however many blocks read it.
+			Dictionary<string, string> external = new Dictionary<string, string>();
 			foreach (SourceFunctionSymbol f in solver.Blocks)
 				foreach (ParamDataSymbol p in f.Parameters)
 				{
@@ -121,40 +93,45 @@ namespace Orion.Web.Interop
 					string root = p.Net.Split('.')[0];
 					if (producer.TryGetValue(root, out SourceFunctionSymbol prod))
 					{
-						//A `#prev` read is last cycle's value, so it draws as a dotted feedback edge.
-						sb.Edge(Id(prod), p.Delayed ? "-.->" : "-->", p.Delayed ? p.Net + " (prev)" : p.Net, Id(f));
+						//A `#prev` read is last cycle's value, so it draws as a dashed feedback edge.
+						Edge e = g.Edge(ids[prod], ids[f], p.Delayed ? "prev" : string.Empty, p.Delayed);
+						e.FromPort = root;
+						e.ToPort = p.Net;
 					}
 					else
 					{
-						string src = "x" + ext++;
-						sb.Append("  ").Append(src).Append(">\"").Append(Escape(p.Net)).Append("\"]\n");
-						sb.Append("  ").Append(src).Append(" --> ").Append(Id(f)).Append('\n');
+						if (!external.TryGetValue(p.Net, out string src))
+						{
+							src = "x" + external.Count;
+							external[p.Net] = src;
+							g.Node(src, p.Net, NodeKind.External);
+						}
+						g.Edge(src, ids[f]).ToPort = p.Net;
 					}
 				}
 
-			return sb.ToString();
+			return g;
 		}
 
-		// A function's control-flow graph, one node per basic block with flag-labelled edges; `withTacs` fills each node with its TACs, which suits one function on screen but not the whole-program list.
-		public static string Cfg(SourceFunctionSymbol fn, bool withTacs)
+		//A function's control-flow graph, one node per basic block with flag-labelled edges; `withTacs` fills each node with its TACs, which suits one function on screen but not the whole-program list.
+		public static Graph Cfg(SourceFunctionSymbol fn, bool withTacs)
 		{
 			ControlFlowGraph cfg = ControlFlowGraph.Create(fn.Tacs);
-			StringBuilder sb = new StringBuilder("graph TD\n");
+			Graph g = new Graph("CFG: " + fn.Name);
 			Dictionary<ControlFlowGraph.Node, string> ids = new Dictionary<ControlFlowGraph.Node, string>();
-			int seq = 0;
 
 			string Id(ControlFlowGraph.Node n)
 			{
 				if (!ids.TryGetValue(n, out string id))
 				{
-					id = "d" + seq++;
+					id = "d" + ids.Count;
 					ids[n] = id;
 
 					// The name still leads the block, so an edge traces back to a label even when the TACs below it are what is being read.
 					string label = withTacs
-						? EscapeLines(new[] { n.Value.Name }.Concat(n.Value.Tacs.Select(t => t.ToString())))
-						: Escape(n.Value.Name);
-					sb.Append("  ").Append(id).Append("[\"").Append(label).Append("\"]\n");
+						? Lines(new[] { n.Value.Name }.Concat(n.Value.Tacs.Select(t => t.ToString())))
+						: n.Value.Name;
+					g.Node(id, label);
 				}
 				return id;
 			}
@@ -163,28 +140,22 @@ namespace Orion.Web.Interop
 				Id(node);
 			foreach (ControlFlowGraph.Node node in cfg.Nodes)
 				foreach (KeyValuePair<ControlFlowGraph.Node, ControlFlowGraph.Edge> e in node.Outgoing)
-					sb.Edge(Id(node), "-->", e.Value.Value.ToString(), Id(e.Key));
+					g.Edge(Id(node), Id(e.Key), e.Value.Value.ToString());
 
-			return sb.ToString();
+			return g;
 		}
 
-		// A function's structured IR as a tree, control nodes carrying their condition and leaf blocks their statements.
-		public static string StructuredIr(SourceFunctionSymbol fn)
+		//A function's structured IR as a tree, control nodes carrying their condition and leaf blocks their statements.
+		public static Graph StructuredIr(SourceFunctionSymbol fn)
 		{
-			StringBuilder sb = new StringBuilder("graph TD\n");
+			Graph g = new Graph("IR: " + fn.Name);
 			int seq = 0;
 
 			string NewNode(string label)
 			{
 				string id = "s" + seq++;
-				sb.Append("  ").Append(id).Append("[\"").Append(label).Append("\"]\n");
+				g.Node(id, label);
 				return id;
-			}
-
-			string Edge(string from, string name, string to)
-			{
-				sb.Edge(from, "-->", name, to);
-				return from;
 			}
 
 			string Build(StCtrl c)
@@ -195,35 +166,33 @@ namespace Orion.Web.Interop
 					{
 						string id = NewNode("seq");
 						for (int i = 0; i < s.Items.Count; i++)
-							Edge(id, i.ToString(), Build(s.Items[i]));
+							g.Edge(id, Build(s.Items[i]), i.ToString());
 						return id;
 					}
 
 					case StBlock b:
-						return NewNode(b.Stmts.Count == 0
-							? "(empty)"
-							: EscapeLines(b.Stmts.Select(Stmt)));
+						return NewNode(b.Stmts.Count == 0 ? "(empty)" : Lines(b.Stmts.Select(Stmt)));
 
 					case StIf f:
 					{
-						string id = NewNode(EscapeLines(new[] { $"if {(f.Negate ? "!" : string.Empty)}({Expr(f.Cond)})" }));
-						Edge(id, "then", Build(f.Then));
+						string id = NewNode($"if {(f.Negate ? "!" : string.Empty)}({Expr(f.Cond)})");
+						g.Edge(id, Build(f.Then), "then");
 						if (f.Else != null)
-							Edge(id, "else", Build(f.Else));
+							g.Edge(id, Build(f.Else), "else");
 						return id;
 					}
 
 					case StLoop l:
 					{
 						string id = NewNode("loop");
-						Edge(id, "body", Build(l.Body));
+						g.Edge(id, Build(l.Body), "body");
 						return id;
 					}
 
 					case StWhile w:
 					{
-						string id = NewNode(EscapeLines(new[] { $"while ({Expr(w.Cond)})" }));
-						Edge(id, "body", Build(w.Body));
+						string id = NewNode($"while ({Expr(w.Cond)})");
+						g.Edge(id, Build(w.Body), "body");
 						return id;
 					}
 
@@ -231,21 +200,21 @@ namespace Orion.Web.Interop
 					{
 						string init = string.Join(", ", fr.Init.Select(Stmt));
 						string step = string.Join(", ", fr.Step.Select(Stmt));
-						string id = NewNode(EscapeLines(new[] { $"for ({init}; {Expr(fr.Cond)}; {step})" }));
-						Edge(id, "body", Build(fr.Body));
+						string id = NewNode($"for ({init}; {Expr(fr.Cond)}; {step})");
+						g.Edge(id, Build(fr.Body), "body");
 						return id;
 					}
 
 					case StBreak: return NewNode("break");
 					case StContinue: return NewNode("continue");
-					case StReturn r: return NewNode(EscapeLines(new[] { r.Tac.ToString() }));
+					case StReturn r: return NewNode(r.Tac.ToString());
 
-					default: return NewNode(Escape(c.GetType().Name));
+					default: return NewNode(c.GetType().Name);
 				}
 			}
 
 			Build(fn.St);
-			return sb.ToString();
+			return g;
 		}
 
 		//--- Neutral display printers for the fused StIr (backend-independent) --------------------------

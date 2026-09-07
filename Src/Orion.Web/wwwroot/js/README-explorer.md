@@ -1,7 +1,8 @@
 # explorer.js
 
 The Compiler-Explorer front-end. Loads **Monaco 0.52.2** from jsDelivr via the classic AMD
-loader (`vs/loader.js` + `require(['vs/editor/editor.main'])`). No other CDN libraries.
+loader (`vs/loader.js` + `require(['vs/editor/editor.main'])`). The only other CDN library is
+**@viz-js/viz 3.30.0** (Graphviz as WebAssembly), imported lazily the first time a graph is shown.
 
 ## Syntax highlighting: Monarch, not TextMate
 

@@ -275,12 +275,74 @@
 	if (Build::Failed()) { Assert(false); }
 }
 
+//The command's edge label: the trigger conditions that raise it, one line each, under the command name.
+#build str sm_edge_label(StateMachine m, str command)
+{
+	str label = command;
+	for (const Trigger t in m.triggers)
+	{
+		if (t.command == command)
+		{
+			for (const Condition c in t.conditions)
+			{
+				label = label + $"\n{c.input} {c.op} {c.threshold}";
+			}
+		}
+	}
+
+	return label;
+}
+
+//Whether a state leaves on this command by its dwell timeout rather than by a trigger.
+#build bool sm_is_timeout(State s, str command)
+{
+	for (const Event e in s.events)
+	{
+		if (e.output == TIMEOUT && e.value == command) { return true; }
+	}
+
+	return false;
+}
+
+//The machine as a diagram: a node per state, the first as the entry, a box per shared phase, and an edge per command a state consumes, dashed when a timeout raises it.
+#build Graph sm_graph(StateMachine m, str name)
+{
+	Graph g = Graph::New(name);
+	for (i32 i = 0; i < m.states.Length; i++)
+	{
+		Graph::Node(g, m.states[i].name, m.states[i].name, entry = i == 0);
+	}
+
+	for (const str p in m.phases.Keys)
+	{
+		List<str> members = List::New<str>();
+		for (const State s in m.states)
+		{
+			if (s.phase == p) { members.Add(s.name); }
+		}
+
+		//A box around one state named for itself says nothing the node does not.
+		if (members.Length > 1 || (members.Length == 1 && members[0] != p)) { Graph::Cluster(g, p, members); }
+	}
+
+	for (const State s in m.states)
+	{
+		for (const str c in s.commands.Keys)
+		{
+			Graph::Edge(g, s.name, s.commands[c], sm_edge_label(m, c), dashed = sm_is_timeout(s, c));
+		}
+	}
+
+	return g;
+}
+
 void StateMachine(#param str name, #param str spec)
 {
 	#run {
 		//Run the configuration program: `spec` is a #param, so the file is not known until this executes.
 		StateMachine m = #src spec machine();
 		sm_validate(m);
+		Output::Write($"{name}.dot", Graph::Dot(sm_graph(m, name)));
 
 		str stateEnum = $"{name}_State";
 		str cmdEnum = $"{name}_Cmd";

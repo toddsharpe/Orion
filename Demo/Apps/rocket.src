@@ -375,5 +375,8 @@ void StateReport(
 	// Export rather than Solve: the state becomes the program's global, so a platform links against functions and owns the loop.
 	Solver::Export(solver, CycleStep);
 
+	// The wiring as a diagram, beside the machine's: `orion compile` renders both to PDF when Graphviz is installed.
+	Output::Write("rocket_net.dot", Graph::Dot(Solver::Graph(solver)));
+
 	return 0;
 }

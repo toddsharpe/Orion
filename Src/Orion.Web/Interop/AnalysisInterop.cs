@@ -119,16 +119,16 @@ namespace Orion.Web.Interop
 		}
 
 		[JSInvokable]
-		public static AnalysisDetail GetAnalysis(string id)
+		public static AnalysisDetail GetAnalysis(string id, bool dark)
 		{
 			if (id == null || !_nodes.TryGetValue(id, out Entry entry))
 				return new AnalysisDetail { Kind = "empty" };
 
-			try { return Render(entry); }
+			try { return Render(entry, dark); }
 			catch (Exception ex) { return Text(null, "Could not render this node: " + ex.Message); }
 		}
 
-		private static AnalysisDetail Render(Entry entry)
+		private static AnalysisDetail Render(Entry entry, bool dark)
 		{
 			switch (entry.Kind)
 			{
@@ -145,7 +145,7 @@ namespace Orion.Web.Interop
 					return Rows((SymbolTable)entry.Value);
 
 				case "callGraph":
-					return Graph(null, Mermaid.CallGraph((CallGraph.Node)entry.Value));
+					return Graph(null, Diagrams.Diagrams.CallGraph((CallGraph.Node)entry.Value), dark);
 
 				case "code":
 				{
@@ -163,14 +163,14 @@ namespace Orion.Web.Interop
 				}
 
 				case "function":
-					return FunctionViews((SourceFunctionSymbol)entry.Value);
+					return FunctionViews((SourceFunctionSymbol)entry.Value, dark);
 
 				default:
 					return Text(null, entry.Value?.ToString() ?? "<null>");
 			}
 		}
 
-		private static AnalysisDetail FunctionViews(SourceFunctionSymbol fn)
+		private static AnalysisDetail FunctionViews(SourceFunctionSymbol fn, bool dark)
 		{
 			List<string> tacs = fn.Tacs?.Select(t => t.ToString()).ToList() ?? new List<string>();
 
@@ -180,11 +180,11 @@ namespace Orion.Web.Interop
 				Views = new List<AnalysisDetail>
 				{
 					fn.St != null
-						? Graph("StIr", Mermaid.StructuredIr(fn))
+						? Graph("StIr", Diagrams.Diagrams.StructuredIr(fn), dark)
 						: Text("StIr", "No structured IR yet -- the relooper runs in Backend::StIr."),
 					Text("Tacs", tacs.Count > 0 ? string.Join("\n", tacs) : "No TACs."),
 					tacs.Count > 0
-						? Graph("CFG", Mermaid.Cfg(fn, true))
+						? Graph("CFG", Diagrams.Diagrams.Cfg(fn, true), dark)
 						: Text("CFG", "No TACs to build a control-flow graph from."),
 				}
 			};
@@ -205,8 +205,8 @@ namespace Orion.Web.Interop
 		private static AnalysisDetail Text(string name, string text, string language = null) =>
 			new AnalysisDetail { Name = name, Kind = "text", Text = text, Language = language };
 
-		private static AnalysisDetail Graph(string name, string mermaid) =>
-			new AnalysisDetail { Name = name, Kind = "graph", Mermaid = mermaid };
+		private static AnalysisDetail Graph(string name, Diagrams.Graph graph, bool dark) =>
+			new AnalysisDetail { Name = name, Kind = "graph", Dot = Diagrams.Dot.Write(graph, dark) };
 
 		private static string MonacoLanguage(BackendLanguage lang) => lang switch
 		{
