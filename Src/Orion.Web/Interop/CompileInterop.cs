@@ -1,5 +1,6 @@
 ﻿using Microsoft.JSInterop;
 using Orion.Diagnostics;
+using Orion.Diagrams;
 using Orion.Graphs;
 using Orion.Symbols;
 using System.Collections.Generic;
@@ -16,7 +17,7 @@ namespace Orion.Web.Interop
 		private const string ProjDir = "/proj";
 
 		[JSInvokable]
-		public static CompileResult Compile(ProjectFile[] files, string entry, string lang)
+		public static CompileResult Compile(ProjectFile[] files, string entry, string lang, bool dark)
 		{
 			string entryPath = Seed(files, entry);
 
@@ -104,10 +105,15 @@ namespace Orion.Web.Interop
 
 			List<GraphDto> graphs = new List<GraphDto>();
 			if (capturedMain != null)
-				graphs.Add(new GraphDto { Name = "Call graph", Mermaid = Mermaid.CallGraph(capturedMain) });
+				graphs.Add(new GraphDto { Name = "Call graph", Dot = Dot.Write(Diagrams.Diagrams.CallGraph(capturedMain), dark) });
 
 			if (Orion.BuildTime.Builtins.SolverBuiltins.LastSolved != null)
-				graphs.Add(new GraphDto { Name = "Solver netlist", Mermaid = Mermaid.Netlist(Orion.BuildTime.Builtins.SolverBuiltins.LastSolved) });
+				graphs.Add(new GraphDto { Name = "Solver netlist", Dot = Dot.Write(Diagrams.Diagrams.Netlist(Orion.BuildTime.Builtins.SolverBuiltins.LastSolved), dark) });
+
+			//A .dot the build wrote is shown as it would print; the palette is the build's own, so it is the light one.
+			foreach (OutputFile extra in result.Outputs ?? new List<OutputFile>())
+				if (extra.Name.EndsWith(".dot", StringComparison.OrdinalIgnoreCase))
+					graphs.Add(new GraphDto { Name = extra.Name, Dot = extra.Text });
 
 			if (capturedRoot != null)
 			{
@@ -119,7 +125,7 @@ namespace Orion.Web.Interop
 							continue;
 						if (reachable != null && !reachable.Contains(fn.Name))
 							continue;
-						graphs.Add(new GraphDto { Name = "CFG: " + fn.Name, Mermaid = Mermaid.Cfg(fn, false) });
+						graphs.Add(new GraphDto { Name = "CFG: " + fn.Name, Dot = Dot.Write(Diagrams.Diagrams.Cfg(fn, false), dark) });
 					}
 			}
 

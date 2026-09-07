@@ -18,7 +18,7 @@ namespace Orion.Web.Interop
 		public string Log { get; set; }          // OnRecord pipeline trace
 		public List<CompileMessage> Messages { get; set; }
 		public List<PhaseTiming> Phases { get; set; }  // per-phase wall-clock, for the timing bar
-		public List<GraphDto> Graphs { get; set; }     // rendered diagrams (Mermaid), e.g. the call graph
+		public List<GraphDto> Graphs { get; set; }     // diagrams as Graphviz DOT, e.g. the call graph
 		public List<AnalysisNode> Analysis { get; set; }  // Analysis tab tree: one root per phase
 	}
 
@@ -40,7 +40,7 @@ namespace Orion.Web.Interop
 		public string Kind { get; set; }      // "text" | "rows" | "graph" | "views" | "empty"
 		public string Text { get; set; }
 		public string Language { get; set; }  // Monaco language id for "text" (null = plain)
-		public string Mermaid { get; set; }
+		public string Dot { get; set; }
 		public List<AnalysisRow> Rows { get; set; }
 		public List<AnalysisDetail> Views { get; set; }
 	}
@@ -54,7 +54,7 @@ namespace Orion.Web.Interop
 	public sealed class GraphDto
 	{
 		public string Name { get; set; }
-		public string Mermaid { get; set; }            // Mermaid diagram source
+		public string Dot { get; set; }                // Graphviz DOT source
 	}
 
 	public sealed class PhaseTiming

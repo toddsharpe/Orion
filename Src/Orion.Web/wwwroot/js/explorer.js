@@ -16,7 +16,7 @@
  *   onigasm                2.2.5
  *   monaco-textmate        3.0.1
  *   monaco-editor-textmate 4.0.0
- *   mermaid                11.17.2
+ *   @viz-js/viz            3.30.0
  *
  * .NET interop: three static [JSInvokable] methods in assembly "Orion.Web",
  * invoked via DotNet.invokeMethodAsync('Orion.Web', '<Method>', ...args).
@@ -33,7 +33,7 @@
 	const MONACO_VERSION = '0.52.2';
 	const MONACO_BASE = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min`;
 	const MONACO_VS = `${MONACO_BASE}/vs`;
-	const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.esm.min.mjs';
+	const VIZ_URL = 'https://cdn.jsdelivr.net/npm/@viz-js/viz@3.30.0/dist/viz.js';
 
 	// Interop constants.
 	const INTEROP_ASSEMBLY = 'Orion.Web';
@@ -106,12 +106,11 @@
 
 	let samplesSeeded = false;      // every sample is written into MEMFS once, at startup
 
-	// Graph view (call graph rendered with Mermaid, loaded lazily from CDN on first use).
-	let lastGraphs = [];            // [{ name, mermaid }] from the last compile
+	// Graph view (Graphviz DOT rendered with viz.js, loaded lazily from CDN on first use).
+	let lastGraphs = [];            // [{ name, dot }] from the last compile
 	let selectedGraph = 0;          // which graph the Graph tab is showing
 	let graphView = null;           // the Graph tab's canvas handle (see createGraphView)
-	let mermaidLib = null;
-	let graphSeq = 0;               // unique ids for Mermaid renders, across every graph on the page
+	let vizLib = null;
 
 	// Analysis view: the compiler-phase tree and whatever node is selected in it.
 	let lastAnalysis = [];          // [{ id, label, children }] from the last compile
@@ -395,7 +394,7 @@
 	}
 
 	function invokeCompile(lang) {
-		return DotNet.invokeMethodAsync(INTEROP_ASSEMBLY, 'Compile', projectFiles(), entryName(), lang);
+		return DotNet.invokeMethodAsync(INTEROP_ASSEMBLY, 'Compile', projectFiles(), entryName(), lang, prefersDark());
 	}
 
 	// Analyze/Hover take the whole file set, not just the buffer: the frontend follows #using, so a demo's imported types resolve instead of reporting as unknown.
@@ -947,25 +946,17 @@
 		runWorker.postMessage(runtime + '\n' + programJs + '\n' + executive);
 	}
 
-	// Mermaid is big, so load it only when the Graph tab is first shown.
-	async function ensureMermaid() {
-		if (mermaidLib) return mermaidLib;
-		// Mermaid bundles UMD code (fastdom, via cytoscape) that hands itself to any global define(); Monaco's AMD loader is one, and rejects the anonymous call.
-		const define = window.define;
-		window.define = undefined;
-		try {
-			const mod = await import(MERMAID_URL);
-			mermaidLib = mod.default || mod;
-		} finally {
-			window.define = define;
-		}
-		mermaidLib.initialize({ startOnLoad: false, theme: prefersDark() ? 'dark' : 'default', securityLevel: 'loose' });
-		return mermaidLib;
+	// viz.js carries Graphviz as WebAssembly, so load it only when the Graph tab is first shown.
+	async function ensureViz() {
+		if (vizLib) return vizLib;
+		const mod = await import(VIZ_URL);
+		vizLib = await mod.instance();
+		return vizLib;
 	}
 
-	/** Mount a zoomable, pannable Mermaid canvas into `host`, its state per-instance so each diagram keeps its own zoom. */
+	/** Mount a zoomable, pannable Graphviz canvas into `host`, its state per-instance so each diagram keeps its own zoom. */
 
-	/** Returns { toolbar, show, zoom }: `toolbar` takes a caller's own controls, `show(mermaid)` renders, `zoom()` reads the current factor back. */
+	/** Returns { toolbar, show, zoom }: `toolbar` takes a caller's own controls, `show(dot)` renders, `zoom()` reads the current factor back. */
 	function createGraphView(host, options) {
 		const MIN_ZOOM = 0.2, MAX_ZOOM = 6;
 		let factor = (options && options.zoom) || 1;
@@ -1053,12 +1044,11 @@
 			e.preventDefault();
 		});
 
-		async function show(mermaidSource) {
+		async function show(dotSource) {
 			svgHost.innerHTML = '<div class="graph-empty">Rendering…</div>';
 			try {
-				const m = await ensureMermaid();
-				const { svg } = await m.render('orion-graph-' + (graphSeq++), mermaidSource || '');
-				svgHost.innerHTML = svg;
+				const viz = await ensureViz();
+				svgHost.innerHTML = viz.renderString(dotSource || 'digraph {}', { format: 'svg' });
 				apply();
 			} catch (err) {
 				console.error('Graph render failed', err);
@@ -1098,13 +1088,13 @@
 			graphView.toolbar.insertBefore(sel, graphView.toolbar.firstChild);
 		}
 
-		graphView.show(lastGraphs[selectedGraph].mermaid);
+		graphView.show(lastGraphs[selectedGraph].dot);
 	}
 
 	// --- Analysis tab: the compiler's phase tree on the left, the selected node on the right.  The tree arrives with the compile (labels only). What a node SHOWS is fetched from the .NET side when it is clicked — a compile's symbol tables and ASTs dwarf the labels naming them, so they are rendered on demand rather than serialized up front. ---
 
 	function invokeAnalysis(id) {
-		return DotNet.invokeMethodAsync(INTEROP_ASSEMBLY, 'GetAnalysis', id);
+		return DotNet.invokeMethodAsync(INTEROP_ASSEMBLY, 'GetAnalysis', id, prefersDark());
 	}
 
 	/** A scope row arrives unexpanded (hasChildren, no children); fill it in the first time it opens. */
@@ -1239,7 +1229,7 @@
 				const canvas = document.createElement('div');
 				canvas.className = 'analysis-graph';
 				host.appendChild(canvas);
-				createGraphView(canvas).show(detail.mermaid);
+				createGraphView(canvas).show(detail.dot);
 				return;
 			}
 

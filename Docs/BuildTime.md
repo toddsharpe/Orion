@@ -98,6 +98,18 @@ so a generator emits a packed frame from a struct without being told its layout 
 `Str::To(text, type)` — which reads text *at a type*, so a config value splices as a literal of that
 type and cannot silently wrap.
 
+**Extra outputs.** `Output::Write(name, text)` files text beside the generated code, at a relative
+path below the output directory; the CLI writes it after the code and lists it under `Wrote:`, and
+renders a `.dot` to a PDF beside itself when Graphviz is installed. `Graph::New(name)` starts a
+diagram — `Graph::Node(g, id, label)`, `Graph::Edge(g, from, to, label)` and `Graph::Cluster(g,
+label, ids)` fill it, `entry = true` outlines the start node and `dashed = true` draws a feedback
+edge — and `Graph::Dot(g)` renders it as DOT text for `Output::Write`. `Solver::Graph(solver)` is the
+netlist as one, every block a box with its inputs down one side and its outputs down the other:
+
+```
+Output::Write("rocket_net.dot", Graph::Dot(Solver::Graph(solver)));
+```
+
 **Another source file.** `#src` loads one at build time, compiles it into the live build assembly and
 calls a `#build` entry in it:
 

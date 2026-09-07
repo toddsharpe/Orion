@@ -16,8 +16,8 @@ namespace Orion.Tests.BuildTime
 		{
 			string[] expected =
 			[
-				"Array", "Build", "Channel", "Code", "Csv", "Enum", "File", "Function",
-				"Instance", "List", "Map", "Port", "Solver", "Str", "Struct", "Time", "Type",
+				"Array", "Build", "Channel", "Code", "Csv", "Enum", "File", "Function", "Graph",
+				"Instance", "List", "Map", "Output", "Port", "Solver", "Str", "Struct", "Time", "Type",
 			];
 
 			CollectionAssert.AreEquivalent(expected, Surface.Namespaces.ToArray(),

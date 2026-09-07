@@ -368,7 +368,7 @@ body.resizing-v { cursor: row-resize; user-select: none; }
 }
 .phase-total:empty { display: none; }
 
-/* ---- Graph tab (Mermaid SVG) ---- */
+/* ---- Graph tab (Graphviz SVG) ---- */
 #pane-graph {
 	overflow: auto;
 	padding: 12px;

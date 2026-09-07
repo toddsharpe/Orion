@@ -28,7 +28,7 @@ phase on the left; whatever is selected on the right:
 │ ▸ Frontend::Inputs (0.1ms)  │  Messages : Result   → text              │
 │ ▾ Frontend::Parser.C# ...   │  AST : TranslationUnit → indented outline│
 │   ▾ ASTs : CompilerFiles    │  <scope> : SymbolTable → Type/Display grid│
-│     · AST : TranslationUnit │  main : CallGraph    → Mermaid diagram   │
+│     · AST : TranslationUnit │  main : CallGraph    → Graphviz diagram  │
 │ ▾ Frontend::Binding (...)   │  Code : Code         → generated source  │
 │   ▾ Root : SymbolTable      │  MSIL : Module       → disassembly       │
 │     ▸ Children              │  <fn> : Function     → [StIr]            │
@@ -67,12 +67,12 @@ Two consequences worth knowing:
 
 ### Interop surface (`DotNet.invokeMethodAsync('Orion.Web', ...)`)
 
-- `Compile(source, "Cpp"|"Python")` → `{ success, code, buildOutput, log, messages[], phases[], graphs[], analysis[] }`
+- `Compile(source, "Cpp"|"Python", dark)` → `{ success, code, buildOutput, log, messages[], phases[], graphs[], analysis[] }`
 - `Analyze(source)` → `{ diagnostics[], tokens{ data, legend } }` (debounced live analysis)
 - `Hover(source, line, character)` → `{ value } | null`
-- `GetAnalysis(id)` → the detail for one Analysis node: `{ kind, text, language, mermaid, rows[], views[] }`
+- `GetAnalysis(id, dark)` → the detail for one Analysis node: `{ kind, text, language, dot, rows[], views[] }`
 
-C# lives in `Interop/` (`Mermaid.cs` holds every diagram both tabs draw); the front-end is
+C# lives in `Interop/`; every diagram both tabs draw comes from the compiler's `Diagrams` as Graphviz DOT, rendered in the browser by viz.js. The front-end is
 `wwwroot/js/explorer.js` (+ `README-explorer.md` for pinned CDN versions). The static shell is
 `wwwroot/index.html`.
 

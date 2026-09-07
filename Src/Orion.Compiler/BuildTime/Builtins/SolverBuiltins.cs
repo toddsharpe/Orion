@@ -38,6 +38,12 @@ namespace Orion.BuildTime.Builtins
 				solver.Export(dt_ns);
 		}
 
+		//The netlist as a Graph, for Output::Write after Solve or Export.
+		public static Diagrams.Graph Graph(Solver solver)
+		{
+			return Diagrams.Diagrams.Netlist(solver);
+		}
+
 		public static Solver LastSolved { get => Compiler.Session.LastSolved; private set => Compiler.Session.LastSolved = value; }
 
 		[BuildOnly]

@@ -80,8 +80,12 @@ namespace Orion
 		public string BuildOutput { get; set; }
 		public List<PhaseResult> Phases { get; set; }
 		public List<DeclaredTest> Declared { get; set; } = new List<DeclaredTest>();
+		public List<OutputFile> Outputs { get; set; } = new List<OutputFile>();
 		public bool Success => !Phases.Any(i => i.Failed);
 	}
+
+	//An extra file the build wrote with Output::Write: its name below the output directory, and its text.
+	public sealed record OutputFile(string Name, string Text);
 
 	//One `#test` the compile lowered: what to call it, what it calls, and the line that ties a failure back to it.
 	public sealed record DeclaredTest(string Name, string Entry, InputRegion Region)
@@ -165,6 +169,7 @@ namespace Orion
 		public bool Testing;
 		public bool Rtti;
 		public List<DeclaredTest> Declared = new List<DeclaredTest>();
+		public List<OutputFile> Outputs = new List<OutputFile>();
 
 		//The Defines parsed to literals, once, by Frontend.Conditionals.Defines().
 		internal Dictionary<string, Ast.Literal> ParsedDefines;
@@ -472,7 +477,8 @@ namespace Orion
 				HeaderOutput = ctx.Header,
 				BuildOutput = session.Output,
 				Phases = phases,
-				Declared = session.Declared
+				Declared = session.Declared,
+				Outputs = session.Outputs
 			};
 		}
 	}
