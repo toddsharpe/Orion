@@ -1,0 +1,12 @@
+<Project>
+
+	<!-- Trimming is partial, so ILLink never links Orion's own assemblies and its analysis of their reflection cannot apply. -->
+	<!-- Orion is a compiler: it binds builtins by name, reflects over user types, and hosts Reflection.Emit for #run. -->
+	<!-- What proves a trim safe is the release workflow's bundle smoke, the test sweep and a transpile compiled by g++, not this analysis. -->
+	<PropertyGroup>
+		<SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+		<!-- FSharp.Core ships an ILLink.Substitutions.xml naming four metadata resources its own package does not contain. -->
+		<NoWarn>$(NoWarn);IL2040</NoWarn>
+	</PropertyGroup>
+
+</Project>
