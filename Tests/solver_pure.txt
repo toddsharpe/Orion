@@ -1,0 +1,4 @@
+band 1 high false
+band 2 high false
+band 30 high true
+band 40 high true

@@ -1,0 +1,25 @@
+// A #pure port holds nothing between cycles, so a path that skips the write leaves the net with no value.
+void Src(#param str name, #output i32 v @ $"{name}_out")
+{
+	v = 1;
+}
+
+void Blk(#param str name, #param str source,
+		 #input i32 x @ source, #pure i32 y @ $"{name}_out")
+{
+	if (x > 0)
+	{
+		y = x;
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Src(name = "s"), #create Blk(name = "k", source = "s_out") ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

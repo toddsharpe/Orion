@@ -100,6 +100,7 @@ namespace Orion.LangSvr
 			{
 				case ParamDirective.Input: return "#input ";
 				case ParamDirective.Output: return "#output ";
+				case ParamDirective.Pure: return "#pure ";
 				case ParamDirective.Param: return "#param ";
 				default: return "";
 			}

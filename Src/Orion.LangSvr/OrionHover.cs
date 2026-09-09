@@ -246,6 +246,7 @@ namespace Orion.LangSvr
 				case ParamDirective.Input: return "#input ";
 				case ParamDirective.Prev: return "#prev ";
 				case ParamDirective.Output: return "#output ";
+				case ParamDirective.Pure: return "#pure ";
 				case ParamDirective.Param: return "#param ";
 				default: return "";
 			}
@@ -257,7 +258,7 @@ namespace Orion.LangSvr
 			switch (p.Direction)
 			{
 				case ParamDirection.In: return p.Delayed ? "#prev " : "#input ";
-				case ParamDirection.Out: return "#output ";
+				case ParamDirection.Out: return p.Pure ? "#pure " : "#output ";
 				case ParamDirection.State: return "#state ";
 				default: return "";
 			}

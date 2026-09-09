@@ -13,7 +13,7 @@ void Setpoint(
 	#param i32 hold,
 	#state i32 held = 0,
 	#state bool raised = false,
-	#output f64 setpoint @ $"{name}_value"
+	#pure f64 setpoint @ $"{name}_value"
 )
 {
 	held = held + 1;
@@ -46,7 +46,7 @@ void Mode(
 	#param f64 ready_above,
 	#input f64 level @ source,
 	#state AppState phase = AppState::Init,
-	#output AppState state @ $"{name}_state"
+	#pure AppState state @ $"{name}_state"
 )
 {
 	switch (phase)

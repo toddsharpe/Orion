@@ -620,7 +620,7 @@
 	}
 
 	// Client-side completion over keywords, types, directives, snippets and identifiers already in the file -- every directive the parser accepts and only those, per pbuildonly/pbinding/ptemplatestmt/pusing/pmeasure/pfiletest.
-	const DIRECTIVES = ['#assert', '#build', '#code', '#create', '#export', '#if', '#init', '#input', '#insert', '#measure', '#output', '#param', '#prev', '#run', '#src', '#state', '#test', '#using'];
+	const DIRECTIVES = ['#assert', '#build', '#code', '#create', '#export', '#if', '#init', '#input', '#insert', '#measure', '#output', '#param', '#prev', '#pure', '#run', '#src', '#state', '#test', '#using'];
 
 	function registerCompletion() {
 		const KEYWORDS = ORION_MONARCH.keywords;

@@ -189,13 +189,14 @@ module Parser =
     //`#create`: instantiate a solver block template. A call only, so `#run { }` keeps its own parser.
     let pcreate = (pstring "#create" >>. ws >>% BuildCreate) |> withPos
     let pbuildrun = attempt prun <|> pcreate
-    //`#param`, `#input`, `#prev`, `#output`, `#state`: how a parameter gets its value.
+    //`#param`, `#input`, `#prev`, `#output`, `#pure`, `#state`: how a parameter gets its value.
     let pbinding =
         let impl =
             (pstring "#param" >>% Param) <|>
             (pstring "#input" >>% Binding.Input) <|>
             (pstring "#prev" >>% Binding.Prev) <|>
             (pstring "#output" >>% Binding.Output) <|>
+            (pstring "#pure" >>% Binding.Pure) <|>
             (pstring "#state" >>% Binding.State)
         impl .>> ws |> withPos
     //`#state`: the local outlives the call. `#build`: it lives only at build time. Absent means stack.

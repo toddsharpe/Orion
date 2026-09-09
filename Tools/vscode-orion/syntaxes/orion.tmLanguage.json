@@ -82,7 +82,7 @@
 		"directives": {
 			"comment": "# directives: pbuildonly/pbuildrun/pbinding/pstorage/ptemplatestmt/pusing/pmeasure/pfiletest in Parser.fs",
 			"name": "keyword.control.directive.orion",
-			"match": "#(build|run|create|code|param|input|output|prev|state|insert|assert|src|init|using|if|export|measure|test)\\b"
+			"match": "#(build|run|create|code|param|input|output|prev|pure|state|insert|assert|src|init|using|if|export|measure|test)\\b"
 		},
 
 		"keywords": {

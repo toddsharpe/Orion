@@ -53,6 +53,19 @@ void CanDivide
 		}
 
 		[TestMethod]
+		public void PureIsItsOwnDirective()
+		{
+			Function fn = Parse(@"
+void Band(#param str name, #pure i32 band @ ""band"")
+{
+    band = 1;
+}", "Band");
+
+			Assert.AreEqual(ParamDirective.Pure, fn.Parameters[1].Directive);
+			Assert.IsNotNull(fn.Parameters[1].Net);
+		}
+
+		[TestMethod]
 		public void NamedCallArguments()
 		{
 			//Instantiation uses named args: make(name = "d2", div = 2).

@@ -508,6 +508,9 @@ namespace Orion.Symbols
 
 		public bool Delayed { get; set; }
 
+		//A `#pure` port: an Out the body writes on every path and never reads.
+		public bool Pure { get; set; }
+
 		public string Init { get; set; }
 
 		public object InitValue { get; set; }

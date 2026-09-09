@@ -132,6 +132,8 @@ namespace Orion.Ast
 		//An Input that reads LAST cycle's value, because its net is driven later in the cycle.
 		Prev,
 		Output,
+		//An Output the block writes every cycle and never reads, so it holds nothing between cycles.
+		Pure,
 		Param,
 		State
 	}

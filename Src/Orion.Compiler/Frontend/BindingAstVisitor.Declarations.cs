@@ -59,7 +59,7 @@ namespace Orion.Frontend
 				{
 					ParamDirective.None => ParamDirection.None,
 					ParamDirective.Input or ParamDirective.Prev => ParamDirection.In,
-					ParamDirective.Output => ParamDirection.Out,
+					ParamDirective.Output or ParamDirective.Pure => ParamDirection.Out,
 					ParamDirective.State => ParamDirection.State,
 					_ => throw new NotImplementedException(),
 				})
@@ -68,6 +68,7 @@ namespace Orion.Frontend
 					Net = param.NetName ?? param.Name,
 					IsReadOnly = param.IsConst,
 					Delayed = param.Directive == ParamDirective.Prev,
+					Pure = param.Directive == ParamDirective.Pure,
 				};
 
 				symbol.Borrowed = param.IsConst && Surface.IsCollection(type);
@@ -93,6 +94,14 @@ namespace Orion.Frontend
 					ctx.Messages.Add(new Message(
 						$"{Where(ctx)}: `{reading} {param.Name}` cannot take an initializer. An input reads a net it does " +
 						$"not own; the starting value belongs on the `#output` that drives it.",
+						param.Region, MessageType.Error));
+				}
+
+				if (param.Directive == ParamDirective.Pure && param.Default != null)
+				{
+					ctx.Messages.Add(new Message(
+						$"{Where(ctx)}: `#pure {param.Name}` cannot take an initializer. A pure port is written every " +
+						$"cycle and holds nothing between them, so there is no starting value to give; use `#output`.",
 						param.Region, MessageType.Error));
 				}
 
