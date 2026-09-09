@@ -29,6 +29,12 @@ namespace Orion.BuildTime.Builtins
 		}
 
 		[BuildOnly]
+		public static Port Pure(OrionType type, string name, string net = "")
+		{
+			return AddPort(ParamDirective.Pure, type, name, net);
+		}
+
+		[BuildOnly]
 		public static Port Field(Port port, string path)
 		{
 			if (port?.Type?.Symbol == null)
@@ -187,7 +193,7 @@ namespace Orion.BuildTime.Builtins
 				Direction = directive switch
 				{
 					ParamDirective.Input or ParamDirective.Prev => ParamDirection.In,
-					ParamDirective.Output => ParamDirection.Out,
+					ParamDirective.Output or ParamDirective.Pure => ParamDirection.Out,
 					ParamDirective.State => ParamDirection.State,
 					_ => ParamDirection.None,
 				},

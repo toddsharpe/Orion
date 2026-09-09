@@ -1,0 +1,46 @@
+// A `#pure` port is written every cycle and never read back: the block computes it fresh, so it holds nothing.
+
+// Both arms write both ports, which is what `#pure` demands; `t` is the only memory the block has.
+void Band(#param str name, #state i32 t = 0, #pure i32 band @ "band", #pure bool high @ "high")
+{
+	t = t + 1;
+	if (t > 2)
+	{
+		band = t * 10;
+		high = true;
+	}
+	else
+	{
+		band = t;
+		high = false;
+	}
+}
+
+void Watch(#param str name, #input i32 band @ "band", #input bool high @ "high")
+{
+	WriteLine("band " + to_str(band) + " high " + to_str(high));
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [
+			#create Band(name = "band"),
+			#create Watch(name = "watch")
+		]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 4; i++)
+			{
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

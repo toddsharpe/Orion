@@ -5,10 +5,10 @@
 //Published as ports on the `App` subtree, all of it derived from the one `cycle_time` the platform stamped.
 void CycleStart(#param str name, #param time dt_ns,
 	#input time cycle_time,
-	#output time cycle_latency @ "App.CycleLatency",
+	#pure time cycle_latency @ "App.CycleLatency",
 	#output time cycle_interval @ "App.CycleInterval",
-	#output i64 cycles @ "App.Cycles",
-	#output i32 skips @ "App.SkippedCycles",
+	#pure i64 cycles @ "App.Cycles",
+	#pure i32 skips @ "App.SkippedCycles",
 	#state time prev = 0,
 	#state time seen = 0,
 	#state i64 n = 0,

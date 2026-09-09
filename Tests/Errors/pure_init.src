@@ -1,0 +1,16 @@
+// A #pure port has no cell of its own to start, so an initializer has nowhere to go.
+void Src(#param str name, #pure i32 v = 1 @ $"{name}_out")
+{
+	v = 2;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] blocks = [ #create Src(name = "s") ]:Function;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+	}
+	return 0;
+}

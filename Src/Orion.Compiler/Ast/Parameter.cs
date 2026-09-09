@@ -45,6 +45,7 @@ namespace Orion.Ast
 				{ IsInput: true } => ParamDirective.Input,
 				{ IsPrev: true } => ParamDirective.Prev,
 				{ IsState: true } => ParamDirective.State,
+				{ IsPure: true } => ParamDirective.Pure,
 				_ => ParamDirective.Output
 			};
 		}

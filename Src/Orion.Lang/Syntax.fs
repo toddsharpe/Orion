@@ -32,6 +32,8 @@ module Syntax =
         | Output
         //#state i32 c - the block's own memory, hoisted into the solver. Never wired, so never @ net.
         | State
+        //#pure i32 y @ net - an Output the block writes every cycle and never reads, so it holds nothing
+        | Pure
 
     //Whether a function or type is surface something OUTSIDE this program calls; absent means internal, kept only if the program reaches it and never written to the header.
     type ExportFlag =

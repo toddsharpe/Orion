@@ -29,6 +29,7 @@ void Ramp(#param str name, #state i32 t = 1, #output i32 level @ "level")
 | `#input` | a net this block reads. It may not be written |
 | `#prev` | the same, but the net is driven *later* in the cycle, so the value is last cycle's |
 | `#output` | the net this block drives. Declining to write it holds the previous value |
+| `#pure` | an `#output` the block writes every cycle and never reads back. Every path must assign it whole, and it takes no initializer |
 | `#state` | the block's own memory, carried between cycles |
 
 `@ net` names the net a port binds to when it differs from the port name; it takes an identifier, a
@@ -137,7 +138,7 @@ library, and [Demo/Platforms/](../Demo/Platforms/) supplies the loop.
 ## Blocks that write themselves
 
 Inside a `#param` template, a `#run { }` escape runs at specialization and appends to the block being
-built — ports as well as body. `Port::In(type, name)` / `Port::Out` declare a port and hand back a
+built — ports as well as body. `Port::In(type, name)` / `Port::Out` / `Port::Pure` declare a port and hand back a
 value a hole splices as a *reference*, so a generated body cannot name a port that was never declared;
 `#input f64 x;` and `#output f64 y;` are the same thing as source text. `#if` folds against the
 `#param`s, so one template can be several blocks. The `Report` block in [BuildTime.md](BuildTime.md)

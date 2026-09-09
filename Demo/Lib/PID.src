@@ -150,7 +150,7 @@ void Pid(
 	#param str measured_src,
 	#input f64 setpoint @ setpoint_src,
 	#prev f64 measured @ measured_src,
-	#output f64 command @ $"{name}_out",
+	#pure f64 command @ $"{name}_out",
 	#state f64 integral = 0.0,
 	#state f64 prev_error = 0.0
 )
@@ -170,7 +170,7 @@ void Plant(
 	#param f64 dt,
 	#param str command_src,
 	#input f64 u @ command_src,
-	#output f64 y @ $"{name}_out",
+	#pure f64 y @ $"{name}_out",
 	#state f64 level = 0.0
 )
 {

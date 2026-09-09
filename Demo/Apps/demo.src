@@ -16,7 +16,7 @@ void Setpoint(
 	#param i32 hold,
 	#state i32 held = 0,
 	#state bool raised = false,
-	#output f64 setpoint @ $"{name}_value"
+	#pure f64 setpoint @ $"{name}_value"
 )
 {
 	held = held + 1;
@@ -59,7 +59,7 @@ void Sensors(
 
 			//Each channel sits a little differently on the same signal, the way four real parts would.
 			const f64 offset = cast<f64>(i) * 12.0;
-			const Port raw = Port::Out(channel.type, channel.name);
+			const Port raw = Port::Pure(channel.type, channel.name);
 
 			//12-bit counts at 40 per unit, clamped to full scale; `clamp<f64>` instantiates from this splice.
 			#insert {
@@ -91,7 +91,7 @@ void Calibrate(
 			//Each channel's own trim removes the offset the converter added, so the four agree again.
 			const f64 trim = cast<f64>(i) * -0.3;
 			const Port counts = Port::In(src.type, src.name);
-			const Port measured = Port::Out(dst.type, dst.name);
+			const Port measured = Port::Pure(dst.type, dst.name);
 			#insert { ${measured} = ${gain} * cast<f64>(${counts}) + ${offset} + ${trim}; }
 		}
 	}
@@ -111,9 +111,9 @@ void Stats(#param str name, #param List<Device> sources)
 			inputs.Add(Port::In(src.type, src.name));
 		}
 
-		const Port lo_net = Port::Out(Type::Of<f64>(), $"{name}_min");
-		const Port avg_net = Port::Out(Type::Of<f64>(), $"{name}_mean");
-		const Port hi_net = Port::Out(Type::Of<f64>(), $"{name}_max");
+		const Port lo_net = Port::Pure(Type::Of<f64>(), $"{name}_min");
+		const Port avg_net = Port::Pure(Type::Of<f64>(), $"{name}_mean");
+		const Port hi_net = Port::Pure(Type::Of<f64>(), $"{name}_max");
 
 		const Port first = inputs[0];
 		#insert {
@@ -150,7 +150,7 @@ void Mode(
 	#input  f64 peak @ peak_src,
 	#state  AppState phase = AppState::Init,
 	#state  u16 cycles = 0:u16,
-	#output AppState state @ $"{name}_state",
+	#pure   AppState state @ $"{name}_state",
 	#output Status status @ $"{name}_status",
 	#output u32[4] recent @ $"{name}_recent"
 )

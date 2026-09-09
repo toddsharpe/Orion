@@ -4,7 +4,7 @@
 #using "Services.src"
 
 //A ramp, so each cycle is visibly different and a transcript is worth diffing.
-void Ramp(#param str name, #state i32 t = 1, #output i32 level @ "level")
+void Ramp(#param str name, #state i32 t = 1, #pure i32 level @ "level")
 {
 	//Startup, once before the first cycle; under an exported solver a `#state` initializer runs here too.
 	#init
