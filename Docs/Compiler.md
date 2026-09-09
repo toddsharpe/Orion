@@ -90,8 +90,10 @@ dropping, over a control-flow graph and a data graph built from the TAC stream.
 
 **Checks** rejects what no target can honestly emit: a runtime function calling a build one, an
 `#export`ed signature naming a type the header cannot declare, two function statics that would lift
-to one module global. Two more run earlier in the frontend — an `#input` may not be written, and a
-`Span` or `Ref` may not be returned or stored where the storage it views would not outlive it.
+to one module global. Two more run earlier in the frontend — the port rules, and a
+`Span` or `Ref` may not be returned or stored where the storage it views would not outlive it. The
+port rules are that an `#input` may not be written, and a `#pure` may not be read and must be written
+on every path to a return; both are checked over the TACs, where reads and writes are exact.
 
 **Prepare** applies rewrites for the things *this* target cannot express. A target is a record of
 capability flags, so each rewrite is written once and each backend says whether it needs it:

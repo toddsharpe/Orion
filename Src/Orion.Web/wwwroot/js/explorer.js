@@ -250,7 +250,7 @@
 		tokenizer: {
 			root: [
 				// # directives, character-for-character identical to the `directives` match in Tools/vscode-orion/syntaxes/orion.tmLanguage.json.
-				[/#(build|run|create|code|param|input|output|prev|state|insert|assert|src|init|using|if|export|measure|test)\b/, 'keyword.directive'],
+				[/#(build|run|create|code|param|input|output|prev|pure|state|insert|assert|src|init|using|if|export|measure|test)\b/, 'keyword.directive'],
 
 				// comments
 				[/\/\/.*$/, 'comment'],
