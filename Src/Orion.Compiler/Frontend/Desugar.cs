@@ -51,10 +51,7 @@ namespace Orion.Frontend
 			}
 		}
 
-		//A file-scope `const T Name = #run { }` is the program's, not the build's, and its value exists only once the build ran, which
-		//is after constants are interned. So it lowers to the local form that already folds: the same `const` at the top of every runtime
-		//function that names it, each folded to a literal of its own, and the file-scope declaration goes. A `#build` function cannot
-		//name it, since a `#run` has no place in build code; it reads what the constant was built from.
+		//A file-scope `const T Name = #run { }` is the program's, and its value exists only once the build ran, after constants are interned: so it lowers to the local form that already folds, the same `const` at the top of every runtime function that names it, and a `#build` function cannot name it, since a `#run` has no place in build code.
 		private static void LowerRunConsts(TranslationUnit tu, List<Message> messages)
 		{
 			List<Const> consts = tu.Blocks.OfType<Const>().Where(i => i.Initializer is RunExpr).ToList();
