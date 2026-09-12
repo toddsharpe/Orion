@@ -52,9 +52,10 @@ namespace Orion.Frontend
 		}
 
 		//A file-scope `const T Name = #run { }` is the program's, and its value exists only once the build ran, after constants are interned: so it lowers to the local form that already folds, the same `const` at the top of every runtime function that names it, and a `#build` function cannot name it, since a `#run` has no place in build code.
+		//An initializer that calls a function is the same thing written as an expression, since the constant folder never runs a call: a runtime function gets it as `#run { return <expr>; }`, and a `#build` function gets it as a plain local, since it can make the call itself.
 		private static void LowerRunConsts(TranslationUnit tu, List<Message> messages)
 		{
-			List<Const> consts = tu.Blocks.OfType<Const>().Where(i => i.Initializer is RunExpr).ToList();
+			List<Const> consts = tu.Blocks.OfType<Const>().Where(i => i.Initializer is RunExpr || Calls(i.Initializer)).ToList();
 			if (consts.Count == 0)
 				return;
 
@@ -73,7 +74,10 @@ namespace Orion.Frontend
 				if (!References(fn, c.Name))
 					continue;
 
-				if (fn.IsBuild)
+				Const fresh = (Const)FileBlock.Create(c.Source);
+				bool isRun = fresh.Initializer is RunExpr;
+
+				if (fn.IsBuild && isRun)
 				{
 					messages.Add(new Message(
 						$"`{c.Name}` is a file-scope `#run` constant, which is the program's; `#build {fn.Name}` cannot name it. " +
@@ -85,16 +89,28 @@ namespace Orion.Frontend
 				if (!fn.RunConsts.Contains(c))
 					fn.RunConsts.Add(c);
 
-				Const fresh = (Const)FileBlock.Create(c.Source);
+				//A runtime function folds the expression at build; a build function just evaluates it.
+				Expression value = isRun || fn.IsBuild
+					? fresh.Initializer
+					: new RunExpr
+					{
+						Statements = [new Return { Ret = new ReturnExpr { Value = fresh.Initializer, Region = fresh.Region }, Region = fresh.Region }],
+						Region = fresh.Region,
+					};
+
 				fn.Body.Insert(0, new ConstDef
 				{
 					TypeName = fresh.TypeName,
 					Name = fresh.Name,
-					Value = fresh.Initializer,
+					Value = value,
 					Region = fresh.Region,
 				});
 			}
 		}
+
+		//Whether an initializer calls anything, which no constant folder runs.
+		private static bool Calls(Expression initializer) =>
+			initializer != null && initializer.DescendantsAndSelf().OfType<Call>().Any();
 
 		//Named as a variable, or as the root of a path into it.
 		private static bool References(Function fn, string name) =>

@@ -32,7 +32,10 @@ share it.
 
 A file-scope `const T Name = #run { ... };` is a value the program carries, built once: it lowers to the
 same `const` at the top of every runtime function that names it, each folded to a literal. A `#build`
-function cannot name one; it reads whatever the constant was built from.
+function cannot name one; it reads whatever the constant was built from. A file-scope constant whose
+initializer calls a function, `const u32 Group = MakeIp(239, 1, 1, 1);`, is the same thing written as an
+expression, and a `#build` function may name that one, since it can make the call itself. Writing the
+call as `#run MakeIp(239, 1, 1, 1)` says the same thing out loud.
 
 ## Emitting code
 
