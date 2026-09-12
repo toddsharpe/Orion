@@ -282,14 +282,16 @@ namespace Orion
 			new("BuildTime", "Execute",
 				(ctx, m) =>
 				{
-					ctx.Main = CallGraph.Create(ctx.Root).Get(Language.Entry);
+					CallGraph graph = CallGraph.Create(ctx.Root);
+					ctx.Main = graph.Get(Language.Entry);
 					m.Trace($"Build entry: {ctx.Main.Value.Name}");
+					List<CallGraph.Node> exports = [.. graph.Nodes.Where(i => i.Value is SourceFunctionSymbol { IsExport: true })];
 
 					string orig = Environment.CurrentDirectory;
 					Environment.CurrentDirectory = string.IsNullOrEmpty(ctx.Options.WorkingDirectory) ? orig : ctx.Options.WorkingDirectory;
 					try
 					{
-						Executor.Run(ctx.Main, m);
+						Executor.Run(ctx.Main, exports, m);
 					}
 					finally
 					{

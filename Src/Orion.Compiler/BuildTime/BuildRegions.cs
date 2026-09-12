@@ -28,8 +28,17 @@ namespace Orion.BuildTime
 				return;
 			}
 
-			//Generate regions
+			//Generate regions, walking from the entry and then from every `#export`: a function the platform calls from outside is reached by
+			//nothing in the program, yet its `#run` blocks must fold like any other's, or the backend finds a build call left in runtime code.
 			List<SourceFunctionSymbol> inorder = main.BreadthFirst().OfType<SourceFunctionSymbol>().ToList();
+			foreach (CallGraph.Node export in graph.Nodes.Where(i => i.Value is SourceFunctionSymbol { IsExport: true }))
+			{
+				foreach (SourceFunctionSymbol sym in export.BreadthFirst().OfType<SourceFunctionSymbol>())
+				{
+					if (!inorder.Contains(sym))
+						inorder.Add(sym);
+				}
+			}
 			List<SourceFunctionSymbol> sections = new List<SourceFunctionSymbol>();
 			foreach (SourceFunctionSymbol sym in inorder)
 			{
