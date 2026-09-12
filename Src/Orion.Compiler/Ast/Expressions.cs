@@ -200,6 +200,8 @@ namespace Orion.Ast
 		internal TypeName ElementType { get; set; }
 		internal string ElementName { get; set; }
 		internal bool IsElementConst { get; set; }
+		//The element's position in the source, a `const i32` the body and the filter both see; null when the comprehension binds none.
+		internal string IndexName { get; set; }
 		internal Expression Source { get; set; }
 		internal Expression Condition { get; set; }
 		internal Expression Body { get; set; }

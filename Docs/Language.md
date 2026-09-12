@@ -54,6 +54,7 @@ Dir::North                                // an enum member
 [1, 2, 3]:i32                             // a fixed array, suffixed with its ELEMENT type
 [1, 2, 3]:List<i32>                       // a build-time list
 [v * 10 for const i32 v in src if v % 2 == 0]:List<i32>      // a comprehension
+[v * i for const i32 v, i32 i in src]:List<i32>             // ...binding the position too, an i32 the body and filter see
 Map<str,i32>{ "u8" = 1, "u16" = 2 }       // a build-time map
 Point{ x = 1, y = 2 }                     // a struct; fields are expressions
 [](i32 i) { return (i % 2) == 0; }:bool   // a lambda; no `:type` suffix when it returns void

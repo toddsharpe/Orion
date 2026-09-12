@@ -181,13 +181,14 @@ namespace Orion.Ast
 					IsElementConst = c.Item2.Value.IsConst,
 					ElementType = TypeName.Create(c.Item3.Value),
 					ElementName = c.Item4.Value,
-					Source = Create(c.Item5.Value),
-					Condition = c.Item6 != null ? Create(c.Item6.Value.Value) : null,
-					ResultType = TypeName.Create(c.Item7.Value),
+					IndexName = c.Item5 != null ? c.Item5.Value.Value : null,
+					Source = Create(c.Item6.Value),
+					Condition = c.Item7 != null ? Create(c.Item7.Value.Value) : null,
+					ResultType = TypeName.Create(c.Item8.Value),
 					Region = InputRegion.Create([
 						(c.Item1.Start, c.Item1.End),
-						(c.Item5.Start, c.Item5.End),
-						(c.Item7.Start, c.Item7.End)
+						(c.Item6.Start, c.Item6.End),
+						(c.Item8.Start, c.Item8.End)
 					])
 				},
 				Expr.TernaryOp ternary => new TernaryOp
