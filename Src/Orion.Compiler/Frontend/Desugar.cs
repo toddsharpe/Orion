@@ -571,7 +571,7 @@ namespace Orion.Frontend
 		private static Statement ProcessComprehension(Assignment statement, Construct construct, Comprehension c, List<Message> messages)
 		{
 			construct.Value = EmptyList(c, messages);
-			return Grouped(statement, c, construct.SymbolName);
+			return Grouped(statement, c, construct.SymbolName, messages);
 		}
 
 		//`const List<U> v = [...]` -- a write-once local is its own node.
@@ -594,16 +594,16 @@ namespace Orion.Frontend
 			statement.Value = new Variable { SymbolName = built, Region = c.Region };
 			return new Group
 			{
-				Statements = [declare, FillLoop(c, built), statement],
+				Statements = [declare, FillLoop(c, built, messages), statement],
 				Region = c.Region
 			};
 		}
 
 		//The declaration, then the loop that fills it, so one declaration still stands in one statement slot.
-		private static Group Grouped(Statement declaration, Comprehension c, string target) =>
+		private static Group Grouped(Statement declaration, Comprehension c, string target, List<Message> messages) =>
 			new Group
 			{
-				Statements = [declaration, FillLoop(c, target)],
+				Statements = [declaration, FillLoop(c, target, messages)],
 				Region = c.Region
 			};
 
@@ -630,7 +630,7 @@ namespace Orion.Frontend
 		}
 
 		//{ T[] arr = src; for (i32 i = 0; i < arr.Length; i++) { T x = arr[i]; if (cond) target.Add(body); } }
-		private static Statement FillLoop(Comprehension c, string target)
+		private static Statement FillLoop(Comprehension c, string target, List<Message> messages_)
 		{
 			//Unique per source position, matching pforeach's convention, so nested comprehensions differ.
 			string suffix = $"{c.Region.Start.Line}_{c.Region.Start.Column}";
@@ -691,6 +691,23 @@ namespace Orion.Frontend
 					Region = c.Region
 				};
 
+			//`const i32 i = _lc_i;` ahead of the element when the comprehension named one: the position in the source, filtered or not.
+			List<Statement> body = [declareElement, add];
+			if (c.IndexName != null)
+			{
+				if (c.IndexName == c.ElementName)
+					messages_.Add(new Message($"A comprehension's index `{c.IndexName}` cannot share the element's name.", c.Region, MessageType.Error));
+
+				body.Insert(0, new ConstDef
+				{
+					Directive = LocalDirective.None,
+					TypeName = new TypeName { Name = "i32" },
+					Name = c.IndexName,
+					Value = new Variable { SymbolName = indexName, Region = c.Region },
+					Region = c.Region
+				});
+			}
+
 			For loop = new For
 			{
 				Init = new Construct
@@ -708,7 +725,7 @@ namespace Orion.Frontend
 					Region = c.Region
 				},
 				Iterator = new UnaryOp { Operand1 = index, Op = AstOp.Increment, Region = c.Region },
-				Body = [declareElement, add],
+				Body = body,
 				Region = c.Region
 			};
 

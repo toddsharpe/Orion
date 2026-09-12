@@ -266,12 +266,14 @@ module Parser =
         %% (str "[") -- +.(qty.[0..] / comma * pexpr) -- (str "]") -- ((str ":") <?> "':' -- an array literal carries its type as a suffix, as in [1.0, 2.0]:f32[2]") -- +.ptype -|>
             fun items t -> ArrayExpr(items |> Seq.toList, t)
     //`[body for T x in source if filter]:List<U>` - a comprehension; `for` is reserved, so it parses.
+    //`for T x, i32 i in source` binds the element's position as well, an i32 and nothing else, since that is what a count is.
     let pcomprexpr =
         let pfilter = %% (str_ws "if") -- +.pexpr -|> fun c -> c
-        %% (str "[") -- +.pexpr -- (str_ws "for") -- +.pconstflag -- +.ptype -- +.pidentifier --
+        let pindex = %% comma -- (str_ws "i32" <?> "'i32' -- a comprehension's index is a count, so it is an i32") -- +.pidentifier -|> fun i -> i
+        %% (str "[") -- +.pexpr -- (str_ws "for") -- +.pconstflag -- +.ptype -- +.pidentifier -- +.(opt pindex) --
            (str_ws "in") -- +.pexpr -- +.(opt pfilter) -- (str "]") -- (str ":") -- +.ptype -|>
-            fun body isConst elemType name source filter t ->
-                Comprehension(body, isConst, elemType, name, source, filter, t)
+            fun body isConst elemType name index source filter t ->
+                Comprehension(body, isConst, elemType, name, index, source, filter, t)
     //`Point{ x = 1, y = 2 }` - fields are expressions, so they may be computed. Once `Type{` is seen it is a struct literal and nothing else, so a bad field reports at the field instead of backtracking to before the brace.
     let pstructexpr =
         %% +.(attempt (ptype .>> followedBy (pstring "{"))) -- (str "{") -- +.(qty.[0..] / comma * pfieldexpr) -- (str "}") -|>
