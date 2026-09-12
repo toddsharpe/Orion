@@ -12,8 +12,10 @@ namespace Orion.BuildTime
 {
 	internal static class Executor
 	{
-		internal static void Run(CallGraph.Node entry, List<Message> messages)
+		internal static void Run(CallGraph.Node entry, IEnumerable<CallGraph.Node> exports, List<Message> messages)
 		{
+			HashSet<SourceFunctionSymbol> done = new HashSet<SourceFunctionSymbol>();
+
 			//A `#build main` IS build code -- invoked once, whole body run now, no runtime entry left to emit; scanning it would correctly find no work and leave the program silently unbuilt.
 			if (entry.Value is SourceFunctionSymbol build && build.IsBuild)
 			{
@@ -23,13 +25,28 @@ namespace Orion.BuildTime
 					messages.Add(new Message($"`#build {build.Name}` was never emitted, so it cannot run.", Env.Region, MessageType.Error));
 				else
 					Invoke(build.Info, messages);
-
-				return;
+			}
+			else
+			{
+				foreach (SourceFunctionSymbol function in entry.BreadthFirst().OfType<SourceFunctionSymbol>().ToList())
+				{
+					done.Add(function);
+					if (!RunFunction(function, messages))
+						break;
+				}
 			}
 
-			foreach (SourceFunctionSymbol function in entry.BreadthFirst().OfType<SourceFunctionSymbol>().ToList())
-				if (!RunFunction(function, messages))
-					break;
+			//Every `#export` too: a function the platform calls from outside is reached by nothing here, under either kind of entry, yet its build calls must run and fold like any other's.
+			foreach (CallGraph.Node export in exports)
+			{
+				foreach (SourceFunctionSymbol function in export.BreadthFirst().OfType<SourceFunctionSymbol>().ToList())
+				{
+					if (!done.Add(function))
+						continue;
+					if (!RunFunction(function, messages))
+						return;
+				}
+			}
 		}
 
 		//Run one build method, turning the three ways it can fail into messages; a `#run` region and a `#build` entry report a failed assertion the same way.
