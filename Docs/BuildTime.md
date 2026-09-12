@@ -30,6 +30,10 @@ A `#run { }` at file scope is hoisted into the entry, so it runs once per compil
 local is hoisted to a cell that outlives any one region, so several `#run` blocks in one function can
 share it.
 
+A file-scope `const T Name = #run { ... };` is a value the program carries, built once: it lowers to the
+same `const` at the top of every runtime function that names it, each folded to a literal. A `#build`
+function cannot name one; it reads whatever the constant was built from.
+
 ## Emitting code
 
 `#insert` appends to the enclosing body. It takes a fragment, a `Code` value, or text:

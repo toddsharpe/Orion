@@ -209,7 +209,8 @@ namespace Orion.Frontend
 				values[param.Key] = param.Value;
 			Conditionals.Fold(clone.Body, new FoldEnv { Values = values, Facts = TypeFacts.Current, UndefinedIsFalse = true }, messages);
 
-			//The clone comes straight from the parse tree, so desugar here; EvalNet expects that.
+			//The clone comes straight from the parse tree, so the file-scope `#run` constants its template named go back at its top, then it desugars here; EvalNet expects that.
+			Desugar.LowerRunConsts(clone, template.RunConsts, messages);
 			Desugar.Run(clone, messages);
 
 			//...and hoist its `#build` locals under the TEMPLATE's name: the cell the main pass declared.

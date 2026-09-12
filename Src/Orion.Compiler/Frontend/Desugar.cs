@@ -1,5 +1,6 @@
 using Orion.Ast;
 using Orion.Diagnostics;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,6 +14,7 @@ namespace Orion.Frontend
 			//Before the rewrite, so a hoisted block picks up its void ResultType like a written one.
 			LowerFileTests(tu, messages);
 			HoistFileRuns(tu, messages);
+			LowerRunConsts(tu, messages);
 			tu.Rewrite(i => Process(i, messages));
 			ReportStrays([tu], messages);
 		}
@@ -48,6 +50,60 @@ namespace Orion.Frontend
 				});
 			}
 		}
+
+		//A file-scope `const T Name = #run { }` is the program's, not the build's, and its value exists only once the build ran, which
+		//is after constants are interned. So it lowers to the local form that already folds: the same `const` at the top of every runtime
+		//function that names it, each folded to a literal of its own, and the file-scope declaration goes. A `#build` function cannot
+		//name it, since a `#run` has no place in build code; it reads what the constant was built from.
+		private static void LowerRunConsts(TranslationUnit tu, List<Message> messages)
+		{
+			List<Const> consts = tu.Blocks.OfType<Const>().Where(i => i.Initializer is RunExpr).ToList();
+			if (consts.Count == 0)
+				return;
+
+			foreach (Const c in consts)
+				tu.Blocks.Remove(c);
+
+			foreach (Function fn in tu.Blocks.OfType<Function>())
+				LowerRunConsts(fn, consts, messages);
+		}
+
+		//The locals for one function: what it names among `consts`, each a fresh initializer from the constant's parse node. Also what a clone reparsed from source gets back, so its template records what it named.
+		internal static void LowerRunConsts(Function fn, IEnumerable<Const> consts, List<Message> messages)
+		{
+			foreach (Const c in consts)
+			{
+				if (!References(fn, c.Name))
+					continue;
+
+				if (fn.IsBuild)
+				{
+					messages.Add(new Message(
+						$"`{c.Name}` is a file-scope `#run` constant, which is the program's; `#build {fn.Name}` cannot name it. " +
+						$"Read what it was built from instead.",
+						fn.Region, MessageType.Error));
+					continue;
+				}
+
+				if (!fn.RunConsts.Contains(c))
+					fn.RunConsts.Add(c);
+
+				Const fresh = (Const)FileBlock.Create(c.Source);
+				fn.Body.Insert(0, new ConstDef
+				{
+					TypeName = fresh.TypeName,
+					Name = fresh.Name,
+					Value = fresh.Initializer,
+					Region = fresh.Region,
+				});
+			}
+		}
+
+		//Named as a variable, or as the root of a path into it.
+		private static bool References(Function fn, string name) =>
+			fn.Body.SelectMany(s => s.DescendantsAndSelf())
+				.OfType<Variable>()
+				.Any(v => v.SymbolName == name || v.SymbolName.StartsWith(name + ".", StringComparison.Ordinal));
 
 		//Hoisted to the top of the entry in declaration order, so an included file's runs go first.
 		private static void HoistFileRuns(TranslationUnit tu, List<Message> messages)
