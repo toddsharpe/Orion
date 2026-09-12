@@ -23,6 +23,8 @@ namespace Orion.Ast
 		public bool IsBlock { get; set; }
 		//The F# parse node, retained so the monomorphizer can re-create a fresh AST per instantiation.
 		internal Lang.Syntax.FileBlock Source { get; set; }
+		//The file-scope `#run` constants this body names: a clone reparsed from Source needs the same locals put back at its top.
+		internal List<Const> RunConsts { get; } = new List<Const>();
 		internal SourceFunctionSymbol Symbol { get; set; }
 	}
 
@@ -60,6 +62,8 @@ namespace Orion.Ast
 		internal Literal Value { get; set; }
 		//`SECOND / 10` is constant but not a literal, so the expression is kept for binding to fold.
 		internal Expression Initializer { get; set; }
+		//The F# parse node, retained so a `#run` initializer can be re-created fresh for every function it lowers into.
+		internal Lang.Syntax.FileBlock Source { get; set; }
 	}
 
 	//A runtime platform service declared with a signature and no body: calls type-check and are emitted by name for the target's runtime to satisfy, and calling one at build time is rejected since there is nothing to execute.

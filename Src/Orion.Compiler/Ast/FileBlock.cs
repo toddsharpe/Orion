@@ -59,6 +59,7 @@ namespace Orion.Ast
 				},
 				Lang.Syntax.FileBlock.Const c => new Const
 				{
+					Source = block,
 					TypeName = TypeName.Create(c.Item1.Value),
 					Name = c.Item2.Value,
 					Value = Literal.FromExpression(Expression.Create(c.Item3.Value)),
