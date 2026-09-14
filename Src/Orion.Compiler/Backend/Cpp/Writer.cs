@@ -167,7 +167,7 @@ namespace Orion.Backend.Cpp
 			}
 		}
 
-		//The exported types, each definition under a guard of its name and shape: two programs sharing a type share one definition, and two meaning different things by one name collide as they should.
+		//A types file: its includes, then the exported enums and structs of one source; the umbrella is one with includes alone.
 		internal void WriteTypes(File file)
 		{
 			AppendLine("#pragma once");
@@ -175,60 +175,35 @@ namespace Orion.Backend.Cpp
 
 			foreach (Reference include in file.Includes)
 				Write(include);
-			AppendLine();
 
 			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
 			{
 				if (kvp.Value.Count == 0)
 					continue;
+				AppendLine();
 				WriteBlockComment(kvp.Key);
 				foreach (Enum @enum in kvp.Value)
-				{
-					string guard = Guard(@enum.Name, string.Join(";", @enum.Values.Select(i => $"{i.Key}={i.Value}")));
-					AppendLine($"#ifndef {guard}");
-					AppendLine($"#define {guard}");
 					Write(@enum);
-					AppendLine("#endif");
-				}
-				AppendLine();
 			}
 
-			//Forward declare first, as the translation unit does: a `Ref<T>` field may name a struct defined further down. A repeated forward declaration is harmless, so these go unguarded.
+			//Forward declare first, as the translation unit does: a `Ref<T>` field may name a struct defined further down.
 			List<Struct> structs = [.. file.Structs.SelectMany(i => i.Value)];
 			if (structs.Count > 0)
 			{
+				AppendLine();
 				foreach (Struct s in structs)
 					AppendLine($"struct {s.Name};");
-				AppendLine();
 			}
 
 			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
 			{
 				if (kvp.Value.Count == 0)
 					continue;
+				AppendLine();
 				WriteBlockComment(kvp.Key);
 				foreach (Struct s in kvp.Value)
-				{
-					string guard = Guard(s.Name, string.Join(";", s.Fields.Select(i => $"{i.Value} {i.Key}")));
-					AppendLine($"#ifndef {guard}");
-					AppendLine($"#define {guard}");
 					Write(s);
-					AppendLine("#endif");
-				}
-				AppendLine();
 			}
-		}
-
-		//ORION_TYPE_<name>_<digest>: the digest is FNV-1a over the shape, so a same-named type of a different shape gets a different guard and is redefined rather than silently taken.
-		private static string Guard(string name, string shape)
-		{
-			uint hash = 2166136261;
-			foreach (char c in shape)
-			{
-				hash ^= c;
-				hash *= 16777619;
-			}
-			return $"ORION_TYPE_{name}_{hash:X8}";
 		}
 
 		//Namespaced first, then file scope, each one run, so a later declaration may name an earlier one.

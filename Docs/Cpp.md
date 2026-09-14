@@ -50,15 +50,18 @@ external.
 ## The header
 
 `--lang cpp` also writes `<output>.h` (or `--header`) whenever the program says what its surface is:
-a declaration per `#export`ed function, over `<output>_types.h`, which holds the `#export`ed structs
-and enums and nothing else. The generated `.cpp` includes the header, so the C++ compiler checks the
-two agree. `main` is not declared there and neither is RTTI; the channel accessors *are*, whether or
-not the program declared a channel, since a platform links against `channel_push` either way.
+a declaration per `#export`ed function, over `<output>_types.h`, an umbrella naming one
+`<source>_types.h` per source file that declared an `#export`ed struct or enum. Each of those holds
+its source's types and includes the files its fields reach into. The generated `.cpp` includes the
+header, so the C++ compiler checks the two agree. `main` is not declared there and neither is RTTI;
+the channel accessors *are*, whether or not the program declared a channel, since a platform links
+against `channel_push` either way.
 
-The types companion is what a platform includes when it fills a program's structs without being that
-program's translation unit. Each definition sits under a guard of its name and shape, so a unit may
-include two programs' companions: a type they share opens once, and a type they mean differently by
-one name is redefined, which the compiler reports.
+The types files are what a platform includes when it fills a program's structs without being that
+program's translation unit. Two programs compiled into one directory that share a source share its
+file, so a unit may include both programs' umbrellas and `#pragma once` does the rest; two sources
+that mean different things by one name are two files, and including both is the redefinition it
+should be.
 
 `#export` is enforced: an exported signature naming a type the source did not export is rejected,
 because the header could not declare it. A type the platform needs is declared once in Orion and

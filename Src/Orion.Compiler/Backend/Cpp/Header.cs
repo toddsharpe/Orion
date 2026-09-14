@@ -1,5 +1,6 @@
 ﻿using Orion.Symbols;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace Orion.Backend.Cpp
@@ -44,23 +45,85 @@ namespace Orion.Backend.Cpp
 			);
 		}
 
-		//The types alone: what a platform may include without the surface, and beside another program's.
-		internal static File GenerateTypes(SymbolTable root) =>
-			new File
-			(
-				//The umbrella alone: a consumer includes one name, and the tiers are the translation unit's own concern.
-				[new Reference("Orion.h")],
-				new Dictionary<string, List<Enum>>
+		//The types alone, grouped by the source that declared them: `<source>_types.h` per file, each including the files its fields reach into, and the umbrella first, including them all. A platform includes one file for the types it fills; two programs that share a source share that file.
+		internal static List<(string Name, File File)> GenerateTypes(SymbolTable root, string umbrella)
+		{
+			List<StructTypeSymbol> structs = StructOrder.Sort(root.Traverse().SelectMany(i => i.GetAll<StructTypeSymbol>()).Distinct()).Where(i => i.IsExport).ToList();
+			List<EnumTypeSymbol> enums = root.Traverse().SelectMany(i => i.GetAll<EnumTypeSymbol>()).Distinct().Where(i => i.IsExport).ToList();
+
+			//Every exported type's file, so a field's type can be traced to the file that must come first.
+			Dictionary<TypeSymbol, string> owner = new Dictionary<TypeSymbol, string>();
+			foreach (StructTypeSymbol s in structs)
+				owner[s] = TypesFile(s.Region?.File, umbrella);
+			foreach (EnumTypeSymbol e in enums)
+				owner[e] = TypesFile(e.Region?.File, umbrella);
+
+			List<string> names = owner.Values.Distinct().OrderBy(i => i, System.StringComparer.Ordinal).ToList();
+			List<(string, File)> files = new List<(string, File)>();
+
+			//The umbrella names every file; when the program's own source declared types, its file IS the umbrella, its own types after the includes.
+			bool own_umbrella = names.Contains(umbrella);
+			if (!own_umbrella)
+				files.Add((umbrella, new File(
+					[.. names.Select(i => new Reference(i, Local: true))],
+					new Dictionary<string, List<Enum>>(),
+					new Dictionary<string, List<Struct>>(),
+					new Dictionary<string, List<Declaration>>(),
+					[]
+				)));
+
+			foreach (string name in names.OrderBy(i => i == umbrella ? 0 : 1))
+			{
+				List<StructTypeSymbol> own = structs.Where(i => owner[i] == name).ToList();
+				List<Reference> includes = [new Reference("Orion.h")];
+				IEnumerable<string> deps = name == umbrella
+					? names.Where(i => i != umbrella)
+					: own.SelectMany(i => i.Fields).Select(i => Held(i.Type)).Where(i => i != null && owner.ContainsKey(i)).Select(i => owner[i]).Distinct().Where(i => i != name).OrderBy(i => i, System.StringComparer.Ordinal);
+				foreach (string dep in deps)
+					includes.Add(new Reference(dep, Local: true));
+
+				files.Add((name, new File(
+					includes,
+					new Dictionary<string, List<Enum>>
+					{
+						{ "Exported enums", [.. enums.Where(i => owner[i] == name).Select(i => new Enum(i.Name, i.Members.ToDictionary(m => Codegen.Cpp(m.Name), m => m.Value)))] },
+					},
+					new Dictionary<string, List<Struct>>
+					{
+						{ "Exported structs", [.. own.Select(i => new Struct(i.Name, i.Fields.ToDictionary(f => f.Name, f => Codegen.Cpp(f.Type))))] },
+					},
+					new Dictionary<string, List<Declaration>>(),
+					[]
+				)));
+			}
+
+			return files;
+		}
+
+		//`<source>_types.h` for the source that declared a type; a type with no source of its own is the umbrella's.
+		private static string TypesFile(string source, string umbrella) =>
+			source == null ? umbrella : Path.GetFileNameWithoutExtension(source) + "_types.h";
+
+		//The type a field holds, through any buffer or reference around it: what its file must have defined or declared first.
+		private static TypeSymbol Held(TypeSymbol type)
+		{
+			while (true)
+			{
+				switch (type)
 				{
-					{ "Exported enums", CreateEnums(root) },
-				},
-				new Dictionary<string, List<Struct>>
-				{
-					{ "Exported structs", CreateStructs(root) },
-				},
-				new Dictionary<string, List<Declaration>>(),
-				[]
-			);
+					case BufferTypeSymbol buffer:
+						type = buffer.Element;
+						continue;
+					case RefTypeSymbol reference:
+						type = reference.Element;
+						continue;
+					case StructTypeSymbol or EnumTypeSymbol:
+						return type;
+					default:
+						return null;
+				}
+			}
+		}
 
 		//The externs the program calls, declared here so the platform's definition compiles against the same contract; one naming an unexported type stays out, since the header could not spell it.
 		private static List<Function> CreateExterns(List<SourceFunctionSymbol> reachable) =>

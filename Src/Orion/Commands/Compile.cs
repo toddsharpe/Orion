@@ -192,7 +192,7 @@ namespace Orion.Commands
 			string headerFile = language != BackendLanguage.Cpp ? null
 				: header ?? Path.Combine(outputDir, outputBaseName + ".h");
 
-			//The exported types on their own beside the header, so vehicle.h has vehicle_types.h.
+			//The exported types on their own beside the header, so vehicle.h has vehicle_types.h, over one file per source that declared them.
 			string typesFile = headerFile == null ? null
 				: Path.Combine(Path.GetDirectoryName(headerFile), Path.GetFileNameWithoutExtension(headerFile) + "_types.h");
 
@@ -252,10 +252,11 @@ namespace Orion.Commands
 				Console.WriteLine($"Wrote: {headerFile}");
 			}
 
-			if (result.TypesOutput != null)
+			foreach (OutputFile types in result.TypesOutputs)
 			{
-				File.WriteAllText(typesFile, result.TypesOutput);
-				Console.WriteLine($"Wrote: {typesFile}");
+				string path = Path.Combine(Path.GetDirectoryName(typesFile), types.Name);
+				File.WriteAllText(path, types.Text);
+				Console.WriteLine($"Wrote: {path}");
 			}
 
 			//Written even when empty, so a stale transcript cannot outlive the run that would have replaced it.

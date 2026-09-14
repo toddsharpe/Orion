@@ -50,15 +50,20 @@ namespace Orion.Backend.Cpp
 			return writer.ToString();
 		}
 
-		//The exported types alone, each definition under a guard of its name and shape, so a consumer may include two programs' types and share what they share.
-		public string RenderTypes(SymbolTable root, CallGraph.Node main)
+		//The exported types alone: one file per source that declared them, and the umbrella first, naming them all. Two programs that share a source share its file, and the compiler's own once-only does the rest.
+		public List<OutputFile> RenderTypes(SymbolTable root, CallGraph.Node main, string umbrella)
 		{
 			if (!Header.HasSurface(root))
 				return null;
 
-			Writer writer = new Writer();
-			writer.WriteTypes(Header.GenerateTypes(root));
-			return writer.ToString();
+			List<OutputFile> files = new List<OutputFile>();
+			foreach ((string name, File file) in Header.GenerateTypes(root, umbrella))
+			{
+				Writer writer = new Writer();
+				writer.WriteTypes(file);
+				files.Add(new OutputFile(name, writer.ToString()));
+			}
+			return files;
 		}
 
 		private File Generate(SymbolTable root, string header)

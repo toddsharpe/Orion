@@ -1,3 +1,5 @@
+using System.Linq;
+
 namespace Orion.Tests.Backend
 {
 	//What `#export` puts in the C++ surface header and keeps out; Tests/Headers proves it by compiling a consumer, and this covers the same rules on a machine with no C++ toolchain.
@@ -74,34 +76,95 @@ i32 helper(i32 n)
 			StringAssert.Contains(result.HeaderOutput, "i32 channel_count();", "the channel accessors are missing.");
 		}
 
-		//The types companion: the umbrella, every exported enum and struct, each under a guard of its name and shape, and no function at all.
+		//The types: an umbrella naming one file per source that declared an exported type, that file holding the enums and structs of its source and no function at all.
 		[TestMethod]
-		public void TheTypesCarryTheExportedTypesUnderGuards()
+		public void TheTypesAreOneFilePerDeclaringSource()
 		{
 			CompilerResult result = Compile(Surface);
 			result.AssertNoErrors();
 
-			StringAssert.Contains(result.TypesOutput, "#include <Orion.h>", "the umbrella include is missing.");
-			StringAssert.Contains(result.TypesOutput, "enum class Phase", "the exported enum is missing.");
-			Assert.IsTrue(Defines(result.TypesOutput, "Reading"), "the exported struct is missing.");
-			StringAssert.Contains(result.TypesOutput, "#ifndef ORION_TYPE_Reading_", "the struct is not guarded.");
-			StringAssert.Contains(result.TypesOutput, "#ifndef ORION_TYPE_Phase_", "the enum is not guarded.");
-			Assert.IsFalse(result.TypesOutput.Contains("latest("), "a function reached the types.");
-			Assert.IsFalse(result.TypesOutput.Contains("Scratch"), "an unexported struct reached the types.");
+			StringAssert.Contains(result.TypesOutput, "#include \"main_types.h\"", "the umbrella does not name the source's file.");
+			Assert.IsFalse(result.TypesOutput.Contains("struct Reading"), "the umbrella defines a type itself.");
+
+			OutputFile main = result.TypesOutputs.Single(i => i.Name == "main_types.h");
+			StringAssert.Contains(main.Text, "#include <Orion.h>", "the umbrella include is missing.");
+			StringAssert.Contains(main.Text, "enum class Phase", "the exported enum is missing.");
+			Assert.IsTrue(Defines(main.Text, "Reading"), "the exported struct is missing.");
+			Assert.IsFalse(main.Text.Contains("latest("), "a function reached the types.");
+			Assert.IsFalse(main.Text.Contains("Scratch"), "an unexported struct reached the types.");
 		}
 
-		//The guard is the shape as well as the name: the same type in two programs opens once, a different type under one name is redefined rather than silently taken.
+		//A type from a `#using`'d source lands in that source's file, and a file whose struct holds it includes that file first: two programs sharing the source share the file, and the compiler's once-only does the rest.
 		[TestMethod]
-		public void TheGuardFollowsTheShape()
+		public void AUsedSourceGetsItsOwnTypesFileAndIsIncludedByWhatHoldsIt()
 		{
-			CompilerResult same = Compile(Surface);
-			CompilerResult other = Compile(Surface.Replace("f64 value;", "f64 value;\n\ti32 extra;"));
-			same.AssertNoErrors();
-			other.AssertNoErrors();
+			CompilerResult result = Harness.CompileWithHeader(HeaderName, @"
+#using ""wire.src""
 
-			string GuardOf(string types) => System.Text.RegularExpressions.Regex.Match(types, @"#ifndef (ORION_TYPE_Reading_[0-9A-F]+)").Groups[1].Value;
-			Assert.AreEqual(GuardOf(same.TypesOutput), GuardOf(Compile(Surface).TypesOutput), "the same shape got two guards.");
-			Assert.AreNotEqual(GuardOf(same.TypesOutput), GuardOf(other.TypesOutput), "a different shape got the same guard.");
+#export struct Reading
+{
+	Wire wire;
+	f64 value;
+}
+
+#export Reading latest()
+{
+	return Reading{ wire = Wire{ group = 1:u32 }, value = 2.0 };
+}
+
+#build i32 main()
+{
+	return 0;
+}
+", ("wire.src", @"
+#export struct Wire
+{
+	u32 group;
+}
+"));
+			result.AssertNoErrors();
+
+			OutputFile wire = result.TypesOutputs.Single(i => i.Name == "wire_types.h");
+			OutputFile main = result.TypesOutputs.Single(i => i.Name == "main_types.h");
+			Assert.IsTrue(Defines(wire.Text, "Wire"), "the used source's type is not in its own file.");
+			Assert.IsFalse(Defines(main.Text, "Wire"), "the program's file repeats a type another source declared.");
+			StringAssert.Contains(main.Text, "#include \"wire_types.h\"", "the file holding a Wire does not include the file that defines it.");
+			StringAssert.Contains(result.TypesOutput, "#include \"wire_types.h\"", "the umbrella does not name the used source's file.");
+		}
+
+		//`orion compile` names the header after the source, so the program's own file and the umbrella are one: its types after the includes of every other file, and no second file by that name.
+		[TestMethod]
+		public void TheProgramsOwnTypesLiveInTheUmbrella()
+		{
+			CompilerResult result = Harness.CompileWithHeader("main.h", @"
+#using ""wire.src""
+
+#export struct Reading
+{
+	Wire wire;
+}
+
+#export Reading latest()
+{
+	return Reading{ wire = Wire{ group = 1:u32 } };
+}
+
+#build i32 main()
+{
+	return 0;
+}
+", ("wire.src", @"
+#export struct Wire
+{
+	u32 group;
+}
+"));
+			result.AssertNoErrors();
+
+			Assert.AreEqual(1, result.TypesOutputs.Count(i => i.Name == "main_types.h"), "the umbrella and the program's own file are two files by one name.");
+			StringAssert.Contains(result.TypesOutput, "#include \"wire_types.h\"", "the umbrella does not name the used source's file.");
+			Assert.IsTrue(Defines(result.TypesOutput, "Reading"), "the program's own type is not in the umbrella.");
+			Assert.IsFalse(Defines(result.TypesOutput, "Wire"), "the umbrella repeats a type another source declared.");
 		}
 
 		[TestMethod]
@@ -145,6 +208,7 @@ i32 main()
 			result.AssertNoErrors();
 			Assert.IsNull(result.HeaderOutput, "a program with no `#export` was given a header.");
 			Assert.IsNull(result.TypesOutput, "a program with no `#export` was given a types companion.");
+			Assert.AreEqual(0, result.TypesOutputs.Count, "a program with no `#export` was given a types file.");
 			Assert.IsFalse(result.CodeOutput.Contains($"#include \"{HeaderName}\""), "the .cpp includes a header that was never written.");
 		}
 
@@ -170,7 +234,7 @@ i32 main()
 }
 ");
 			result.AssertNoErrors();
-			StringAssert.Contains(result.TypesOutput, "struct Wire", "an exported type no function mentions was pruned.");
+			Assert.IsTrue(Defines(result.TypesOutputs.Single(i => i.Name == "main_types.h").Text, "Wire"), "an exported type no function mentions was pruned.");
 		}
 
 		//The rule that makes the header possible: it can only declare what the source said to export.

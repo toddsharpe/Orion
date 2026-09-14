@@ -12,7 +12,7 @@ namespace Orion.Backend
 		string Render(SymbolTable root, CallGraph.Node main);
 
 		string RenderHeader(SymbolTable root, CallGraph.Node main) => null;
-		string RenderTypes(SymbolTable root, CallGraph.Node main) => null;
+		List<OutputFile> RenderTypes(SymbolTable root, CallGraph.Node main, string umbrella) => null;
 	}
 
 	//What a target can express; the shared rewrites read it, so each is written once and a target says what it needs.
