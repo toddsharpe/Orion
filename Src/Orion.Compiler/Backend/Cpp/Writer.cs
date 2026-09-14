@@ -167,6 +167,46 @@ namespace Orion.Backend.Cpp
 			}
 		}
 
+		//The exported types alone, as the header used to carry them: a unit includes one program's types, and two units defining a shared type alike is what the one-definition rule allows.
+		internal void WriteTypes(File file)
+		{
+			AppendLine("#pragma once");
+			AppendLine();
+
+			foreach (Reference include in file.Includes)
+				Write(include);
+			AppendLine();
+
+			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
+			{
+				if (kvp.Value.Count == 0)
+					continue;
+				WriteBlockComment(kvp.Key);
+				foreach (Enum @enum in kvp.Value)
+					Write(@enum);
+				AppendLine();
+			}
+
+			//Forward declare first, as the translation unit does: a `Ref<T>` field may name a struct defined further down.
+			List<Struct> structs = [.. file.Structs.SelectMany(i => i.Value)];
+			if (structs.Count > 0)
+			{
+				foreach (Struct s in structs)
+					AppendLine($"struct {s.Name};");
+				AppendLine();
+			}
+
+			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
+			{
+				if (kvp.Value.Count == 0)
+					continue;
+				WriteBlockComment(kvp.Key);
+				foreach (Struct s in kvp.Value)
+					Write(s);
+				AppendLine();
+			}
+		}
+
 		//Namespaced first, then file scope, each one run, so a later declaration may name an earlier one.
 		private static IEnumerable<IGrouping<string, T>> Grouped<T>(IEnumerable<T> items, Func<T, string> ns) =>
 			items.GroupBy(ns).OrderBy(i => i.Key == null);
