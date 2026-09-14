@@ -12,6 +12,7 @@ namespace Orion.Backend
 		string Render(SymbolTable root, CallGraph.Node main);
 
 		string RenderHeader(SymbolTable root, CallGraph.Node main) => null;
+		string RenderTypes(SymbolTable root, CallGraph.Node main) => null;
 	}
 
 	//What a target can express; the shared rewrites read it, so each is written once and a target says what it needs.
@@ -23,9 +24,9 @@ namespace Orion.Backend
 		bool CStyleFor,
 		bool Switch)
 	{
-		internal static Target For(BackendLanguage lang, string header = null, string name = null) => lang switch
+		internal static Target For(BackendLanguage lang, string header = null, string name = null, string types = null) => lang switch
 		{
-			BackendLanguage.Cpp => new Target(new Cpp.Codegen(header), ByRefParams: true, StaticLocals: true, DoWhile: true, CStyleFor: true, Switch: true),
+			BackendLanguage.Cpp => new Target(new Cpp.Codegen(header, types), ByRefParams: true, StaticLocals: true, DoWhile: true, CStyleFor: true, Switch: true),
 			BackendLanguage.Python => new Target(new Python.Codegen(), ByRefParams: false, StaticLocals: false, DoWhile: false, CStyleFor: false, Switch: false),
 			BackendLanguage.JavaScript => new Target(new JavaScript.Codegen(), ByRefParams: false, StaticLocals: false, DoWhile: false, CStyleFor: false, Switch: false),
 			//`ref` is real here so an #output param stays one, but C# has no function statics to keep #state in.

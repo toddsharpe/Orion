@@ -67,6 +67,9 @@ namespace Orion
 
 		public string HeaderName { get; set; }
 
+		//The header's companion holding the exported types alone, so two programs' types can share a translation unit; null with no header.
+		public string TypesName { get; set; }
+
 		//The output's basename: what the C# backend names its class for, so `Services.cs` holds `class Services`. Null is `Program`.
 		public string ProgramName { get; set; }
 	}
@@ -77,6 +80,7 @@ namespace Orion
 		public List<CompilerFile> Files { get; set; }
 		public string CodeOutput { get; set; }
 		public string HeaderOutput { get; set; }
+		public string TypesOutput { get; set; }
 		public string BuildOutput { get; set; }
 		public List<PhaseResult> Phases { get; set; }
 		public List<DeclaredTest> Declared { get; set; } = new List<DeclaredTest>();
@@ -136,6 +140,7 @@ namespace Orion
 		internal List<CallGraph.Node> Roots;
 		internal string Output;
 		internal string Header;
+		internal string Types;
 
 		//Runtime functions exist only once the build has run, so the list is made at first backend use.
 		private List<SourceFunctionSymbol> _runtime;
@@ -146,7 +151,7 @@ namespace Orion
 		{
 			Options = options;
 			Session = session;
-			Target = Target.For(options.Lang, options.HeaderName, options.ProgramName);
+			Target = Target.For(options.Lang, options.HeaderName, options.ProgramName, options.TypesName);
 		}
 
 		//An analysis carries only the unit and the root the pre-pass rows touch.
@@ -408,6 +413,7 @@ namespace Orion
 					ctx.Main = CallGraph.Create(ctx.Root).Find(Language.Entry);
 					ctx.Output = ctx.Target.Backend.Render(ctx.Root, ctx.Main);
 					ctx.Header = ctx.Options.HeaderName == null ? null : ctx.Target.Backend.RenderHeader(ctx.Root, ctx.Main);
+					ctx.Types = ctx.Options.TypesName == null ? null : ctx.Target.Backend.RenderTypes(ctx.Root, ctx.Main);
 					m.Trace($"Entry: {ctx.Main?.Value.Name ?? "none (library)"}");
 					m.Trace($"Rendered {Messages.Count(ctx.Root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Distinct().Count(), "function")} as {Messages.Count(ctx.Output.Split('\n').Length, "line")} of {ctx.Options.Lang}{(ctx.Header == null ? "" : $", plus {ctx.Options.HeaderName}")}");
 				},
@@ -477,6 +483,7 @@ namespace Orion
 				Files = ctx.Files,
 				CodeOutput = ctx.Output,
 				HeaderOutput = ctx.Header,
+				TypesOutput = ctx.Types,
 				BuildOutput = session.Output,
 				Phases = phases,
 				Declared = session.Declared,
