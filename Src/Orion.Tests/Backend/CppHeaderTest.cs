@@ -11,6 +11,10 @@ namespace Orion.Tests.Backend
 		private static CompilerResult Compile(string source) =>
 			Harness.CompileWithHeader(HeaderName, source);
 
+		//A definition rather than the forward declaration: the name, then the brace on the next line, whichever way the platform ends its lines.
+		private static bool Defines(string text, string name) =>
+			System.Text.RegularExpressions.Regex.IsMatch(text, $@"struct {name}\r?\n\{{");
+
 		private const string Surface = @"
 #export enum Phase
 {
@@ -62,7 +66,7 @@ i32 helper(i32 n)
 			StringAssert.Contains(result.HeaderOutput, $"#include \"{TypesName}\"", "the header does not include its types.");
 			Assert.IsFalse(result.HeaderOutput.Contains("Orion_core.h"), "the header spells a runtime tier the umbrella already covers.");
 			Assert.IsFalse(result.HeaderOutput.Contains("enum class Phase"), "the header repeats an enum the types companion owns.");
-			Assert.IsFalse(result.HeaderOutput.Contains("struct Reading\n"), "the header repeats a struct the types companion owns.");
+			Assert.IsFalse(Defines(result.HeaderOutput, "Reading"), "the header repeats a struct the types companion owns.");
 			StringAssert.Contains(result.HeaderOutput, "Reading latest(i32 seed);", "the exported function is missing.");
 			//An `#output` parameter is a reference, which is what makes it a second result to a consumer.
 			StringAssert.Contains(result.HeaderOutput, "void bump(i32& n);", "the out parameter is not a reference.");
@@ -79,7 +83,7 @@ i32 helper(i32 n)
 
 			StringAssert.Contains(result.TypesOutput, "#include <Orion.h>", "the umbrella include is missing.");
 			StringAssert.Contains(result.TypesOutput, "enum class Phase", "the exported enum is missing.");
-			StringAssert.Contains(result.TypesOutput, "struct Reading\n", "the exported struct is missing.");
+			Assert.IsTrue(Defines(result.TypesOutput, "Reading"), "the exported struct is missing.");
 			StringAssert.Contains(result.TypesOutput, "#ifndef ORION_TYPE_Reading_", "the struct is not guarded.");
 			StringAssert.Contains(result.TypesOutput, "#ifndef ORION_TYPE_Phase_", "the enum is not guarded.");
 			Assert.IsFalse(result.TypesOutput.Contains("latest("), "a function reached the types.");
