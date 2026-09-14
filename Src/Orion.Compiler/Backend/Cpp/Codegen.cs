@@ -20,10 +20,12 @@ namespace Orion.Backend.Cpp
 		private static readonly Dictionary<UnaryTacOp, string> UnaryOps = Spelling.Unary;
 
 		private readonly string _header;
+		private readonly string _types;
 
-		internal Codegen(string header = null)
+		internal Codegen(string header = null, string types = null)
 		{
 			_header = header;
+			_types = types;
 		}
 
 		public string Render(SymbolTable root, CallGraph.Node main)
@@ -44,7 +46,18 @@ namespace Orion.Backend.Cpp
 				return null;
 
 			Writer writer = new Writer();
-			writer.WriteHeader(Header.Generate(root));
+			writer.WriteHeader(Header.Generate(root, _types));
+			return writer.ToString();
+		}
+
+		//The exported types alone, each definition under a guard of its name and shape, so a consumer may include two programs' types and share what they share.
+		public string RenderTypes(SymbolTable root, CallGraph.Node main)
+		{
+			if (!Header.HasSurface(root))
+				return null;
+
+			Writer writer = new Writer();
+			writer.WriteTypes(Header.GenerateTypes(root));
 			return writer.ToString();
 		}
 

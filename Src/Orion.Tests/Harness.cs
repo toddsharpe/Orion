@@ -49,6 +49,7 @@ namespace Orion.Tests
 					WorkingDirectory = dir,
 					Lang = lang,
 					HeaderName = header,
+					TypesName = header == null ? null : Path.GetFileNameWithoutExtension(header) + "_types.h",
 					Defines = [.. defines ?? []],
 					Rtti = rtti,
 					Testing = testing,

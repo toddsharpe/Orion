@@ -113,7 +113,7 @@ namespace Orion.Commands
 		private static readonly Option<string> SrcRootOption = new Option<string>("--src-root", "-s") { Description = "Source root a #using names its file from." };
 		private static readonly Option<bool> VerboseOption = new Option<bool>("--verbose", "-v") { Description = "Print each phase and the state it produced." };
 		private static readonly Option<string> LangOption = new Option<string>("--lang", "-l") { Description = "Backend: cpp, python, javascript or csharp.", Required = true };
-		private static readonly Option<string> HeaderOption = new Option<string>("--header", "-H") { Description = "Header to write for --lang cpp; beside the output when unset." };
+		private static readonly Option<string> HeaderOption = new Option<string>("--header", "-H") { Description = "Header to write for --lang cpp; beside the output when unset. Its exported types go beside it as <header>_types.h." };
 		//Given no path it still means "log", so it takes an optional value and an empty one stands for the default place.
 		private static readonly Option<string> LogOption = new Option<string>("--log", "-L") { Description = "Send the build transcript to a file rather than the console; beside the output when given no path.", Arity = ArgumentArity.ZeroOrOne };
 		private static readonly Option<bool> NoTestOption = new Option<bool>("--no-test") { Description = "Leave the program's #tests unrun, so a broken one still writes the output." };
@@ -192,6 +192,10 @@ namespace Orion.Commands
 			string headerFile = language != BackendLanguage.Cpp ? null
 				: header ?? Path.Combine(outputDir, outputBaseName + ".h");
 
+			//The exported types on their own beside the header, so vehicle.h has vehicle_types.h.
+			string typesFile = headerFile == null ? null
+				: Path.Combine(Path.GetDirectoryName(headerFile), Path.GetFileNameWithoutExtension(headerFile) + "_types.h");
+
 			//`--log` sends the build transcript beside the output instead of to the console, as the header is.
 			string logFile = log == null ? null
 				: log.Length == 0 ? Path.Combine(outputDir, outputBaseName + ".log") : log;
@@ -206,6 +210,7 @@ namespace Orion.Commands
 				SrcRoot = srcRoot,
 				Lang = language,
 				HeaderName = headerFile == null ? null : Path.GetFileName(headerFile),
+				TypesName = typesFile == null ? null : Path.GetFileName(typesFile),
 				ProgramName = outputBaseName,
 				Testing = !noTest,
 				OnPhase = verbose ? OnPhase : null,
@@ -245,6 +250,12 @@ namespace Orion.Commands
 			{
 				File.WriteAllText(headerFile, result.HeaderOutput);
 				Console.WriteLine($"Wrote: {headerFile}");
+			}
+
+			if (result.TypesOutput != null)
+			{
+				File.WriteAllText(typesFile, result.TypesOutput);
+				Console.WriteLine($"Wrote: {typesFile}");
 			}
 
 			//Written even when empty, so a stale transcript cannot outlive the run that would have replaced it.

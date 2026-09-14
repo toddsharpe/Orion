@@ -4,8 +4,9 @@ namespace Orion.Tests.Backend
 	[TestClass]
 	public class CppHeaderTest
 	{
-		//`orion compile` names the header after the output; a compile that is not asked for one gets none.
+		//`orion compile` names the header after the output, and its types companion after the header; a compile that is not asked for one gets neither.
 		private const string HeaderName = "program.h";
+		private const string TypesName = "program_types.h";
 
 		private static CompilerResult Compile(string source) =>
 			Harness.CompileWithHeader(HeaderName, source);
@@ -57,16 +58,46 @@ i32 helper(i32 n)
 			CompilerResult result = Compile(Surface);
 			result.AssertNoErrors();
 
-			//One include is the whole runtime story for a consumer; the tiers are the translation unit's own concern.
-			StringAssert.Contains(result.HeaderOutput, "#include <Orion.h>", "the umbrella include is missing.");
+			//The header names its types companion and nothing else of the runtime: the companion carries the umbrella.
+			StringAssert.Contains(result.HeaderOutput, $"#include \"{TypesName}\"", "the header does not include its types.");
 			Assert.IsFalse(result.HeaderOutput.Contains("Orion_core.h"), "the header spells a runtime tier the umbrella already covers.");
-			StringAssert.Contains(result.HeaderOutput, "enum class Phase", "the exported enum is missing.");
-			StringAssert.Contains(result.HeaderOutput, "struct Reading", "the exported struct is missing.");
+			Assert.IsFalse(result.HeaderOutput.Contains("enum class Phase"), "the header repeats an enum the types companion owns.");
+			Assert.IsFalse(result.HeaderOutput.Contains("struct Reading\n"), "the header repeats a struct the types companion owns.");
 			StringAssert.Contains(result.HeaderOutput, "Reading latest(i32 seed);", "the exported function is missing.");
 			//An `#output` parameter is a reference, which is what makes it a second result to a consumer.
 			StringAssert.Contains(result.HeaderOutput, "void bump(i32& n);", "the out parameter is not a reference.");
 			//Every program is given these, and they used to be hand-declared in Orion_channels.h.
 			StringAssert.Contains(result.HeaderOutput, "i32 channel_count();", "the channel accessors are missing.");
+		}
+
+		//The types companion: the umbrella, every exported enum and struct, each under a guard of its name and shape, and no function at all.
+		[TestMethod]
+		public void TheTypesCarryTheExportedTypesUnderGuards()
+		{
+			CompilerResult result = Compile(Surface);
+			result.AssertNoErrors();
+
+			StringAssert.Contains(result.TypesOutput, "#include <Orion.h>", "the umbrella include is missing.");
+			StringAssert.Contains(result.TypesOutput, "enum class Phase", "the exported enum is missing.");
+			StringAssert.Contains(result.TypesOutput, "struct Reading\n", "the exported struct is missing.");
+			StringAssert.Contains(result.TypesOutput, "#ifndef ORION_TYPE_Reading_", "the struct is not guarded.");
+			StringAssert.Contains(result.TypesOutput, "#ifndef ORION_TYPE_Phase_", "the enum is not guarded.");
+			Assert.IsFalse(result.TypesOutput.Contains("latest("), "a function reached the types.");
+			Assert.IsFalse(result.TypesOutput.Contains("Scratch"), "an unexported struct reached the types.");
+		}
+
+		//The guard is the shape as well as the name: the same type in two programs opens once, a different type under one name is redefined rather than silently taken.
+		[TestMethod]
+		public void TheGuardFollowsTheShape()
+		{
+			CompilerResult same = Compile(Surface);
+			CompilerResult other = Compile(Surface.Replace("f64 value;", "f64 value;\n\ti32 extra;"));
+			same.AssertNoErrors();
+			other.AssertNoErrors();
+
+			string GuardOf(string types) => System.Text.RegularExpressions.Regex.Match(types, @"#ifndef (ORION_TYPE_Reading_[0-9A-F]+)").Groups[1].Value;
+			Assert.AreEqual(GuardOf(same.TypesOutput), GuardOf(Compile(Surface).TypesOutput), "the same shape got two guards.");
+			Assert.AreNotEqual(GuardOf(same.TypesOutput), GuardOf(other.TypesOutput), "a different shape got the same guard.");
 		}
 
 		[TestMethod]
@@ -109,6 +140,7 @@ i32 main()
 ");
 			result.AssertNoErrors();
 			Assert.IsNull(result.HeaderOutput, "a program with no `#export` was given a header.");
+			Assert.IsNull(result.TypesOutput, "a program with no `#export` was given a types companion.");
 			Assert.IsFalse(result.CodeOutput.Contains($"#include \"{HeaderName}\""), "the .cpp includes a header that was never written.");
 		}
 
@@ -134,7 +166,7 @@ i32 main()
 }
 ");
 			result.AssertNoErrors();
-			StringAssert.Contains(result.HeaderOutput, "struct Wire", "an exported type no function mentions was pruned.");
+			StringAssert.Contains(result.TypesOutput, "struct Wire", "an exported type no function mentions was pruned.");
 		}
 
 		//The rule that makes the header possible: it can only declare what the source said to export.
