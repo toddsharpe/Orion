@@ -19,6 +19,7 @@ namespace Orion.BuildTime
 			typeof(Builtins.ChannelBuiltins),
 			typeof(Builtins.CodeBuiltins),
 			typeof(Builtins.CsvBuiltins),
+			typeof(Builtins.DefineBuiltins),
 			typeof(Builtins.EnumBuiltins),
 			typeof(Builtins.FileBuiltins),
 			typeof(Builtins.FunctionBuiltins),

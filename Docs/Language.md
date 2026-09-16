@@ -81,6 +81,16 @@ block's `#param`, a generic's type parameter or a literal, and may ask what a ty
 `Type::IsStruct`, `Type::IsArray`, `Type::IsAlias`, `Struct::HasField`, `Enum::Has`, or `T == i32`.
 It cannot ask how big a type is: layout does not exist until binding, which is after the fold.
 
+A condition may also name a `-D` define. A define is not a symbol — the fold happens before anything
+binds, so naming one in an expression finds nothing — and `Define::Get(name, fallback)` is how the rest
+of a build reads one, with `Define::Has(name)` to tell an absent define from one set to the fallback's
+own text. Both are build-only: what a program does at runtime must not depend on a flag it cannot see.
+This is what keeps a build parameterised by a define from needing an `#if` arm per value:
+
+```
+const str path = $"Configs/{Define::Get("CONFIG_DIR", "Talon")}/geometry.src";
+```
+
 ## Operators
 
 C precedence, `? :` lowest, prefix/postfix highest: `|| && | ^ & == != < <= > >= << >> + - * / %`,

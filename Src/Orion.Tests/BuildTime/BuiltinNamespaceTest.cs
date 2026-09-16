@@ -16,7 +16,7 @@ namespace Orion.Tests.BuildTime
 		{
 			string[] expected =
 			[
-				"Array", "Build", "Channel", "Code", "Csv", "Enum", "File", "Function", "Graph",
+				"Array", "Build", "Channel", "Code", "Csv", "Define", "Enum", "File", "Function", "Graph",
 				"Instance", "List", "Map", "Output", "Port", "Solver", "Str", "Struct", "Time", "Type",
 			];
 
