@@ -4,15 +4,9 @@
 	[TestClass]
 	public class MathBuiltinTest
 	{
-		private static CompilerResult Compile(string body) =>
-			Harness.Compile("i32 main()\n{\n" + body + "\n\treturn 0;\n}\n");
+		private static CompilerResult Compile(string body) => Harness.CompileMain(body);
 
-		private static string Emit(BackendLanguage lang, string body)
-		{
-			CompilerResult result = Harness.CompileTo(lang, "i32 main()\n{\n" + body + "\n\treturn 0;\n}\n");
-			result.AssertNoErrors();
-			return result.CodeOutput;
-		}
+		private static string Emit(BackendLanguage lang, string body) => Harness.EmitMain(lang, body);
 
 		[TestMethod]
 		public void MathBuiltinsBindAtRuntime()

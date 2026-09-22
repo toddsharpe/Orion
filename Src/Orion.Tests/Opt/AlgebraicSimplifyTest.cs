@@ -4,7 +4,7 @@ using Orion.IR;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
-using TypeCode = Orion.Symbols.TypeCode;
+using static Orion.Tests.Opt.Tacs;
 
 namespace Orion.Tests.Opt
 {
@@ -12,21 +12,10 @@ namespace Orion.Tests.Opt
 	[TestClass]
 	public class AlgebraicSimplifyTest
 	{
-		private static readonly TypeSymbol I32 = new PrimitiveTypeSymbol(TypeCode.i32);
-		private static readonly TypeSymbol F64 = new PrimitiveTypeSymbol(TypeCode.f64);
-
 		private static SourceFunctionSymbol Func(BinaryTacOp op, DataSymbol a, DataSymbol b, TypeSymbol type, out NamedDataSymbol r)
 		{
-			SymbolTable root = new SymbolTable("Root");
-			SymbolTable table = root.CreateChild("Test");
 			r = new LocalDataSymbol("r", type, LocalStorage.Stack);
-			table.Add(r);
-			return new SourceFunctionSymbol("Test", type, [], table, new LinkedList<Tac>(
-			[
-				new FunctionMarkTac(MarkOp.Start),
-				new BinaryTac(op, r, a, b),
-				new FunctionMarkTac(MarkOp.End),
-			]));
+			return Function(type, Table(r), new BinaryTac(op, r, a, b));
 		}
 
 		private static Tac Simplified(SourceFunctionSymbol func)

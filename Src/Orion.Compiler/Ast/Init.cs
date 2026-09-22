@@ -31,4 +31,20 @@ namespace Orion.Ast
 			};
 		}
 	}
+
+	//`x = v`, `p.x = v`, `a[i] = v`; which expressions name a location the binder decides.
+	public class Assign : Init
+	{
+		public Expression Target { get; internal set; }
+		internal Expression Value { get; set; }
+	}
+
+	//A declaration with an initializer: `i32 x = v;`.
+	public class Construct : Init
+	{
+		public LocalDirective Directive { get; set; }
+		public TypeName TypeName { get; set; }
+		public string SymbolName { get; set; }
+		internal Expression Value { get; set; }
+	}
 }

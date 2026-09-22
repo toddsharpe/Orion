@@ -4,16 +4,17 @@ using System.Linq;
 
 namespace Orion.Tests.Graphs
 {
+	//The generic DirectedGraph the others build on: a node reached by an edge and leaving by none is an exit; an isolated one is not.
 	[TestClass]
 	public class DirectedGraphTests
 	{
 		[TestMethod]
-		public void TestExits()
+		public void ReachedNodesWithNoOutgoingEdgeAreTheExits()
 		{
 			DirectedGraph<int, object> graph = MakeGraph();
 
 			List<int> exits = graph.Exits().ToList();
-			Assert.AreEqual(exits.Count, 2);
+			Assert.AreEqual(2, exits.Count);
 			Assert.AreEqual(4, exits[0]);
 			Assert.AreEqual(5, exits[1]);
 		}

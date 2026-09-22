@@ -8,13 +8,7 @@ namespace Orion.BuildTime
 	{
 	}
 
-	/// <summary>A generic builtin whose EMITTED name carries its type argument: `pack&lt;u16&gt;` emits `pack_u16`.</summary>
-	[AttributeUsage(AttributeTargets.Method)]
-	public sealed class EmitPerTypeAttribute : Attribute
-	{
-	}
-
-	/// <summary>A method that writes its receiver, and so the part of the surface a const collection refuses.</summary>
+	//A method that writes its receiver, and so the part of the surface a const collection refuses.
 	[AttributeUsage(AttributeTargets.Method)]
 	public sealed class MutatingAttribute : Attribute
 	{

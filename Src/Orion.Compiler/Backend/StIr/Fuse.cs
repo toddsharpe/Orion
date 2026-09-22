@@ -7,10 +7,10 @@ using System.Linq;
 
 namespace Orion.Backend.StIr
 {
-	//The Backend/Optimize fusion pass: inlines single-use pure temps into their one use, with flush-before-clobber.
-	public static class Fuse
+	//The Backend/Fuse pass: inlines single-use pure temps into their one use, with flush-before-clobber.
+	internal static class Fuse
 	{
-		public static StCtrl Optimize(StCtrl root)
+		internal static StCtrl Optimize(StCtrl root)
 		{
 			(HashSet<DataSymbol> cands, HashSet<DataSymbol> single) = Candidates(root);
 			return Apply(root, cands, single);
@@ -22,27 +22,26 @@ namespace Orion.Backend.StIr
 		//Defer candidate temps, inline them at their use, and flush any that can't safely move.
 		private static StCtrl FuseSeq(List<StCtrl> items, HashSet<DataSymbol> cands, HashSet<DataSymbol> single)
 		{
-			Dictionary<DataSymbol, StExpr> deferred = new Dictionary<DataSymbol, StExpr>();
-			List<DataSymbol> order = new List<DataSymbol>();
+			//The deferred temps in definition order, so a flush writes each before the ones that read it.
+			List<(DataSymbol Symbol, StExpr Value)> deferred = new List<(DataSymbol, StExpr)>();
 			List<StCtrl> outItems = new List<StCtrl>();
 			List<StStmt> block = new List<StStmt>();
 
+			bool IsDeferred(DataSymbol t) => deferred.Any(d => d.Symbol == t);
+			StExpr Take(DataSymbol t)
+			{
+				int index = deferred.FindIndex(d => d.Symbol == t);
+				StExpr def = deferred[index].Value;
+				deferred.RemoveAt(index);
+				return def;
+			}
+
 			//Substitute deferred temps into an expression, consuming each as it is used.
 			StExpr Pull(StExpr e) => e.Rewrite(x =>
-				x is StLeaf l && deferred.ContainsKey(l.Symbol) ? PullDef(l.Symbol) : x);
-			StExpr PullDef(DataSymbol t)
-			{
-				StExpr def = deferred[t];
-				deferred.Remove(t); order.Remove(t);
-				return Pull(def);
-			}
-			void Flush(DataSymbol t)
-			{
-				StExpr def = deferred[t];
-				deferred.Remove(t); order.Remove(t);
-				block.Add(new StAssign(t, Pull(def)));
-			}
-			void FlushAll() { foreach (DataSymbol t in order.ToList()) Flush(t); }
+				x is StLeaf l && IsDeferred(l.Symbol) ? PullDef(l.Symbol) : x);
+			StExpr PullDef(DataSymbol t) => Pull(Take(t));
+			void Flush(DataSymbol t) => block.Add(new StAssign(t, Pull(Take(t))));
+			void FlushAll() { foreach ((DataSymbol t, _) in deferred.ToList()) Flush(t); }
 			void CloseBlock() { if (block.Count > 0) { outItems.Add(new StBlock(block)); block = new List<StStmt>(); } }
 
 			//A single-use temp consumed by the return inlines into its expression (the raw path stays for the rest).
@@ -50,7 +49,7 @@ namespace Orion.Backend.StIr
 			{
 				if (r.Tac is not ReturnSymTac { Symbol: TempDataSymbol t })
 					return null;
-				if (deferred.ContainsKey(t) && !Copies(t))
+				if (IsDeferred(t) && !Copies(t))
 					return PopTail(PullDef(t));
 				StExpr fused = PopTail(new StLeaf(t));
 				return fused is StLeaf ? null : fused;
@@ -107,7 +106,7 @@ namespace Orion.Backend.StIr
 			{
 				if (s is StAssign a && cands.Contains(a.Target))
 				{
-					deferred[a.Target] = a.Value; order.Add(a.Target);
+					deferred.Add((a.Target, a.Value));
 					return;
 				}
 
@@ -115,21 +114,21 @@ namespace Orion.Backend.StIr
 				HashSet<string> writeRoots = StmtWrites(s).Select(RootName).Where(n => n != null).ToHashSet();
 				HashSet<DataSymbol> reads = StmtReads(s).ToHashSet();
 				if (writeRoots.Count > 0)
-					foreach (DataSymbol t in order.ToList())
-						if (!reads.Contains(t) && ExprLeaves(deferred[t]).Any(x => writeRoots.Contains(RootName(x))))
+					foreach ((DataSymbol t, StExpr def) in deferred.ToList())
+						if (!reads.Contains(t) && ExprLeaves(def).Any(x => writeRoots.Contains(RootName(x))))
 							Flush(t);
 
 				//A callee may write state no argument names, so an impure call flushes every memory-reading def.
 				if (Impure(s))
-					foreach (DataSymbol t in order.ToList())
-						if (!reads.Contains(t) && ReadsMemory(deferred[t]))
+					foreach ((DataSymbol t, StExpr def) in deferred.ToList())
+						if (!reads.Contains(t) && ReadsMemory(def))
 							Flush(t);
 
 				if (s is StRaw)
 				{
 					//Can't inline an expression into a raw tac's operands -- materialize any temps it reads.
 					foreach (DataSymbol x in reads.ToList())
-						if (deferred.ContainsKey(x)) Flush(x);
+						if (IsDeferred(x)) Flush(x);
 					block.Add(s);
 				}
 				else
@@ -137,7 +136,7 @@ namespace Orion.Backend.StIr
 					//An `a[i] = v` target is rendered as written, so a temp in its address has to be materialized.
 					if (s is StAssign target)
 						foreach (DataSymbol x in TargetReads(target.Target).ToList())
-							if (deferred.ContainsKey(x)) Flush(x);
+							if (IsDeferred(x)) Flush(x);
 
 					block.Add(Adjacent(s switch
 					{
@@ -150,69 +149,24 @@ namespace Orion.Backend.StIr
 
 			foreach (StCtrl item in items)
 			{
-				switch (item)
+				if (item is StBlock b)
 				{
-					case StBlock b:
-						foreach (StStmt s in b.Stmts) ProcessStmt(s);
-						break;
-
-					case StIf f:
-					{
-						//The if-condition is evaluated once, immediately -- safe to inline deferred temps.
-						StExpr cond = Pull(f.Cond);
-						FlushAll(); CloseBlock();
-						outItems.Add(new StIf(cond, f.Negate, Apply(f.Then, cands, single), f.Else == null ? null : Apply(f.Else, cands, single)));
-						break;
-					}
-
-					//Loop conditions re-evaluate, so flush before the loop rather than inlining into them.
-					case StWhile w:
-						FlushAll(); CloseBlock();
-						outItems.Add(new StWhile(w.Cond, Apply(w.Body, cands, single)));
-						break;
-
-					case StDoWhile dw:
-						FlushAll(); CloseBlock();
-						outItems.Add(new StDoWhile(dw.Cond, Apply(dw.Body, cands, single)));
-						break;
-
-					//Clause and case values are already leaves; flush before, then fuse inside each arm.
-					case StSwitch sw:
-						FlushAll(); CloseBlock();
-						outItems.Add(new StSwitch(
-							sw.Clause,
-							sw.Cases.Select(cs => new StCase(cs.Value, Apply(cs.Body, cands, single))).ToList(),
-							sw.Default == null ? null : Apply(sw.Default, cands, single)));
-						break;
-
-					case StFor fr:
-						FlushAll(); CloseBlock();
-						outItems.Add(new StFor(fr.Init, fr.Cond, fr.Step, Apply(fr.Body, cands, single)));
-						break;
-
-					case StLoop l:
-						FlushAll(); CloseBlock();
-						outItems.Add(new StLoop(Apply(l.Body, cands, single)));
-						break;
-
-					case StSeq s:
-						FlushAll(); CloseBlock();
-						outItems.Add(Apply(s, cands, single));
-						break;
-
-					case StReturn r:
-					{
-						StExpr value = ReturnValue(r);
-						FlushAll(); CloseBlock();
-						outItems.Add(value != null ? r with { Value = value } : r);
-						break;
-					}
-
-					default:   //StBreak / StContinue
-						FlushAll(); CloseBlock();
-						outItems.Add(item);
-						break;
+					foreach (StStmt s in b.Stmts) ProcessStmt(s);
+					continue;
 				}
+
+				//Built before the flush: an if-condition and a return value are evaluated once, immediately, so deferred temps inline into them; the rest fuse inside their children on their own state.
+				StCtrl built = item switch
+				{
+					StIf f => new StIf(Pull(f.Cond), f.Negate, Apply(f.Then, cands, single), f.Else == null ? null : Apply(f.Else, cands, single)),
+					StReturn r => ReturnValue(r) is StExpr value ? r with { Value = value } : r,
+					//A nested sequence fuses across its items, not one at a time.
+					StSeq seq => Apply(seq, cands, single),
+					//Loop conditions re-evaluate and clause and case values are already leaves, so the flush precedes them and nothing inlines.
+					_ => item.RewriteChildren(i => Apply(i, cands, single)),
+				};
+				FlushAll(); CloseBlock();
+				outItems.Add(built);
 			}
 			FlushAll(); CloseBlock();
 			return outItems.Count == 1 ? outItems[0] : new StSeq(outItems);

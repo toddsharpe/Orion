@@ -11,33 +11,15 @@ namespace Orion.Backend.StIr
 		{
 			switch (c)
 			{
-				case StSeq s:
-					return new StSeq([.. s.Items.Select(i => Expand(i, t))]);
-
-				case StIf f:
-					return new StIf(f.Cond, f.Negate, Expand(f.Then, t), f.Else == null ? null : Expand(f.Else, t));
-
-				case StLoop l:
-					return new StLoop(Expand(l.Body, t));
-
-				case StWhile w:
-					return new StWhile(w.Cond, Expand(w.Body, t));
-
-				case StDoWhile d when !t.DoWhile:
+				case StDoWhile d when !t.CStyleControl:
 					return new StLoop(new StSeq([Expand(d.Body, t), new StIf(d.Cond, true, new StBreak(), null)]));
 
-				case StDoWhile d:
-					return new StDoWhile(d.Cond, Expand(d.Body, t));
-
-				case StFor fr when !t.CStyleFor:
+				case StFor fr when !t.CStyleControl:
 					return new StSeq([
 						new StBlock(fr.Init),
 						new StWhile(fr.Cond, new StSeq([Expand(fr.Body, t), new StBlock(fr.Step)]))]);
 
-				case StFor fr:
-					return new StFor(fr.Init, fr.Cond, fr.Step, Expand(fr.Body, t));
-
-				case StSwitch sw when !t.Switch:
+				case StSwitch sw when !t.CStyleControl:
 				{
 					StCtrl tail = sw.Default == null ? null : Expand(sw.Default, t);
 					for (int i = sw.Cases.Count - 1; i >= 0; i--)
@@ -49,14 +31,9 @@ namespace Orion.Backend.StIr
 					return tail ?? new StSeq([]);
 				}
 
-				case StSwitch sw:
-					return new StSwitch(
-						sw.Clause,
-						[.. sw.Cases.Select(i => new StCase(i.Value, Expand(i.Body, t)))],
-						sw.Default == null ? null : Expand(sw.Default, t));
-
+				//Every shape the target has stays, its children expanded.
 				default:
-					return c;
+					return c.RewriteChildren(i => Expand(i, t));
 			}
 		}
 	}

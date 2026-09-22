@@ -1,6 +1,7 @@
+using OmniSharp.Extensions.LanguageServer.Protocol.Models;
+using Orion.LangSvr;
 using System.Collections.Generic;
-using System.IO;
-using System;
+using System.Linq;
 
 namespace Orion.Tests
 {
@@ -46,30 +47,51 @@ i32 main()
 		[TestMethod]
 		public void AnalysisAfterTestingCompileDropsTests()
 		{
-			string dir = Path.Combine(Path.GetTempPath(), "orion_test_" + Guid.NewGuid().ToString("N"));
-			Directory.CreateDirectory(dir);
-			try
-			{
-				File.WriteAllText(Path.Combine(dir, "main.src"), "i32 main()\n{\n\treturn 0;\n}\n");
-
-				CompilerResult testing = Compiler.Run(new CompilerOptions
-				{
-					Input = Path.Combine(dir, "main.src"),
-					WorkingDirectory = dir,
-					Lang = BackendLanguage.Cpp,
-					Testing = true,
-				});
-				testing.AssertNoErrors();
-			}
-			finally
-			{
-				Directory.Delete(dir, true);
-			}
+			Harness.CompileTesting("i32 main()\n{\n\treturn 0;\n}\n").AssertNoErrors();
 
 			//A dropped #test never binds its entry, so the missing function only errors if Testing leaked true.
-			IReadOnlyList<OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic> diags =
-				LangSvr.Lang.Diagnostics("#test Missing \"leak pin\"\ni32 main()\n{\n\treturn 0;\n}\n");
+			IReadOnlyList<Diagnostic> diags = LangSvr.Lang.Diagnostics("#test Missing \"leak pin\"\ni32 main()\n{\n\treturn 0;\n}\n");
 			Assert.AreEqual(0, diags.Count, string.Join("\n", diags));
+		}
+
+		//A `#build` cell hoists into a process-global registry, and RTTI's Declare binds before the hoist pass clears the last one -- so a stale cell would be reported against a program that never wrote it.
+		private const string CellOwner = @"
+struct Digest
+{
+	i32 count;
+}
+
+#build Digest Make()
+{
+	return Digest{ count = 2 };
+}
+
+i32 main()
+{
+	#build const Digest d = Make();
+	#run { #insert { i32 n = ${d.count}; } }
+	return 0;
+}
+";
+
+		private const string Plain = "i32 main() { return 0; }";
+
+		[TestMethod]
+		public void ACompileDoesNotLeakItsBuildCellsIntoTheNext()
+		{
+			Harness.Compile(CellOwner).AssertNoErrors();
+			Harness.Compile(Plain).AssertNoErrors();
+		}
+
+		//The editor path stops after Binding, so it leaves the registry full where a compile would not.
+		[TestMethod]
+		public void AnAnalysisDoesNotLeakItsBuildCellsIntoTheNextCompile()
+		{
+			Analysis analysis = LangSvr.Lang.Analyze(CellOwner);
+			Assert.AreEqual(0, analysis.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error),
+				string.Join(" | ", analysis.Diagnostics.Select(d => d.Message)));
+
+			Harness.Compile(Plain).AssertNoErrors();
 		}
 	}
 }

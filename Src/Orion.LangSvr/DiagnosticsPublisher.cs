@@ -38,6 +38,8 @@ namespace Orion.LangSvr
 				if (token.IsCancellationRequested) return;
 
 				Analysis analysis = _workspace.AnalyzeCurrent(key);
+				//A Clear during the analysis wins: the closed document gets no stale push.
+				if (token.IsCancellationRequested) return;
 				_server.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
 				{
 					Uri = uri,
@@ -46,8 +48,15 @@ namespace Orion.LangSvr
 			});
 		}
 
+		//A closed document: its pending publish is cancelled and forgotten, then the client's squiggles are emptied.
 		public void Clear(DocumentUri uri)
 		{
+			if (_pending.TryRemove(uri.ToString(), out CancellationTokenSource cts))
+			{
+				cts.Cancel();
+				cts.Dispose();
+			}
+
 			_server.TextDocument.PublishDiagnostics(new PublishDiagnosticsParams
 			{
 				Uri = uri,

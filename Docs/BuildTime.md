@@ -95,13 +95,13 @@ becomes a literal the runtime indexes. `Array::Zeroed<T>(n)` is the same idea fo
 build knows.
 
 **Types as values.** `Type::Of<u16>()` and `Type::Parse("f64")` yield a `Type`, with `.Name`,
-`.Size`, `.Kind`, `.Length` and `.Element`, and `==` comparing identity. `Type::IsStruct`,
+`.Size`, `.Kind` and `.Element`, and `==` comparing identity. `Type::IsStruct`,
 `Struct::Fields`, `Struct::FieldType`, `Type::IsArray`, `Type::ArrayLength`, `Type::ArrayElement`,
 `Type::IsAlias`, `Type::AliasBase`, `Enum::Members` and `Enum::Value` walk what a declaration says —
 so a generator emits a packed frame from a struct without being told its layout twice.
 
-**Files and text.** `File::Open` / `File::ReadLine` / `File::HasLine` / `File::ReadAll`, `Csv::Rows`
-/ `Csv::Read<T>` (rows into a list of struct), `Str::Split`, `str_md5`, `Time::Now`, and
+**Files and text.** `File::Open` / `File::ReadLine` / `File::HasLine` / `File::ReadAll`,
+`Csv::Read<T>` (rows into a list of struct), `Str::Split`, `str_md5`, `Time::Now`, and
 `Str::To(text, type)` — which reads text *at a type*, so a config value splices as a literal of that
 type and cannot silently wrap.
 
@@ -136,7 +136,7 @@ writes beside the generated file as `<output>.log` under `--log`.
 ## Calling what the build just built
 
 A `#create`d block (see [Solver.md](Solver.md)) is an ordinary function once the build holds a
-handle to it, and `Function::Ref(name)` names any other, so the build can run them:
+handle to it, so the build can run it:
 
 ```
 const Function five = #create Scale(name = "by5", factor = 5);
@@ -160,3 +160,14 @@ does happens now, which is what makes it a library.
 
 Because build code is *the same language*, it typechecks, it can be stepped through by tests, and a
 generator's helper is an ordinary function the run stage may also call.
+
+## File-scope constants the build computes
+
+A file-scope `const T Name = #run { }` is the program's, but its value exists only once the build ran,
+after constants are interned. So Desugar lowers it to the local form that already folds: the same
+`const` at the top of every runtime function that names it. A `#build` function cannot name it, since
+a `#run` has no place in build code.
+
+An initializer that calls a function is the same thing written as an expression, since the constant
+folder never runs a call: a runtime function gets it as `#run { return <expr>; }`, and a `#build`
+function gets it as a plain local, since it can make the call itself.

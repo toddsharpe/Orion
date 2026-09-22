@@ -9,7 +9,6 @@ namespace Orion.LangSvr
 	// Serves go-to-definition (F12) from the workspace's cached analysis.
 	internal sealed class OrionDefinitionHandler : DefinitionHandlerBase
 	{
-		private const string LanguageId = "orion";
 		private readonly OrionWorkspace _workspace;
 
 		public OrionDefinitionHandler(OrionWorkspace workspace)
@@ -20,7 +19,7 @@ namespace Orion.LangSvr
 		protected override DefinitionRegistrationOptions CreateRegistrationOptions(DefinitionCapability capability, ClientCapabilities clientCapabilities) =>
 			new DefinitionRegistrationOptions
 			{
-				DocumentSelector = TextDocumentSelector.ForLanguage(LanguageId)
+				DocumentSelector = TextDocumentSelector.ForLanguage(OrionWorkspace.LanguageId)
 			};
 
 		public override Task<LocationOrLocationLinks> Handle(DefinitionParams request, CancellationToken cancellationToken)

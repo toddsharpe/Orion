@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 
 namespace Orion.Graphs
@@ -38,48 +37,33 @@ namespace Orion.Graphs
 
 		public IEnumerable<Node> Nodes => _lookup.Values;
 
-		private readonly OrderedDictionary<TNode, Node> _lookup;
-
-		public DirectedGraph()
-		{
-			_lookup = new OrderedDictionary<TNode, Node>();
-		}
+		private readonly OrderedDictionary<TNode, Node> _lookup = new OrderedDictionary<TNode, Node>();
 
 		public void Add(TNode node)
 		{
 			_lookup.Add(node, new Node(node, [], []));
 		}
 
-		public void Delete(TNode node)
+		//Drops the node from the lookup only, its neighbours' edge lists untouched; Remove unlinks them too.
+		public void Forget(TNode node)
 		{
 			_lookup.Remove(node);
 		}
 
-		public Node this[TNode node]
-		{
-			get { return _lookup[node]; }
-		}
+		public Node this[TNode node] => _lookup[node];
 
 		public bool Remove(TNode node)
 		{
 			if (!_lookup.TryGetValue(node, out Node found))
 				return false;
 
-			//Remove incoming
-			foreach (KeyValuePair<Node, Edge> item in found.Incoming)
-			{
-				found.Incoming.Remove(item.Key);
-				item.Key.Outgoing.Remove(found);
-			}
+			//The node goes with its own edge lists; only its neighbours' need the edges taken out.
+			foreach (Node neighbour in found.Incoming.Keys)
+				neighbour.Outgoing.Remove(found);
 
-			//Remove outgoing
-			foreach (KeyValuePair<Node, Edge> item in found.Outgoing)
-			{
-				found.Outgoing.Remove(item.Key);
-				item.Key.Incoming.Remove(found);
-			}
+			foreach (Node neighbour in found.Outgoing.Keys)
+				neighbour.Incoming.Remove(found);
 
-			//Remove node
 			_lookup.Remove(node);
 
 			return true;
@@ -101,34 +85,6 @@ namespace Orion.Graphs
 			Node endNode = _lookup[end];
 
 			return startNode.Outgoing.ContainsKey(endNode) && endNode.Incoming.ContainsKey(startNode);
-		}
-
-		public void RemoveEdge(TNode start, TNode end)
-		{
-			Node startNode = _lookup[start];
-			Node endNode = _lookup[end];
-
-			startNode.Outgoing.Remove(endNode);
-			endNode.Incoming.Remove(startNode);
-		}
-
-		public bool TryGetEdge(TNode start, TNode end, out TEdge edgeValue)
-		{
-			Node startNode = _lookup[start];
-			Node endNode = _lookup[end];
-
-			bool ret = startNode.Outgoing.TryGetValue(endNode, out Edge edge);
-			if (ret)
-			{
-				Trace.Assert(endNode.Incoming.ContainsKey(startNode));
-				edgeValue = edge.Value;
-				return true;
-			}
-			else
-			{
-				edgeValue = default;
-				return false;
-			}
 		}
 
 		public IEnumerable<TNode> Exits()

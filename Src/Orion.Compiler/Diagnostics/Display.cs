@@ -10,10 +10,65 @@ using System.Text;
 
 namespace Orion.Diagnostics
 {
-	//The one set of diagnostic walkers: symbols, call graph and MSIL render to text every host shows.
+	//The one set of diagnostic walkers: symbols, call graph, MSIL and a phase's state render to text every host shows.
 	public static class Display
 	{
-		public static void PrintSymbols(SymbolTable table) => Console.Write(Symbols(table));
+		//The phase banner and its messages: the head of one phase's transcript entry.
+		public static void PhaseHeader(StringBuilder sb, PhaseResult phase)
+		{
+			sb.AppendLine($"=== {phase} ({phase.Elapsed.TotalMilliseconds:F1}ms) ===");
+			foreach (Message message in phase.Messages)
+				sb.AppendLine($"{message.Type}: {message.Text}");
+		}
+
+		//Every property of the phase's state record, a line or a block each, then a blank line; the CLI's -v transcript and the web's Pipeline tab share this switch.
+		public static void PhaseState(StringBuilder sb, PhaseResult phase)
+		{
+			foreach (PropertyInfo info in phase.State?.GetType().GetProperties() ?? [])
+			{
+				object value;
+				try { value = info.GetValue(phase.State, null); }
+				catch { continue; }
+
+				switch (value)
+				{
+					case CompilerFile file:
+						sb.AppendLine($"{info.Name}: {file.Summary()}");
+						break;
+					case IEnumerable<CompilerFile> gathered:
+						List<CompilerFile> all = gathered.ToList();
+						sb.AppendLine($"{info.Name}: {Messages.Count(all.Count, "file")}");
+						foreach (CompilerFile gatheredFile in all)
+							sb.AppendLine($"  - {gatheredFile?.Summary() ?? "<null>"}");
+						break;
+					case SymbolTable table:
+						sb.AppendLine($"{info.Name}:");
+						sb.Append(Symbols(table));
+						break;
+					case CallGraph.Node node:
+						sb.AppendLine("Call graph:");
+						sb.Append(CallGraph(node));
+						break;
+					case Emitted code:
+						sb.AppendLine($"--- Code ({code.Lang}) ---");
+						sb.AppendLine(code.Text);
+						break;
+					case Module:
+						sb.Append(Msil());
+						break;
+					case Exception ex:
+						sb.AppendLine(ex.ToString());
+						break;
+					case null:
+						sb.AppendLine($"{info.Name}: <null>");
+						break;
+					default:
+						sb.AppendLine($"{info.Name}: {value}");
+						break;
+				}
+			}
+			sb.AppendLine();
+		}
 
 		public static string Symbols(SymbolTable table)
 		{
@@ -50,13 +105,6 @@ namespace Orion.Diagnostics
 
 			foreach (KeyValuePair<CallGraph.Node, CallGraph.Edge> outgoing in node.Outgoing)
 				CallGraph(sb, outgoing.Key, $"[{outgoing.Value.Value}] ", depth + 1, visited);
-		}
-
-		public static void PrintMsil()
-		{
-			string msil = Msil();
-			if (msil.Length != 0)
-				Console.Write(msil);
 		}
 
 		//One section per sealed generation: its fields, the static ctor that wires them, and every method.

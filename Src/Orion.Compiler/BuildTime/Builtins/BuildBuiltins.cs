@@ -1,4 +1,5 @@
 using Orion.Ast;
+using Orion.Frontend.Binder;
 using Orion.Clr;
 using Orion.Diagnostics;
 using Orion.Frontend;
@@ -9,7 +10,6 @@ using ParserResult = FParsec.CharParsers.ParserResult<Microsoft.FSharp.Collectio
 using Statement = Orion.Ast.Statement;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System;
 
 namespace Orion.BuildTime.Builtins
@@ -84,7 +84,7 @@ namespace Orion.BuildTime.Builtins
 			if (Env.Builder == null)
 			{
 				Error($"'{port.Trim()}' adds a port to the block being assembled, so `#input`/`#output` " +
-					$"only appear inside a block's `#run` escape. Declare the port in the block's parameter list instead.");
+					"only appear inside a block's `#run` escape. Declare the port in the block's parameter list instead.");
 				return;
 			}
 
@@ -172,16 +172,9 @@ namespace Orion.BuildTime.Builtins
 			{
 				function.Symbol.Info.Invoke(null, arguments.Length == 0 ? null : arguments);
 			}
-			catch (TargetInvocationException ex) when (Executor.Wraps<BuildStoppedException>(ex))
-			{
-			}
-			catch (TargetInvocationException ex) when (Executor.Wraps<AssertFailedException>(ex))
-			{
-				Env.Report("Build Exception: Assertion failed.");
-			}
 			catch (Exception ex)
 			{
-				Env.Report($"Build Exception: Unhandled exception {ex}.");
+				Executor.Classify(ex, null, Env.Context.Messages);
 			}
 			finally
 			{
@@ -222,7 +215,7 @@ namespace Orion.BuildTime.Builtins
 			if (!IsIdentifier(name))
 			{
 				Env.Report($"`Build::Enum` was given the name '{name}', which is not a name a target can " +
-					$"declare. An enum name holds only letters, digits and '_', and does not start with a digit.");
+					"declare. An enum name holds only letters, digits and '_', and does not start with a digit.");
 				return;
 			}
 
@@ -232,14 +225,11 @@ namespace Orion.BuildTime.Builtins
 					continue;
 
 				Env.Report($"Enum '{name}' has the member '{member}', which is not a name a target can " +
-					$"declare. A member holds only letters, digits and '_', and does not start with a digit.");
+					"declare. A member holds only letters, digits and '_', and does not start with a digit.");
 				return;
 			}
 
-			EnumTypeSymbol enumSymbol = new EnumTypeSymbol(name, values.Items.Select((i, idx) =>
-			{
-				return new Member(i, idx);
-			}).ToList());
+			EnumTypeSymbol enumSymbol = new EnumTypeSymbol(name, [.. values.Items.Select((i, idx) => new Member(i, idx))]);
 
 			enumSymbol.Hosted = BuildAssembly.Create(enumSymbol);
 			current.Add(enumSymbol);

@@ -9,27 +9,10 @@ namespace Orion.Backend.StIr
 	//Folds the branch a short-circuit `&&`/`||` lowered to back into one expression, where that is free.
 	public static class ShortCircuit
 	{
-		//Named form for the driver: `name` heads the trace, in front of the folds it covers.
-		internal static StCtrl Collapse(string name, StCtrl st, List<Message> messages)
-		{
-			int before = messages.Count;
-			StCtrl collapsed = Collapse(st, messages);
-			if (messages.Count > before)
-				messages.Insert(before, new Message($"{name}: folded {messages.Count - before} branch(es)", InputRegion.None, MessageType.Trace));
-
-			return collapsed;
-		}
-
 		public static StCtrl Collapse(StCtrl c, List<Message> messages) => c switch
 		{
 			StSeq x => new StSeq(CollapseItems(x.Items, messages)),
-			StIf x => new StIf(x.Cond, x.Negate, Collapse(x.Then, messages), x.Else == null ? null : Collapse(x.Else, messages)),
-			StLoop x => new StLoop(Collapse(x.Body, messages)),
-			StWhile x => new StWhile(x.Cond, Collapse(x.Body, messages)),
-			StDoWhile x => new StDoWhile(x.Cond, Collapse(x.Body, messages)),
-			StFor x => new StFor(x.Init, x.Cond, x.Step, Collapse(x.Body, messages)),
-			StSwitch x => new StSwitch(x.Clause, x.Cases.Select(i => new StCase(i.Value, Collapse(i.Body, messages))).ToList(), x.Default == null ? null : Collapse(x.Default, messages)),
-			_ => c
+			_ => c.RewriteChildren(i => Collapse(i, messages)),
 		};
 
 		//The shape codegen emits: `t = X` closing a block, then `if (t)` (or `if (!t)`) assigning `t = Y`.
@@ -78,7 +61,7 @@ namespace Orion.Backend.StIr
 			stmts.Add(new StAssign(seed.Target, new StBin(op, seed.Value, last.Value, seed.Target.Type)));
 
 			folded = new StBlock(stmts);
-			messages.Add(new Message($"\t{seed.Target} = a {Text(op)} b, folding away a branch and {body.Count} statement(s)", InputRegion.None, MessageType.Trace));
+			messages.Trace($"\t{seed.Target} = a {(op == BinaryTacOp.And ? "&&" : "||")} b, folding away a branch and {body.Count} statement(s)");
 			return true;
 		}
 
@@ -98,8 +81,6 @@ namespace Orion.Backend.StIr
 
 			return then is StBlock b && b.Stmts.Count > 0 ? b.Stmts : null;
 		}
-
-		private static string Text(BinaryTacOp op) => op == BinaryTacOp.And ? "&&" : "||";
 
 		//For the hoisted statements only: no call, index, divide or mod, since once lifted they run unconditionally.
 		private static bool Safe(StExpr e) => e.DescendantsAndSelf().All(x => x switch

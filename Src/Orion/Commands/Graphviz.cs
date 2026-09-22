@@ -9,9 +9,10 @@ namespace Orion.Commands
 	{
 		private static bool _warned;
 
-		public static void Render(string dotFile, string dot)
+		//`dot` is GRAPHVIZ_DOT when set, else whatever the PATH finds by that name.
+		public static void Render(string dotFile)
 		{
-			string exe = dot ?? Environment.GetEnvironmentVariable("GRAPHVIZ_DOT") ?? "dot";
+			string exe = Environment.GetEnvironmentVariable("GRAPHVIZ_DOT") ?? "dot";
 			string pdf = Path.ChangeExtension(dotFile, ".pdf");
 
 			try
@@ -35,7 +36,7 @@ namespace Orion.Commands
 					return;
 
 				_warned = true;
-				Console.WriteLine($"Warning: Graphviz '{exe}' not found, so no PDF was rendered; install graphviz or pass --dot.");
+				Console.WriteLine($"Warning: Graphviz '{exe}' not found, so no PDF was rendered; install graphviz or set GRAPHVIZ_DOT.");
 			}
 		}
 	}

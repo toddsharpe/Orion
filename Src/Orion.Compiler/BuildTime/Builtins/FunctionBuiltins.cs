@@ -7,27 +7,18 @@ using TypeCode = Orion.Symbols.TypeCode;
 
 namespace Orion.BuildTime.Builtins
 {
-
 	public static class FunctionBuiltins
 	{
-
-		public static OrionFunction Ref(string name)
-		{
-			SymbolTable root = Env.Context.Function.Table.GetRoot();
-			SourceFunctionSymbol function = root.Get<SourceFunctionSymbol>(name);
-			return new OrionFunction(function);
-		}
-
 		[BuildOnly]
 		public static T Call<T>(OrionFunction f, object args)
 		{
-			return Invoke(f, args, "Function::Call", null, out object value, out object _) ? Cast<T>(value) : default;
+			return Invoke(f, args, "Function::Call", null, out object result) ? Cast<T>(result) : default;
 		}
 
 		[BuildOnly]
 		public static T Out<T>(OrionFunction f, object args, string port)
 		{
-			return Invoke(f, args, "Function::Out", port, out object _, out object written) ? Cast<T>(written) : default;
+			return Invoke(f, args, "Function::Out", port, out object result) ? Cast<T>(result) : default;
 		}
 
 		[BuildOnly]
@@ -59,9 +50,9 @@ namespace Orion.BuildTime.Builtins
 			if (!Fire(init, slots, "Function::Start", out object _))
 				return false;
 
-			foreach ((ParamDataSymbol p, int i) in init.Parameters.Select((p, i) => (p, i)))
-				if (p.Direction.IsWritable())
-					Store(instance, p.Name, slots[i]);
+			for (int i = 0; i < init.Parameters.Count; i++)
+				if (init.Parameters[i].Direction.IsWritable())
+					Store(instance, init.Parameters[i].Name, slots[i]);
 
 			SolverBuiltins.Ran(init);
 			return true;
@@ -77,17 +68,13 @@ namespace Orion.BuildTime.Builtins
 			}
 
 			SourceFunctionSymbol function = instance.Function;
-			Dictionary<string, object> values = args as Dictionary<string, object> ?? new Dictionary<string, object>();
-
-			foreach (string unknown in values.Keys.Where(k => !function.Parameters.Any(p => p.Name == k)).OrderBy(i => i))
-			{
-				Env.Report($"Function::Tick: '{function.Name}' has no parameter '{unknown}'.{Ports(function, i => true)}");
+			Dictionary<string, object> values = Env.Bag(args);
+			if (Unknown(function, values, "Function::Tick"))
 				return;
-			}
 
-			foreach ((ParamDataSymbol p, int i) in function.Parameters.Select((p, i) => (p, i)))
+			for (int i = 0; i < function.Parameters.Count; i++)
 			{
-
+				ParamDataSymbol p = function.Parameters[i];
 				if (p.Direction.IsWritable())
 				{
 					if (values.ContainsKey(p.Name))
@@ -112,62 +99,65 @@ namespace Orion.BuildTime.Builtins
 			Fire(function, instance.Slots, "Function::Tick", out object _);
 		}
 
+		//The slot a port name occupies, -1 when the function declares no such port.
+		internal static int PortIndex(SourceFunctionSymbol function, string name) =>
+			function.Parameters.FindIndex(i => i.Name == name);
+
+		//Whether `port` is one a caller may read back, with its slot; reports the ones that are when it is not.
+		internal static bool Writable(SourceFunctionSymbol function, string port, string called, out int index)
+		{
+			index = PortIndex(function, port);
+			if (index >= 0 && function.Parameters[index].Direction.IsWritable())
+				return true;
+
+			Env.Report($"{called}: '{function.Name}' has no writable port '{port}'.{Ports(function, i => i.Direction.IsWritable())}");
+			return false;
+		}
+
 		private static object Cell(Instance instance, string name)
 		{
-			ParamDataSymbol match = instance.Function.Parameters.FirstOrDefault(i => i.Name == name);
-			return match == null ? null : instance.Slots[instance.Function.Parameters.IndexOf(match)];
+			int index = PortIndex(instance.Function, name);
+			return index < 0 ? null : instance.Slots[index];
 		}
 
 		private static void Store(Instance instance, string name, object value)
 		{
-			ParamDataSymbol match = instance.Function.Parameters.FirstOrDefault(i => i.Name == name);
-			if (match != null)
-				instance.Slots[instance.Function.Parameters.IndexOf(match)] = value;
+			int index = PortIndex(instance.Function, name);
+			if (index >= 0)
+				instance.Slots[index] = value;
 		}
 
-		private static bool Invoke(OrionFunction f, object args, string called, string port,
-			out object value, out object written)
+		//The call's return value, or the named port's slot after the call when `port` is given.
+		private static bool Invoke(OrionFunction f, object args, string called, string port, out object result)
 		{
-			value = null;
-			written = null;
+			result = null;
 
 			SourceFunctionSymbol function = f?.Function;
 			if (function == null)
 			{
 				Env.Report($"{called}: the handle is empty and names no function -- `f.Init` on a block that " +
-					$"declares no `#init`, or a `#create` that could not specialize one and said why.");
+					"declares no `#init`, or a `#create` that could not specialize one and said why.");
 				return false;
 			}
 
-			if (function.Info == null)
-			{
-				Env.Report($"{called}: '{function.Name}' has no build-time body, so it cannot be called here.");
-				return false;
-			}
-
-			if (port == null && function.ReturnType is PrimitiveTypeSymbol { Code: TypeCode.@void })
+			if (port == null && Language.IsVoid(function.ReturnType))
 			{
 				Env.Report($"{called}: '{function.Name}' returns nothing; name the port to read with " +
 					$"`Function::Out<T>(f, args, \"port\")`.{Ports(function, i => i.Direction.IsWritable())}");
 				return false;
 			}
 
-			ParamDataSymbol named = port == null ? null : function.Parameters.FirstOrDefault(i => i.Name == port);
-			if (port != null && (named == null || !named.Direction.IsWritable()))
-			{
-				Env.Report($"{called}: '{function.Name}' has no writable port '{port}'.{Ports(function, i => i.Direction.IsWritable())}");
+			int index = -1;
+			if (port != null && !Writable(function, port, called, out index))
 				return false;
-			}
 
 			if (!Bind(function, args, called, out object[] slots))
 				return false;
 
-			if (!Fire(function, slots, called, out value))
+			if (!Fire(function, slots, called, out object value))
 				return false;
 
-			if (named != null)
-				written = slots[function.Parameters.IndexOf(named)];
-
+			result = index >= 0 ? slots[index] : value;
 			SolverBuiltins.Ran(function);
 			return true;
 		}
@@ -184,23 +174,12 @@ namespace Orion.BuildTime.Builtins
 
 			try
 			{
-
 				value = function.Info.Invoke(null, slots.Length == 0 ? null : slots);
 				return true;
 			}
-			catch (TargetInvocationException ex) when (Executor.Wraps<BuildStoppedException>(ex))
-			{
-
-				return false;
-			}
-			catch (TargetInvocationException ex) when (Executor.Wraps<AssertFailedException>(ex))
-			{
-				Env.Report($"{called}: '{function.Name}' failed an assertion.");
-				return false;
-			}
 			catch (Exception ex)
 			{
-				Env.Report($"{called}: '{function.Name}' threw {ex.InnerException?.Message ?? ex.Message}.");
+				Executor.Classify(ex, $"{called}: '{function.Name}'", Env.Context.Messages);
 				return false;
 			}
 		}
@@ -208,13 +187,9 @@ namespace Orion.BuildTime.Builtins
 		private static bool Bind(SourceFunctionSymbol function, object args, string called, out object[] slots)
 		{
 			slots = [];
-			Dictionary<string, object> values = args as Dictionary<string, object> ?? new Dictionary<string, object>();
-
-			foreach (string unknown in values.Keys.Where(k => !function.Parameters.Any(p => p.Name == k)).OrderBy(i => i))
-			{
-				Env.Report($"{called}: '{function.Name}' has no parameter '{unknown}'.{Ports(function, i => true)}");
+			Dictionary<string, object> values = Env.Bag(args);
+			if (Unknown(function, values, called))
 				return false;
-			}
 
 			List<object> bound = new List<object>();
 			foreach (ParamDataSymbol parameter in function.Parameters)
@@ -222,7 +197,6 @@ namespace Orion.BuildTime.Builtins
 				Type type = Clr.BuildAssembly.GetClrType(parameter.Type);
 				if (values.TryGetValue(parameter.Name, out object given))
 				{
-
 					bound.Add(Clr.BuildAssembly.CopyStruct(Coerce(given, type)));
 					continue;
 				}
@@ -237,6 +211,17 @@ namespace Orion.BuildTime.Builtins
 			}
 
 			slots = [.. bound];
+			return true;
+		}
+
+		//Reports the first argument naming no parameter of the function, alphabetically; false when every one does.
+		private static bool Unknown(SourceFunctionSymbol function, Dictionary<string, object> values, string called)
+		{
+			string unknown = values.Keys.Where(k => !function.Parameters.Any(p => p.Name == k)).OrderBy(i => i).FirstOrDefault();
+			if (unknown == null)
+				return false;
+
+			Env.Report($"{called}: '{function.Name}' has no parameter '{unknown}'.{Ports(function, i => true)}");
 			return true;
 		}
 

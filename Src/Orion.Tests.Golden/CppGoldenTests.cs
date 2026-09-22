@@ -19,10 +19,10 @@ namespace Orion.Tests.Golden
 			Corpus.Compile(test, Corpus.Source(test), "cpp", cppFile);
 
 			//The harness is a host: TestPlatform.cpp supplies the platform ABI's bodies for the single TU.
-			string platform = Path.Combine(Corpus.Root, "Src", "Orion.Tests.Golden", "TestPlatform.cpp");
+			string platform = Path.Combine(Repo.Root, "Src", "Orion.Tests.Golden", "TestPlatform.cpp");
 
 			//A trailing separator is what tells cl.exe /Fo and /Fe the argument is a directory.
-			string dir = QuotedDir(scratch);
+			string dir = Tool.QuotedDir(scratch);
 			ToolResult build = Tool.Run(
 				Tool.Msvc,
 				$"\"{cppFile}\" \"{platform}\" -I\"{Corpus.RuntimeDir("Cpp")}\" /Fo:{dir} /Fe:{dir} /EHsc /std:c++20 /nologo",
@@ -31,13 +31,8 @@ namespace Orion.Tests.Golden
 			Assert.IsTrue(build.Ok, $"{test}: cl.exe rejected the generated C++.\n{build.Report()}");
 
 			ToolResult run = Tool.Run(exeFile, null, scratch, Corpus.RunEnv());
-			Assert.IsTrue(run.Ok, $"{test}: the compiled program exited {run.ExitCode}.\n{run.Report()}");
-
-			Corpus.AssertMatchesGolden(test, Path.Combine(Corpus.TestsDir, test + ".txt"), run.StdOut);
+			Corpus.AssertRan(test, "the compiled program", run);
+			Corpus.AssertMatchesGolden(test, Corpus.Golden(test), run.StdOut);
 		}
-
-		//Doubled separator: Windows reads `\"` as an escaped quote, so /Fo:"C:\dir\" never closes.
-		private static string QuotedDir(string dir) =>
-			"\"" + dir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar + Path.DirectorySeparatorChar + "\"";
 	}
 }

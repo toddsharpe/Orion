@@ -5,41 +5,34 @@ using Orion.Ast;
 
 namespace Orion.BuildTime.Builtins
 {
-
 	[BuildOnly]
 	public static class PortBuiltins
 	{
-
-		[BuildOnly]
 		public static Port In(OrionType type, string name, string net = "")
 		{
 			return AddPort(ParamDirective.Input, type, name, net);
 		}
 
-		[BuildOnly]
 		public static Port Prev(OrionType type, string name, string net = "")
 		{
 			return AddPort(ParamDirective.Prev, type, name, net);
 		}
 
-		[BuildOnly]
 		public static Port Out(OrionType type, string name, string net = "")
 		{
 			return AddPort(ParamDirective.Output, type, name, net);
 		}
 
-		[BuildOnly]
 		public static Port Pure(OrionType type, string name, string net = "")
 		{
 			return AddPort(ParamDirective.Pure, type, name, net);
 		}
 
-		[BuildOnly]
 		public static Port Field(Port port, string path)
 		{
 			if (port?.Type?.Symbol == null)
 			{
-				BuildBuiltins.Error("Port::Field: the port is empty, so it has no fields to reach into.");
+				Env.Report("Port::Field: the port is empty, so it has no fields to reach into.");
 				return port;
 			}
 
@@ -58,33 +51,25 @@ namespace Orion.BuildTime.Builtins
 
 			return new Port
 			{
-				Named = port.Named,
-				Parameter = port.Parameter,
-				Symbol = port.Symbol,
+				Name = port.Name,
 				Direction = port.Direction,
 				Delayed = port.Delayed,
 				Path = steps,
-				Type = new OrionType { Symbol = type },
+				Type = OrionType.Of(type),
 			};
 		}
 
 		private static IEnumerable<PathStep> Steps(Port port, string path)
 		{
-			for (int at = 0; at < (path ?? string.Empty).Length; )
+			path ??= string.Empty;
+			for (int at = 0; at < path.Length; )
 			{
-				if (path[at] == '.')
-				{
-					int stop = path.IndexOfAny(['.', '['], at + 1);
-					stop = stop < 0 ? path.Length : stop;
-					yield return new PathStep(path[(at + 1)..stop], null);
-					at = stop;
-				}
-				else if (path[at] == '[')
+				if (path[at] == '[')
 				{
 					int stop = path.IndexOf(']', at);
 					if (stop < 0)
 					{
-						BuildBuiltins.Error($"Port::Field: '{path}' on '{port.Name}' opens a subscript it never closes.");
+						Env.Report($"Port::Field: '{path}' on '{port.Name}' opens a subscript it never closes.");
 						yield break;
 					}
 
@@ -93,7 +78,7 @@ namespace Orion.BuildTime.Builtins
 					{
 						if (!int.TryParse(part.Trim(), out int index))
 						{
-							BuildBuiltins.Error($"Port::Field: '{path}' on '{port.Name}' indexes with '{part.Trim()}', which is not a whole number.");
+							Env.Report($"Port::Field: '{path}' on '{port.Name}' indexes with '{part.Trim()}', which is not a whole number.");
 							yield break;
 						}
 						indices.Add(index);
@@ -104,10 +89,11 @@ namespace Orion.BuildTime.Builtins
 				}
 				else
 				{
-
-					int stop = path.IndexOfAny(['.', '['], at);
+					//A field, with or without its leading dot: `.mid.tag` and `mid.tag` name the same path.
+					int start = path[at] == '.' ? at + 1 : at;
+					int stop = path.IndexOfAny(['.', '['], start);
 					stop = stop < 0 ? path.Length : stop;
-					yield return new PathStep(path[at..stop], null);
+					yield return new PathStep(path[start..stop], null);
 					at = stop;
 				}
 			}
@@ -121,7 +107,7 @@ namespace Orion.BuildTime.Builtins
 				if (field != null)
 					return field.Type;
 
-				BuildBuiltins.Error(type is StructTypeSymbol found
+				Env.Report(type is StructTypeSymbol found
 					? $"Port::Field: '{port.Name}' reaches '.{step.Field}', which `{found.Name}` does not declare. It has: {string.Join(", ", found.Fields.Select(i => i.Name))}."
 					: $"Port::Field: '{port.Name}' reaches '.{step.Field}' on `{type.Name}`, which is not a struct.");
 				return null;
@@ -131,7 +117,7 @@ namespace Orion.BuildTime.Builtins
 			if (element != null)
 				return element;
 
-			BuildBuiltins.Error($"Port::Field: '{port.Name}' subscripts `{type.Name}` with {step.Indices.Count} " +
+			Env.Report($"Port::Field: '{port.Name}' subscripts `{type.Name}` with {step.Indices.Count} " +
 				$"{(step.Indices.Count == 1 ? "index" : "indices")}, which it does not have that many ranks for.");
 			return null;
 		}
@@ -162,13 +148,13 @@ namespace Orion.BuildTime.Builtins
 		{
 			if (Env.Builder == null)
 			{
-				BuildBuiltins.Error($"Port '{name}' has no block to attach to; a port is added from inside a block's `#run` escape.");
+				Env.Report($"Port '{name}' has no block to attach to; a port is added from inside a block's `#run` escape.");
 				return new Port();
 			}
 
 			if (type?.Symbol == null)
 			{
-				BuildBuiltins.Error($"Port '{name}' has no type; TypeBuiltins.Parse reported the name it could not resolve.");
+				Env.Report($"Port '{name}' has no type; TypeBuiltins.Parse reported the name it could not resolve.");
 				return new Port();
 			}
 
@@ -186,8 +172,7 @@ namespace Orion.BuildTime.Builtins
 			Env.Builder.Parameters.Add(parameter);
 			return new Port
 			{
-				Named = declared,
-				Parameter = parameter,
+				Name = declared,
 				Type = type,
 				Delayed = directive == ParamDirective.Prev,
 				Direction = directive switch

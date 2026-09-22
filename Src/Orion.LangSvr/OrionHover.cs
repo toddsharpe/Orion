@@ -4,6 +4,7 @@ using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 using Orion.Ast;
 using Orion.Diagnostics;
 using Orion.Symbols;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Orion.LangSvr
@@ -20,33 +21,7 @@ namespace Orion.LangSvr
 			long col = char0Based + 1;
 
 			//1) The deepest bound leaf under the cursor; declaration nodes resolve by identifier text below.
-			Node best = null;
-			long bestSize = long.MaxValue;
-			void Consider(Node n, InputRegion r)
-			{
-				if (r == null || !Contains(r, line, col))
-					return;
-				long size = (r.Stop.Line - r.Start.Line) * 1_000_000L + (r.Stop.Column - r.Start.Column);
-				if (size < bestSize)
-				{
-					bestSize = size;
-					best = n;
-				}
-			}
-
-			foreach (Node n in analysis.Ast.DescendantsAndSelf())
-			{
-				switch (n)
-				{
-					case Call call when call.Callee != null:  // a call reference (considered even when void)
-						Consider(call, call.Region);
-						break;
-					case Expression e when e.Symbol != null && e.Symbol.Type != null:
-						Consider(e, e.Region);
-						break;
-				}
-			}
-
+			Node best = OrionScope.Smallest(analysis.Ast.DescendantsAndSelf(), BoundRegion, line, col);
 			if (best != null)
 			{
 				string leaf = best is Call call && call.Callee != null
@@ -67,45 +42,33 @@ namespace Orion.LangSvr
 				{
 					if (n is Enum en && en.Name == ident) return Markup(EnumBody(en), null);
 					if (n is Struct st && st.Name == ident) return Markup(StructBody(st), null);
-					if (n is Function fn && fn.Name == ident) return Markup(Signature(fn), null);
+					if (n is Function fn && fn.Name == ident) return Markup(OrionScope.Signature(fn), null);
 				}
 				// #param solver-block templates were removed from the tu; match their names here too.
 				if (analysis.Templates != null)
 					foreach (Function t in analysis.Templates)
-						if (t.Name == ident) return Markup(Signature(t), null);
+						if (t.Name == ident) return Markup(OrionScope.Signature(t), null);
 
 				//An identifier we can't resolve shows nothing, rather than the enclosing function.
 				return null;
 			}
 
-			//3) Not on an identifier: the smallest enclosing scope whose region contains the cursor.
-			Node scope = null;
-			long scopeSize = long.MaxValue;
-			void ConsiderScope(Node n)
-			{
-				InputRegion r = ScopeRegion(n);
-				if (r == null || !Contains(r, line, col))
-					return;
-				long size = (r.Stop.Line - r.Start.Line) * 1_000_000L + (r.Stop.Column - r.Start.Column);
-				if (size < scopeSize)
-				{
-					scopeSize = size;
-					scope = n;
-				}
-			}
-			foreach (Node n in analysis.Ast.DescendantsAndSelf())
-				ConsiderScope(n);
-			if (analysis.Templates != null)
-				foreach (Function t in analysis.Templates)
-				{
-					ConsiderScope(t);
-					foreach (Node n in t.DescendantsAndSelf())
-						ConsiderScope(n);
-				}
+			//3) Not on an identifier: the smallest enclosing scope whose region contains the cursor, the removed #param templates included.
+			IEnumerable<Node> nodes = analysis.Ast.DescendantsAndSelf()
+				.Concat((analysis.Templates ?? Enumerable.Empty<Function>()).SelectMany(t => t.DescendantsAndSelf()));
+			Node scope = OrionScope.Smallest(nodes, ScopeRegion, line, col);
 
 			string scopeText = scope == null ? null : ScopeLabel(scope, analysis.Text);
 			return scopeText == null ? null : Markup(scopeText, ToRange(scope.Region));
 		}
+
+		//A bound leaf the hover can describe: a call reference (even a void one) or an expression with a typed symbol; null otherwise.
+		private static InputRegion BoundRegion(Node n) => n switch
+		{
+			Call call when call.Callee != null => call.Region,
+			Expression e when e.Symbol != null && e.Symbol.Type != null => e.Region,
+			_ => null,
+		};
 
 		// The scopes a hover can fall back to (declarations + control-flow/blocks); null = not a scope.
 		private static InputRegion ScopeRegion(Node n) => n switch
@@ -117,7 +80,7 @@ namespace Orion.LangSvr
 		// A one-line label for a scope; for control flow we slice its header text out of the source.
 		private static string ScopeLabel(Node n, string text) => n switch
 		{
-			Function fn => Signature(fn),
+			Function fn => OrionScope.Signature(fn),
 			Struct st => StructBody(st),
 			Enum en => EnumBody(en),
 			If i => "if (" + Slice(text, i.Clause?.Region) + ")",
@@ -135,7 +98,7 @@ namespace Orion.LangSvr
 		{
 			if (text == null || r == null)
 				return "";
-			string[] lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+			string[] lines = OrionScope.Lines(text);
 			int sl = (int)r.Start.Line - 1, el = (int)r.Stop.Line - 1;
 			if (sl < 0 || sl >= lines.Length)
 				return "";
@@ -186,7 +149,7 @@ namespace Orion.LangSvr
 
 		// Fallback when a parameter has no usable region: a port keeps its directive, a plain parameter reads as "parameter".
 		private static string Label(Parameter p) =>
-			p.Directive == ParamDirective.None ? "parameter" : AstDir(p.Directive).Trim();
+			p.Directive == ParamDirective.None ? "parameter" : OrionScope.AstDir(p.Directive).Trim();
 
 		private static string Label(LocalDirective d, bool isConst) =>
 			d == LocalDirective.State ? "state" : isConst ? "const" : "local";
@@ -196,7 +159,7 @@ namespace Orion.LangSvr
 		{
 			if (text == null || r == null)
 				return "";
-			string[] lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+			string[] lines = OrionScope.Lines(text);
 			int sl = (int)r.Start.Line - 1;
 			if (sl < 0 || sl >= lines.Length)
 				return "";
@@ -225,13 +188,6 @@ namespace Orion.LangSvr
 		//TypeName.Name already carries any generic arguments (`List<Device>`), and it is all an unbound declaration has.
 		private static string TypeText(TypeName t) => t?.Name ?? "?";
 
-		// Signature from a function declaration's AST (shows #param/#input/#output directives on solver blocks).
-		private static string Signature(Function fn)
-		{
-			string ps = string.Join(", ", fn.Parameters.Select(p => AstDir(p.Directive) + p.TypeName.Name + " " + p.Name));
-			return fn.ReturnType.Name + " " + fn.Name + "(" + ps + ")";
-		}
-
 		// Signature from a resolved callee symbol (a function reference / call).
 		private static string Signature(FunctionSymbol f)
 		{
@@ -239,37 +195,14 @@ namespace Orion.LangSvr
 			return f.ReturnType.Name + " " + f.Name + "(" + ps + ")";
 		}
 
-		private static string AstDir(ParamDirective d)
-		{
-			switch (d)
-			{
-				case ParamDirective.Input: return "#input ";
-				case ParamDirective.Prev: return "#prev ";
-				case ParamDirective.Output: return "#output ";
-				case ParamDirective.Pure: return "#pure ";
-				case ParamDirective.Param: return "#param ";
-				default: return "";
-			}
-		}
-
 		//The symbol, not just the direction: a `#prev` port IS an In, and saying `#input` would be a lie.
-		private static string SymDir(ParamDataSymbol p)
+		private static string SymDir(ParamDataSymbol p) => p.Direction switch
 		{
-			switch (p.Direction)
-			{
-				case ParamDirection.In: return p.Delayed ? "#prev " : "#input ";
-				case ParamDirection.Out: return p.Pure ? "#pure " : "#output ";
-				case ParamDirection.State: return "#state ";
-				default: return "";
-			}
-		}
-
-		private static bool Contains(InputRegion r, long line, long col)
-		{
-			bool afterStart = line > r.Start.Line || (line == r.Start.Line && col >= r.Start.Column);
-			bool beforeStop = line < r.Stop.Line || (line == r.Stop.Line && col <= r.Stop.Column);
-			return afterStart && beforeStop;
-		}
+			ParamDirection.In => p.Delayed ? "#prev " : "#input ",
+			ParamDirection.Out => p.Pure ? "#pure " : "#output ",
+			ParamDirection.State => "#state ",
+			_ => "",
+		};
 
 		private static string Describe(Expression e)
 		{
@@ -289,14 +222,13 @@ namespace Orion.LangSvr
 				type is StructTypeSymbol stt ? "\n" + StructBody(stt) :
 				"";
 			//Calls are rendered by At via Signature(Callee); the remaining leaf is a Variable.
-			switch (e)
+			if (e is Variable v)
 			{
-				case Variable v:
-					string kind = Kind(v.Symbol);
-					return (kind.Length > 0 ? kind + " " : "") + v.SymbolName + ": " + type.Name + typeBody;
-				default:
-					return typeBody.Length > 0 ? typeBody.Substring(1) : type.Name;
+				string kind = Kind(v.Symbol);
+				return (kind.Length > 0 ? kind + " " : "") + v.SymbolName + ": " + type.Name + typeBody;
 			}
+
+			return typeBody.Length > 0 ? typeBody.Substring(1) : type.Name;
 		}
 
 		// Struct body from its declaration AST (field types come straight from the parsed TypeNames).
@@ -326,25 +258,17 @@ namespace Orion.LangSvr
 			return "enum " + e.Name + " { " + members + " }";
 		}
 
-		private static string Kind(DataSymbol sym)
+		private static string Kind(DataSymbol sym) => sym switch
 		{
-			switch (sym)
-			{
-				case ParamDataSymbol _: return "parameter";
-				case LocalDataSymbol l: return l.IsReadOnly ? "const" : "local";
-				default: return "";
-			}
-		}
+			ParamDataSymbol => "parameter",
+			LocalDataSymbol l => l.IsReadOnly ? "const" : "local",
+			_ => "",
+		};
 
 		private static LspRange ToRange(InputRegion r)
 		{
-			int sl = Max0((int)r.Start.Line - 1);
-			int sc = Max0((int)r.Start.Column - 1);
-			int el = Max0((int)r.Stop.Line - 1);
-			int ec = Max0((int)r.Stop.Column);
+			(int sl, int sc, int el, int ec) = r.ZeroBased();
 			return new LspRange(new LspPosition(sl, sc), new LspPosition(el, ec));
 		}
-
-		private static int Max0(int x) => x < 0 ? 0 : x;
 	}
 }

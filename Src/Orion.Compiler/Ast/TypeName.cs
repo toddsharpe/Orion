@@ -127,14 +127,12 @@ namespace Orion.Ast
 			};
 		}
 
-		//Is this written `Span<T>` or `ConstSpan<T>`, and if so which?
+		//Is this written `Span<T>` or `ConstSpan<T>`? GenericType then says which.
 		internal bool IsSpan => IsGeneric && Generics.Count == 1 && (GenericType == SpanType || GenericType == ConstSpanType);
-		internal bool IsConstSpan => IsSpan && GenericType == ConstSpanType;
 
 		//`Ref<T>`: a generic name like the views, so the grammar already parses it.
 		internal bool IsRef => IsGeneric && Generics.Count == 1 && GenericType == RefType;
 		internal const string RefType = "Ref";
-		internal static string RefName(string element) => $"{RefType}<{element}>";
 
 		//The two view spellings. `const` is separate and orthogonal: it freezes the handle, not the buffer.
 		internal const string SpanType = "Span";

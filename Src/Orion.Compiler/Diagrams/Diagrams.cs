@@ -20,6 +20,7 @@ namespace Orion.Diagrams
 			Graph g = new Graph("Call graph");
 			Dictionary<CallGraph.Node, string> ids = new Dictionary<CallGraph.Node, string>();
 
+			//Numbered in the order first asked for, so the diagram reads in drawing order.
 			string Id(CallGraph.Node n)
 			{
 				if (!ids.TryGetValue(n, out string id))
@@ -28,6 +29,7 @@ namespace Orion.Diagrams
 					ids[n] = id;
 					g.Node(id, n.Value.Name, n == root ? NodeKind.Entry : NodeKind.Plain);
 				}
+
 				return id;
 			}
 
@@ -69,7 +71,7 @@ namespace Orion.Diagrams
 			Graph g = new Graph("Netlist", leftToRight: true) { Concentrate = true };
 			Dictionary<SourceFunctionSymbol, string> ids = new Dictionary<SourceFunctionSymbol, string>();
 
-			// net -> the block whose #output drives it
+			//net -> the block whose #output drives it
 			Dictionary<string, SourceFunctionSymbol> producer = new Dictionary<string, SourceFunctionSymbol>();
 			foreach (SourceFunctionSymbol f in solver.Blocks)
 			{
@@ -120,19 +122,18 @@ namespace Orion.Diagrams
 			Graph g = new Graph("CFG: " + fn.Name);
 			Dictionary<ControlFlowGraph.Node, string> ids = new Dictionary<ControlFlowGraph.Node, string>();
 
+			//The name still leads the block, so an edge traces back to a label even when the TACs below it are what is being read.
 			string Id(ControlFlowGraph.Node n)
 			{
 				if (!ids.TryGetValue(n, out string id))
 				{
 					id = "d" + ids.Count;
 					ids[n] = id;
-
-					// The name still leads the block, so an edge traces back to a label even when the TACs below it are what is being read.
-					string label = withTacs
+					g.Node(id, withTacs
 						? Lines(new[] { n.Value.Name }.Concat(n.Value.Tacs.Select(t => t.ToString())))
-						: n.Value.Name;
-					g.Node(id, label);
+						: n.Value.Name);
 				}
+
 				return id;
 			}
 
@@ -149,11 +150,11 @@ namespace Orion.Diagrams
 		public static Graph StructuredIr(SourceFunctionSymbol fn)
 		{
 			Graph g = new Graph("IR: " + fn.Name);
-			int seq = 0;
+			int next = 0;
 
 			string NewNode(string label)
 			{
-				string id = "s" + seq++;
+				string id = "s" + next++;
 				g.Node(id, label);
 				return id;
 			}
@@ -171,11 +172,11 @@ namespace Orion.Diagrams
 					}
 
 					case StBlock b:
-						return NewNode(b.Stmts.Count == 0 ? "(empty)" : Lines(b.Stmts.Select(Stmt)));
+						return NewNode(b.Stmts.Count == 0 ? "(empty)" : Lines(b.Stmts.Select(StIrText.Stmt)));
 
 					case StIf f:
 					{
-						string id = NewNode($"if {(f.Negate ? "!" : string.Empty)}({Expr(f.Cond)})");
+						string id = NewNode($"if {(f.Negate ? "!" : string.Empty)}({StIrText.Expr(f.Cond)})");
 						g.Edge(id, Build(f.Then), "then");
 						if (f.Else != null)
 							g.Edge(id, Build(f.Else), "else");
@@ -191,16 +192,16 @@ namespace Orion.Diagrams
 
 					case StWhile w:
 					{
-						string id = NewNode($"while ({Expr(w.Cond)})");
+						string id = NewNode($"while ({StIrText.Expr(w.Cond)})");
 						g.Edge(id, Build(w.Body), "body");
 						return id;
 					}
 
 					case StFor fr:
 					{
-						string init = string.Join(", ", fr.Init.Select(Stmt));
-						string step = string.Join(", ", fr.Step.Select(Stmt));
-						string id = NewNode($"for ({init}; {Expr(fr.Cond)}; {step})");
+						string init = string.Join(", ", fr.Init.Select(StIrText.Stmt));
+						string step = string.Join(", ", fr.Step.Select(StIrText.Stmt));
+						string id = NewNode($"for ({init}; {StIrText.Expr(fr.Cond)}; {step})");
 						g.Edge(id, Build(fr.Body), "body");
 						return id;
 					}
@@ -216,59 +217,5 @@ namespace Orion.Diagrams
 			Build(fn.St);
 			return g;
 		}
-
-		//--- Neutral display printers for the fused StIr (backend-independent) --------------------------
-
-		public static string Stmt(StStmt s) => s switch
-		{
-			StAssign a => $"{Sym(a.Target)} = {Expr(a.Value)}",
-			StEval e => Expr(e.Value),
-			StRaw r => r.Tac.ToString(),
-			_ => s.ToString(),
-		};
-
-		private static string Expr(StExpr e) => e switch
-		{
-			StLeaf l => Sym(l.Symbol),
-			StBin b => $"{Expr(b.Left)} {Op(b.Op)} {Expr(b.Right)}",
-			StUn { Op: UnaryTacOp.Negate } u => $"-{Expr(u.Operand)}",
-			StUn u => $"{Expr(u.Operand)} {Op(u.Op)}",
-			StCall c => $"{c.Function.Name}({string.Join(", ", c.Args.Select(Expr))})",
-			StIndex ix => $"{Expr(ix.Array)}[{Expr(ix.Index)}]",
-			StMember m => $"{Expr(m.Instance)}.{m.Field}",
-			_ => e.ToString(),
-		};
-
-		private static string Sym(DataSymbol s) => s switch
-		{
-			LiteralSymbol lit => lit.Value?.ToString() ?? "null",
-			NamedDataSymbol n => n.Name,
-			_ => s.ToString(),
-		};
-
-		private static string Op(BinaryTacOp op) => op switch
-		{
-			BinaryTacOp.Add => "+",
-			BinaryTacOp.Subtract => "-",
-			BinaryTacOp.Multiply => "*",
-			BinaryTacOp.Divide => "/",
-			BinaryTacOp.Mod => "%",
-			BinaryTacOp.LessThan => "<",
-			BinaryTacOp.LessThanEqual => "<=",
-			BinaryTacOp.GreaterThan => ">",
-			BinaryTacOp.GreaterThanEqual => ">=",
-			BinaryTacOp.Equals => "==",
-			BinaryTacOp.NotEquals => "!=",
-			BinaryTacOp.And => "&&",
-			BinaryTacOp.Or => "||",
-			_ => op.ToString(),
-		};
-
-		private static string Op(UnaryTacOp op) => op switch
-		{
-			UnaryTacOp.Increment => "+ 1",
-			UnaryTacOp.Decrement => "- 1",
-			_ => op.ToString(),
-		};
 	}
 }

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System;
 
 namespace Orion.Tests
 {
@@ -18,8 +17,8 @@ namespace Orion.Tests
 			CompileTo(BackendLanguage.Cpp, main, null, files, defines);
 
 		//As above with the RTTI surface enabled, as `orion compile --rtti` does.
-		internal static CompilerResult Compile(bool rtti, string main, params (string Name, string Contents)[] files) =>
-			CompileTo(BackendLanguage.Cpp, main, null, files, null, rtti);
+		internal static CompilerResult CompileRtti(string main, params (string Name, string Contents)[] files) =>
+			CompileTo(BackendLanguage.Cpp, main, null, files, null, true);
 
 		//As above with `#test`s running during the build, as `orion compile` and `orion test` do.
 		internal static CompilerResult CompileTesting(string main, params (string Name, string Contents)[] files) =>
@@ -33,32 +32,69 @@ namespace Orion.Tests
 		internal static CompilerResult CompileTo(BackendLanguage lang, string main, params (string Name, string Contents)[] files) =>
 			CompileTo(lang, main, null, files);
 
+		//`body` as the whole of `main`, for a test about one statement rather than a program.
+		internal static CompilerResult CompileMain(string body) =>
+			Compile(InMain(body));
+
+		//The emitted code for a program, which has to compile clean for the assertion to mean anything.
+		internal static string Emit(BackendLanguage lang, string program)
+		{
+			CompilerResult result = CompileTo(lang, program);
+			result.AssertNoErrors();
+			return result.CodeOutput;
+		}
+
+		internal static string EmitMain(BackendLanguage lang, string body) =>
+			Emit(lang, InMain(body));
+
+		private static string InMain(string body) => "i32 main()\n{\n" + body + "\n\treturn 0;\n}\n";
+
+		//Body of the named function in the emitted C++, so an assertion cannot be satisfied by an unrelated part of the file.
+		internal static string Body(string cpp, string name)
+		{
+			//Skip the forward declaration: the definition is the occurrence whose `(` is followed by `{` before any `;`.
+			int open = -1;
+			for (int at = cpp.IndexOf(name + "("); at >= 0; at = cpp.IndexOf(name + "(", at + 1))
+			{
+				int brace = cpp.IndexOf('{', at), semi = cpp.IndexOf(';', at);
+				if (brace >= 0 && (semi < 0 || brace < semi))
+				{
+					open = brace;
+					break;
+				}
+			}
+
+			Assert.IsTrue(open >= 0, $"{name} is not defined in the output");
+			return cpp.Substring(open, cpp.IndexOf("\n}", open) - open);
+		}
+
+		//How many times `needle` appears in `text`: one per instantiation is how a test tells the branches apart.
+		internal static int Occurrences(string text, string needle)
+		{
+			int count = 0;
+			for (int at = text.IndexOf(needle); at >= 0; at = text.IndexOf(needle, at + needle.Length))
+				count++;
+			return count;
+		}
+
 		private static CompilerResult CompileTo(BackendLanguage lang, string main, string header, (string Name, string Contents)[] files, string[] defines = null, bool rtti = false, bool testing = false)
 		{
-			string dir = Path.Combine(Path.GetTempPath(), "orion_test_" + Guid.NewGuid().ToString("N"));
-			Directory.CreateDirectory(dir);
-			try
-			{
-				File.WriteAllText(Path.Combine(dir, "main.src"), main);
-				foreach ((string name, string contents) in files)
-					File.WriteAllText(Path.Combine(dir, name), contents);
+			using TempDir dir = new TempDir("orion_test_");
+			string entry = dir.Write("main.src", main);
+			foreach ((string name, string contents) in files)
+				dir.Write(name, contents);
 
-				return Compiler.Run(new CompilerOptions
-				{
-					Input = Path.Combine(dir, "main.src"),
-					WorkingDirectory = dir,
-					Lang = lang,
-					HeaderName = header,
-					TypesName = header == null ? null : Path.GetFileNameWithoutExtension(header) + "_types.h",
-					Defines = [.. defines ?? []],
-					Rtti = rtti,
-					Testing = testing,
-				});
-			}
-			finally
+			return Compiler.Run(new CompilerOptions
 			{
-				Directory.Delete(dir, true);
-			}
+				Input = entry,
+				WorkingDirectory = dir.Path,
+				Lang = lang,
+				HeaderName = header,
+				TypesName = header == null ? null : Path.GetFileNameWithoutExtension(header) + "_types.h",
+				Defines = [.. defines ?? []],
+				Rtti = rtti,
+				Testing = testing,
+			});
 		}
 
 		internal static List<string> Errors(this CompilerResult result) =>

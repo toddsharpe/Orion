@@ -7,56 +7,56 @@ using System;
 
 namespace Orion.Frontend
 {
+	//One unit's generic templates and what they instantiated; kept on the session past Expand, since a `#insert` produces code long after and may still need an instantiation.
+	internal sealed class Generics
+	{
+		internal Dictionary<string, Function> Templates = new Dictionary<string, Function>();
+		internal HashSet<string> Instantiated = new HashSet<string>();
+		internal Dictionary<string, Struct> StructTemplates = new Dictionary<string, Struct>();
+		internal HashSet<string> StructInstantiated = new HashSet<string>();
+
+		//Constants a size argument may name, so `Buf<Window>` is `Buf_8`.
+		internal Dictionary<string, int> SizeConsts = new Dictionary<string, int>();
+
+		//Struct instantiations named but not yet cloned; every entry point drains it before returning.
+		internal readonly Queue<(Struct Template, Dictionary<string, TypeName> Map, string Name)> StructWork = new Queue<(Struct, Dictionary<string, TypeName>, string)>();
+	}
+
 	//C++-style generics: each <T> instantiation is cloned into a concrete function before binding.
 	public static class Monomorphizer
 	{
-		//The templates this compile saw, kept past the pass that collected them: a `#insert` produces code long after Expand ran and may still need an instantiation.
-		private static Dictionary<string, Function> _templates { get => Compiler.Session.MonoTemplates; set => Compiler.Session.MonoTemplates = value; }
+		private static Generics Generics => Compiler.Session.Generics;
 
-		//Instantiations that exist, by mangled name, so the same one is never made twice however late the call that needs it turns up.
-		private static HashSet<string> _instantiated { get => Compiler.Session.MonoInstantiated; set => Compiler.Session.MonoInstantiated = value; }
-
-		//The struct templates, kept the same way; a `Box<T>` reference instantiates from these.
-		private static Dictionary<string, Struct> _structTemplates { get => Compiler.Session.StructTemplates; set => Compiler.Session.StructTemplates = value; }
-
-		private static HashSet<string> _structInstantiated { get => Compiler.Session.StructInstantiated; set => Compiler.Session.StructInstantiated = value; }
-
-		//The literal integer constants, readable before binding, so `Buf<Window>` folds to the one `Buf_8`.
-		private static Dictionary<string, int> _sizeConsts { get => Compiler.Session.SizeConsts; set => Compiler.Session.SizeConsts = value; }
-
-		//Struct instantiations pending; always drained empty before Expand or ExpandLate returns.
-		private static Queue<(Struct Template, Dictionary<string, TypeName> Map, string Name)> _structWork => Compiler.Session.StructWork;
+		//Was `name` a generic function in this compile? Asked when a call did not resolve, to tell a typo apart from a template that could not be instantiated.
+		public static bool IsTemplate(string name) => Generics.Templates.ContainsKey(name);
 
 		//The no-substitution map the walks over concrete code share.
 		private static readonly Dictionary<string, TypeName> NoMap = new Dictionary<string, TypeName>();
 
-		//Was `name` a generic function in this compile? Asked when a call did not resolve, to tell a typo apart from a template that could not be instantiated.
-		public static bool IsTemplate(string name) => _templates.ContainsKey(name);
-
 		public static void Expand(TranslationUnit tu, List<Message> messages)
 		{
-			//Once per compile, and here because this is the first pass that folds a `#if` against them.
-			TypeFacts.Current = TypeFacts.From(tu);
+			//Conditionals published the compile's facts; a #src unit never runs it, so its own are built here.
+			TypeFacts.Current ??= TypeFacts.From(tu);
 
 			//Collect templates and remove them from the unit (they have open types, cannot bind).
-			_templates = tu.Blocks
-				.OfType<Function>()
-				.Where(i => i.TypeParameters.Count > 0)
-				.ToDictionary(i => i.Name);
-			_structTemplates = tu.Blocks
-				.OfType<Struct>()
-				.Where(i => i.TypeParameters.Count > 0)
-				.ToDictionary(i => i.Name);
-
-			_instantiated = new HashSet<string>();
-			_structInstantiated = new HashSet<string>();
-			_sizeConsts = tu.Blocks.OfType<Const>()
-				.Where(i => i.Value is IntLiteral or TypedIntLiteral)
-				.Select(i => (i.Name, Value: Convert.ToInt64(i.Value.Boxed)))
-				.Where(i => i.Value >= 0 && i.Value <= int.MaxValue)
-				.GroupBy(i => i.Name)
-				.ToDictionary(i => i.Key, i => (int)i.First().Value);
-			if (_templates.Count == 0 && _structTemplates.Count == 0)
+			Compiler.Session.Generics = new Generics
+			{
+				Templates = tu.Blocks
+					.OfType<Function>()
+					.Where(i => i.TypeParameters.Count > 0)
+					.ToDictionary(i => i.Name),
+				StructTemplates = tu.Blocks
+					.OfType<Struct>()
+					.Where(i => i.TypeParameters.Count > 0)
+					.ToDictionary(i => i.Name),
+				SizeConsts = tu.Blocks.OfType<Const>()
+					.Where(i => i.Value is IntLiteral or TypedIntLiteral)
+					.Select(i => (i.Name, Value: Convert.ToInt64(i.Value.Boxed)))
+					.Where(i => i.Value >= 0 && i.Value <= int.MaxValue)
+					.GroupBy(i => i.Name)
+					.ToDictionary(i => i.Key, i => (int)i.First().Value),
+			};
+			if (Generics.Templates.Count == 0 && Generics.StructTemplates.Count == 0)
 				return;
 
 			tu.Blocks = tu.Blocks.Where(i =>
@@ -119,23 +119,17 @@ namespace Orion.Frontend
 		//Expand a unit compiled apart mid-build (`#src`): its templates are its own, and the outer compile's survive the load.
 		public static void ExpandIsolated(TranslationUnit tu, List<Message> messages)
 		{
-			Dictionary<string, Function> templates = _templates;
-			HashSet<string> instantiated = _instantiated;
-			Dictionary<string, Struct> structTemplates = _structTemplates;
-			HashSet<string> structInstantiated = _structInstantiated;
-			Dictionary<string, int> sizeConsts = _sizeConsts;
+			Generics outer = Compiler.Session.Generics;
 			TypeFacts facts = TypeFacts.Current;
 			try
 			{
+				//Cleared so Expand builds this unit's own facts rather than folding against the outer compile's.
+				TypeFacts.Current = null;
 				Expand(tu, messages);
 			}
 			finally
 			{
-				_templates = templates;
-				_instantiated = instantiated;
-				_structTemplates = structTemplates;
-				_structInstantiated = structInstantiated;
-				_sizeConsts = sizeConsts;
+				Compiler.Session.Generics = outer;
 				TypeFacts.Current = facts;
 			}
 		}
@@ -144,7 +138,7 @@ namespace Orion.Frontend
 		public static List<Function> ExpandLate(List<Statement> body, List<Message> messages)
 		{
 			List<Function> created = new List<Function>();
-			if (_templates.Count == 0 && _structTemplates.Count == 0)
+			if (Generics.Templates.Count == 0 && Generics.StructTemplates.Count == 0)
 				return created;
 
 			Queue<(Function Fn, Dictionary<string, TypeName> Map)> work = new Queue<(Function, Dictionary<string, TypeName>)>();
@@ -154,9 +148,9 @@ namespace Orion.Frontend
 			Drain(work, created.Add, messages);
 
 			//A fragment may not be the first to name a struct instantiation: there is no unit here to add it to.
-			while (_structWork.Count > 0)
+			while (Generics.StructWork.Count > 0)
 			{
-				(Struct _, Dictionary<string, TypeName> _, string name) = _structWork.Dequeue();
+				(Struct _, Dictionary<string, TypeName> _, string name) = Generics.StructWork.Dequeue();
 				messages.Add(new Message($"Spliced code is the first to name struct instantiation {name}; name it once in compiled source so the build can instantiate it.", InputRegion.None, MessageType.Error));
 			}
 
@@ -200,7 +194,7 @@ namespace Orion.Frontend
 			if (arg == null || arg.IsGeneric || arg.IsArray || arg.Measure != null)
 				return arg;
 
-			return _sizeConsts.TryGetValue(arg.Name, out int value)
+			return Generics.SizeConsts.TryGetValue(arg.Name, out int value)
 				? new TypeName { Name = value.ToString(), Region = arg.Region }
 				: arg;
 		}
@@ -208,12 +202,12 @@ namespace Orion.Frontend
 		//`Box<f32>` becomes the concrete `Box_f32`, instantiated at first sight; inner arguments fold first.
 		private static TypeName StructRef(TypeName type, List<Message> messages)
 		{
-			if (type == null || !type.IsGeneric || _structTemplates.Count == 0)
+			if (type == null || !type.IsGeneric || Generics.StructTemplates.Count == 0)
 				return type;
 
 			List<TypeName> args = [.. type.Generics.Select(i => Sized(StructRef(i, messages)))];
 
-			if (!_structTemplates.TryGetValue(type.GenericType, out Struct template))
+			if (!Generics.StructTemplates.TryGetValue(type.GenericType, out Struct template))
 				return args.SequenceEqual(type.Generics) ? type : TypeName.CreateGeneric(type.GenericType, args);
 
 			if (args.Count != template.TypeParameters.Count)
@@ -223,12 +217,12 @@ namespace Orion.Frontend
 			}
 
 			string mangled = Mangle(type.GenericType, args);
-			if (_structInstantiated.Add(mangled))
+			if (Generics.StructInstantiated.Add(mangled))
 			{
 				Dictionary<string, TypeName> bound = template.TypeParameters
-					.Zip(args, (name, arg) => (name, arg))
-					.ToDictionary(i => i.name, i => i.arg);
-				_structWork.Enqueue((template, bound, mangled));
+					.Zip(args)
+					.ToDictionary(i => i.First, i => i.Second);
+				Generics.StructWork.Enqueue((template, bound, mangled));
 				messages?.Add(new Message($"Expanded struct {type.GenericType}<{string.Join(", ", args.Select(i => i.Name))}> as {mangled}.", type.Region, MessageType.Trace));
 			}
 
@@ -238,9 +232,9 @@ namespace Orion.Frontend
 		//Each pending instantiation clones the template's fields under its substitution; a field may queue more.
 		private static void DrainStructs(Action<Struct> onCreated, List<Message> messages)
 		{
-			while (_structWork.Count > 0)
+			while (Generics.StructWork.Count > 0)
 			{
-				(Struct template, Dictionary<string, TypeName> map, string name) = _structWork.Dequeue();
+				(Struct template, Dictionary<string, TypeName> map, string name) = Generics.StructWork.Dequeue();
 				onCreated(new Struct
 				{
 					Name = name,
@@ -260,13 +254,13 @@ namespace Orion.Frontend
 			List<Message> messages)
 		{
 			//Only user templates; builtin generics and non-generic calls are untouched.
-			if (call.GenericArgs.Count == 0 || !_templates.TryGetValue(call.Function, out Function template))
+			if (call.GenericArgs.Count == 0 || !Generics.Templates.TryGetValue(call.Function, out Function template))
 				return;
 
 			call.GenericArgs = [.. call.GenericArgs.Select(Sized)];
 			string mangled = Mangle(call.Function, call.GenericArgs);
 
-			if (_instantiated.Add(mangled))
+			if (Generics.Instantiated.Add(mangled))
 			{
 				if (call.GenericArgs.Count != template.TypeParameters.Count)
 				{
@@ -282,8 +276,8 @@ namespace Orion.Frontend
 					Desugar.Run(clone, messages);
 
 					Dictionary<string, TypeName> childMap = template.TypeParameters
-						.Zip(call.GenericArgs, (name, arg) => (name, arg))
-						.ToDictionary(i => i.name, i => i.arg);
+						.Zip(call.GenericArgs)
+						.ToDictionary(i => i.First, i => i.Second);
 
 					onCreated(clone);
 					work.Enqueue((clone, childMap));
@@ -317,27 +311,27 @@ namespace Orion.Frontend
 		//Re-apply the unit pass's rewrites to a `#param` clone reparsed from source: its signature types and the calls its body mangles; naming only -- ExpandLate makes any missing instantiation later.
 		public static void RewriteClone(Function clone)
 		{
-			if (_templates.Count == 0 && _structTemplates.Count == 0)
+			if (Generics.Templates.Count == 0 && Generics.StructTemplates.Count == 0)
 				return;
 
 			clone.ReturnType = Rewrite(clone.ReturnType, NoMap, null);
 			foreach (Parameter param in clone.Parameters)
 				param.TypeName = Rewrite(param.TypeName, NoMap, null);
 
-			void OnCall(Call call)
+			void MangleCall(Call call)
 			{
-				if (call.GenericArgs.Count > 0 && _templates.ContainsKey(call.Function))
+				if (call.GenericArgs.Count > 0 && Generics.Templates.ContainsKey(call.Function))
 				{
 					call.Function = Mangle(call.Function, [.. call.GenericArgs.Select(Sized)]);
 					call.GenericArgs = new List<TypeName>();
 				}
 			}
 
-			WalkStatements(clone.Body, OnCall, NoMap, null);
+			WalkStatements(clone.Body, MangleCall, NoMap, null);
 
 			//A clone cannot be the first to name a struct instantiation; forget it, so a later real use still can.
-			while (_structWork.Count > 0)
-				_structInstantiated.Remove(_structWork.Dequeue().Name);
+			while (Generics.StructWork.Count > 0)
+				Generics.StructInstantiated.Remove(Generics.StructWork.Dequeue().Name);
 		}
 
 		//Mangle a template name + type arguments into a valid identifier: max<i32> -> max_i32.
@@ -346,7 +340,8 @@ namespace Orion.Frontend
 			return $"{name}_{string.Join("_", args.Select(i => Sanitize(i.Name)))}";
 		}
 
-		private static string Sanitize(string name)
+		//A name as an identifier: anything but a letter or digit becomes `_`, as every mangling spells it.
+		internal static string Sanitize(string name)
 		{
 			return new string(name.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
 		}

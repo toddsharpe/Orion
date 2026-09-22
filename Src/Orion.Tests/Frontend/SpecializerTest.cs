@@ -1,7 +1,7 @@
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using Orion.Ast;
 using Orion.Diagnostics;
 using Orion.Frontend;
-using ParserResult = FParsec.CharParsers.ParserResult<Orion.Lang.Syntax.TranslationUnit, Microsoft.FSharp.Core.Unit>;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -11,13 +11,9 @@ namespace Orion.Tests.Frontend
 	[TestClass]
 	public class SpecializerTest
 	{
-		private static TranslationUnit Parse(string src)
-		{
-			Compiler.StartSession();
-			ParserResult parseResult = Lang.Parse.Parse(src);
-			ParserResult.Success parseSuccess = parseResult as ParserResult.Success;
-			return TranslationUnit.Create(parseSuccess.Item1);
-		}
+		//Extract registers the template on the session, so each test starts one.
+		private static TranslationUnit Parse(string src) => Parsed.ParseInSession(src);
+
 		private static Function Fn(TranslationUnit tu, string name) => tu.Blocks.OfType<Function>().Single(f => f.Name == name);
 
 		[TestMethod]

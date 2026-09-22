@@ -1,5 +1,6 @@
 using Block = Microsoft.FSharp.Collections.FSharpList<Orion.Lang.Syntax.Pos<Orion.Lang.Syntax.Statement>>;
 using Orion.Ast;
+using ParserResult = FParsec.CharParsers.ParserResult<Microsoft.FSharp.Collections.FSharpList<Orion.Lang.Syntax.Pos<Orion.Lang.Syntax.Statement>>, Microsoft.FSharp.Core.Unit>;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,43 +21,44 @@ namespace Orion.BuildTime.Builtins
 		[BuildOnly]
 		public static OrionCode Fill(int id, object holes)
 		{
-
-			return new OrionCode { Parts = [new CodePart(id, new Dictionary<string, object>((Dictionary<string, object>)holes))] };
+			return One(new CodePart(id, new Dictionary<string, object>(Env.Bag(holes))));
 		}
+
+		private static OrionCode One(CodePart part) => new OrionCode { Parts = [part] };
 
 		[BuildOnly]
 		public static OrionCode Parse(string text)
 		{
 			string trimmed = text.Trim();
 			if (trimmed.Length == 0)
-				return new OrionCode { Parts = new List<CodePart>() };
+				return Empty();
 
 			if (Lang.Parse.ParseStatements(trimmed).IsFailure)
 			{
 				Env.Report($"Generated source does not parse: {trimmed}");
-				return new OrionCode { Parts = new List<CodePart>() };
+				return Empty();
 			}
 
-			return new OrionCode { Parts = [new CodePart(-1, null, trimmed)] };
+			return One(new CodePart(-1, null, trimmed));
 		}
 
 		internal static OrionCode Of(List<Ast.Statement> statements)
 		{
-			return new OrionCode { Parts = [new CodePart(-1, null, null, statements)] };
+			return One(new CodePart(-1, null, Nodes: statements));
 		}
 
 		[BuildOnly]
 		public static OrionCode Case<T>(T value, OrionCode body)
 		{
 			SwitchCase arm = new SwitchCase { Value = (Expression)Label<T>(value), Body = Materialize(body) };
-			return new OrionCode { Parts = [new CodePart(-1, null, null, null, [arm])] };
+			return One(new CodePart(-1, null, Cases: [arm]));
 		}
 
 		[BuildOnly]
 		public static OrionCode Default(OrionCode body)
 		{
 			SwitchCase arm = new SwitchCase { IsDefault = true, Body = Materialize(body) };
-			return new OrionCode { Parts = [new CodePart(-1, null, null, null, [arm])] };
+			return One(new CodePart(-1, null, Cases: [arm]));
 		}
 
 		private static Ast.Node Label<T>(T value)
@@ -139,7 +141,6 @@ namespace Orion.BuildTime.Builtins
 			List<Ast.Statement> all = new List<Ast.Statement>();
 			foreach (CodePart part in code.Parts)
 			{
-
 				if (part.Nodes != null)
 				{
 					if (part.Emitted)
@@ -270,11 +271,11 @@ namespace Orion.BuildTime.Builtins
 
 		internal static List<Ast.Statement> FromText(string text)
 		{
-			var result = Lang.Parse.ParseStatements(text);
+			ParserResult result = Lang.Parse.ParseStatements(text);
 			if (result.IsFailure)
 				return new List<Ast.Statement>();
 
-			List<Ast.Statement> statements = [.. ((FParsec.CharParsers.ParserResult<Microsoft.FSharp.Collections.FSharpList<Lang.Syntax.Pos<Lang.Syntax.Statement>>, Microsoft.FSharp.Core.Unit>.Success)result).Item1.Select(Ast.Statement.Create)];
+			List<Ast.Statement> statements = [.. ((ParserResult.Success)result).Item1.Select(Ast.Statement.Create)];
 			Frontend.Desugar.Run(statements, Env.Context.Messages);
 			return statements;
 		}

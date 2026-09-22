@@ -17,17 +17,14 @@ namespace Orion
 		//`Function::Get` -> `Function_Get`, for the places that need an ordinary identifier.
 		public static string Mangled(string name) => name.Replace("::", "_");
 
-		//The types a cast accepts. bool and str are excluded: neither has a meaningful numeric width.
-		private static readonly HashSet<TypeCode> CastCodes =
-		[
-			TypeCode.i8, TypeCode.i16, TypeCode.i32, TypeCode.i64,
-			TypeCode.u8, TypeCode.u16, TypeCode.u32, TypeCode.u64,
-			TypeCode.f32, TypeCode.f64,
-		];
-
-		//An enum is an integer with named values, so it converts to and from the numeric types.
+		//The types a cast accepts: the numeric widths, and an enum, which is an integer with named values. bool and str have no width.
 		internal static bool IsCastable(TypeSymbol type) =>
-			(type is PrimitiveTypeSymbol p && CastCodes.Contains(p.Code)) || type is EnumTypeSymbol;
+			type is EnumTypeSymbol
+				|| (type as PrimitiveTypeSymbol)?.Code is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64
+					or TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64 or TypeCode.f32 or TypeCode.f64;
+
+		//The one spelling of "returns nothing"; an alias of void matches too, since AliasTypeSymbol is a PrimitiveTypeSymbol carrying its code.
+		internal static bool IsVoid(TypeSymbol type) => type is PrimitiveTypeSymbol { Code: TypeCode.@void };
 
 		public static FunctionTypeSymbol MakeFunctionType(SymbolTable table, FunctionSymbol function)
 		{
@@ -36,7 +33,7 @@ namespace Orion
 
 		public static FunctionTypeSymbol MakeFunctionType(SymbolTable table, TypeSymbol retType, List<TypeSymbol> argTypes)
 		{
-			string name = Language.FunctionType(retType, argTypes);
+			string name = FunctionType(retType, argTypes);
 			if (!table.TryGet(name, out TypeSymbol type))
 			{
 				type = new FunctionTypeSymbol(retType, argTypes);
@@ -50,12 +47,7 @@ namespace Orion
 			if (generic == null)
 				return funcType;
 
-			bool isVoid = funcType.ReturnType == Language.Primitives[TypeCode.@void];
-			List<TypeSymbol> genericTypes = [.. funcType.ParamTypes];
-			if (!isVoid)
-				genericTypes.Add(funcType.ReturnType);
-
-			Type[] types = [.. genericTypes.Select(BuildAssembly.GetClrType)];
+			Type[] types = [.. Shape(funcType.ReturnType, funcType.ParamTypes).Select(BuildAssembly.GetClrType)];
 			funcType.Clr = types.Length == 0 ? generic : generic.MakeGenericType(types);
 
 			return funcType;
@@ -70,18 +62,26 @@ namespace Orion
 			if (arity > MaxDelegateParameters)
 				return null;
 
-			if (func.ReturnType != Language.Primitives[TypeCode.@void])
+			if (!IsVoid(func.ReturnType))
 				return Type.GetType($"System.Func`{arity + 1}");
 
 			return arity == 0 ? typeof(Action) : Type.GetType($"System.Action`{arity}");
 		}
 
-		public static string FunctionType(TypeSymbol ReturnType, List<TypeSymbol> ParamTypes)
+		//The delegate's type arguments: the parameters, then the return unless void, which Action leaves off.
+		private static List<TypeSymbol> Shape(TypeSymbol returnType, IEnumerable<TypeSymbol> paramTypes)
 		{
-			bool isVoid = ReturnType == Language.Primitives[TypeCode.@void];
-			List<TypeSymbol> types = [.. ParamTypes];
-			if (!isVoid)
-				types.Add(ReturnType);
+			List<TypeSymbol> types = [.. paramTypes];
+			if (!IsVoid(returnType))
+				types.Add(returnType);
+
+			return types;
+		}
+
+		public static string FunctionType(TypeSymbol returnType, List<TypeSymbol> paramTypes)
+		{
+			bool isVoid = IsVoid(returnType);
+			List<TypeSymbol> types = Shape(returnType, paramTypes);
 
 			if (isVoid && types.Count == 0)
 				return "Action";

@@ -7,11 +7,12 @@ using TypeCode = Orion.Symbols.TypeCode;
 
 namespace Orion.Tests.Graphs
 {
+	//DataGraph over hand-built TAC: reads and writes become edges, and a symbol only written is an exit.
 	[TestClass]
 	public class DataGraphTests
 	{
 		[TestMethod]
-		public void TestExits()
+		public void ASymbolWrittenAndNeverReadIsTheExit()
 		{
 			SourceFunctionSymbol func = CreateAddFunction();
 			DataGraph graph = DataGraph.Create(func);
@@ -20,43 +21,43 @@ namespace Orion.Tests.Graphs
 			List<DataGraph.NodeImpl> exits = graph.Exits().ToList();
 			Assert.AreEqual(1, exits.Count);
 			DataGraph.NodeImpl node = exits[0];
-			Assert.AreEqual(node.Type, DataGraph.NodeType.Set1);
-			TempDataSymbol sym = node.Node1 as TempDataSymbol;
-			Assert.AreEqual(sym.Name, "_temp_T1");
+			Assert.AreEqual(DataGraph.NodeKind.Symbol, node.Kind);
+			TempDataSymbol sym = node.Symbol as TempDataSymbol;
+			Assert.AreEqual("_temp_T1", sym.Name);
 		}
 
 		[TestMethod]
-		public void TestGetSymbols()
+		public void EveryNamedSymbolInTheTableIsANode()
 		{
 			SourceFunctionSymbol func = CreateAddFunction();
 			DataGraph graph = DataGraph.Create(func);
 
-			List<NamedDataSymbol> symbols = graph.Node1s.ToList();
+			List<NamedDataSymbol> symbols = graph.Symbols.ToList();
 			Assert.AreEqual(3, symbols.Count);
 		}
 
 		[TestMethod]
-		public void TestSingleEdges()
+		public void AReadIsOneOutgoingEdgeAndAWriteOneIncoming()
 		{
 			SourceFunctionSymbol func = CreateAddFunction();
 			DataGraph graph = DataGraph.Create(func);
 
-			List<NamedDataSymbol> symbols = graph.Node1s.ToList();
+			List<NamedDataSymbol> symbols = graph.Symbols.ToList();
 			Assert.AreEqual(3, symbols.Count);
 
 			//v is read and written to
 			NamedDataSymbol v = symbols.Single(i => i.Name == "v");
-			Assert.AreEqual(graph[v].Outgoing.Count, 1);
-			Assert.AreEqual(graph[v].Incoming.Count, 1);
+			Assert.AreEqual(1, graph[v].Outgoing.Count);
+			Assert.AreEqual(1, graph[v].Incoming.Count);
 
 			//_temp_T1 is never read from but is written to
 			NamedDataSymbol _temp_T1 = symbols.Single(i => i.Name == "_temp_T1");
-			Assert.AreEqual(graph[_temp_T1].Outgoing.Count, 0);
-			Assert.AreEqual(graph[_temp_T1].Incoming.Count, 1);
+			Assert.AreEqual(0, graph[_temp_T1].Outgoing.Count);
+			Assert.AreEqual(1, graph[_temp_T1].Incoming.Count);
 		}
 
 		[TestMethod]
-		public void TestMultiCallAndMultiReturnEdges()
+		public void MultiCallWritesEachResultOnceAndMultiReturnReadsThem()
 		{
 			TypeSymbol i32 = new PrimitiveTypeSymbol(TypeCode.i32);
 

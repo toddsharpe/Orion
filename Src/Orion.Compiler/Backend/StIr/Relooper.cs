@@ -9,7 +9,7 @@ using Node = Orion.Graphs.ControlFlowGraph.Node;
 namespace Orion.Backend.StIr
 {
 	//Recovers the unfused StIr from the final CFG: control flow relooped, each TAC lowered to one StStmt/StExpr (Fuse inlines temps later); conditions fold here because while/for headers have nowhere else to carry them.
-	public class Relooper
+	public static class Relooper
 	{
 		//Immutable CFG analysis, passed read-only through the emit recursion.
 		private sealed record Analysis(
@@ -57,7 +57,7 @@ namespace Orion.Backend.StIr
 				if (latch != null)
 				{
 					loopLatch[h] = latch;
-					loopExit[h] = BackTestExit(latch);
+					loopExit[h] = Fallthrough(latch);
 					continue;
 				}
 
@@ -136,7 +136,7 @@ namespace Orion.Backend.StIr
 					loops.Pop();
 
 					//Prefer for(init; cond; step) with a recognizable counter, then while(cond) when the condition folds, else while(true){ if(!cond) break; ... }.
-					if (TryBuildFor(header, pre, sym, body, result, a, out StFor forLoop))
+					if (TryBuildFor(header, pre, sym, body, result, a) is StFor forLoop)
 					{
 						result.Add(forLoop);
 					}
@@ -370,7 +370,7 @@ namespace Orion.Backend.StIr
 
 		//Whether a run of statements always jumps away, so whatever follows it is unreachable.
 		private static bool Terminates(List<StCtrl> body) =>
-			body.Count > 0 && body[^1] is StBreak or StContinue or StReturn;
+			body.Count > 0 && body[^1].Exits();
 
 		//Whether `start`'s region, walked up to `stop`, can reach the enclosing loop's exit or continue.
 		private static bool ReachesLoopEdge(Node start, Node stop, Node exit, Node cont)
@@ -408,39 +408,35 @@ namespace Orion.Backend.StIr
 			return body;
 		}
 
-		//Recover for(init; cond; step): the step is the unique latch block (a source `continue` jumps THROUGH it, so hoisting is safe), the init the counter assignment just before; any unclean shape falls back.
-		private static bool TryBuildFor(Node header, List<Tac> pre, DataSymbol sym, List<StCtrl> body, List<StCtrl> result, Analysis a, out StFor forLoop)
+		//Recover for(init; cond; step): the step is the unique latch block (a source `continue` jumps THROUGH it, so hoisting is safe), the init the counter assignment just before; any unclean shape answers null.
+		private static StFor TryBuildFor(Node header, List<Tac> pre, DataSymbol sym, List<StCtrl> body, List<StCtrl> result, Analysis a)
 		{
-			forLoop = null;
-
 			//The condition must be exactly a relational comparison, folding into the for-header with nothing left per iteration.
-			List<Tac> condReal = pre;
-			if (condReal.Count != 1 || condReal[0] is not BinaryTac cmp || cmp.Result != sym || !IsRelational(cmp.Op) || !a.Foldable.Contains(sym))
-				return false;
+			if (pre.Count != 1 || pre[0] is not BinaryTac cmp || cmp.Result != sym || !IsRelational(cmp.Op) || !a.Foldable.Contains(sym))
+				return null;
 
 			//The step lives in the unique latch block (back-edge n->header, header dom n).
 			List<Node> latches = a.Nodes.Where(n => n.Outgoing.ContainsKey(header) && a.Dom[n].Contains(header)).ToList();
 			if (latches.Count != 1)
-				return false;
+				return null;
 			List<Tac> step = StraightLine(latches[0]);
 			if (step.Count == 0)
-				return false;
+				return null;
 
 			//The step must be exactly the tail of the rendered body (so removing it is safe).
 			List<StStmt> stepStmts = LowerBlock(step);
 			if (body.Count == 0 || body[^1] is not StBlock tail || !tail.Stmts.SequenceEqual(stepStmts))
-				return false;
+				return null;
 
 			//The counter is whatever the step finally writes.
 			NamedDataSymbol counter = StepTarget(step);
 			if (counter == null)
-				return false;
+				return null;
 
 			body.RemoveAt(body.Count - 1);
 			List<StStmt> init = PullInit(result, counter);
 			(_, StExpr cond) = FoldCond(pre, sym, a);
-			forLoop = new StFor(init, cond, LowerBlock(SimplifyStep(step, counter)), new StSeq(body));
-			return true;
+			return new StFor(init, cond, LowerBlock(SimplifyStep(step, counter)), new StSeq(body));
 		}
 
 		private static bool IsRelational(BinaryTacOp op) =>
@@ -601,8 +597,6 @@ namespace Orion.Backend.StIr
 		private static bool IsBackTest(Node node) =>
 			node.Value.Tacs.LastOrDefault(t => t is ConditionalTac) is ConditionalTac { Op: ConditionalTacOp.IfNotZero };
 
-		private static Node BackTestExit(Node latch) => Fallthrough(latch);
-
 		//IfZero and IfNotZero branch on opposite polarities, so which edge is the true one depends on the test.
 		private static Node CondFalse(Node node) => IsBackTest(node) ? Fallthrough(node) : Taken(node);
 		private static Node CondTrue(Node node) => IsBackTest(node) ? Taken(node) : Fallthrough(node);
@@ -652,8 +646,7 @@ namespace Orion.Backend.StIr
 			withExit.AddRange(nodes);
 			HashSet<Node> all = withExit.ToHashSet();
 
-			Func<Node, IEnumerable<Node>> succs = n =>
-				n.Outgoing.Count == 0 ? new List<Node> { VirtualExit } : n.Outgoing.Keys.Cast<Node>();
+			static IEnumerable<Node> Succs(Node n) => n.Outgoing.Count == 0 ? [VirtualExit] : n.Outgoing.Keys;
 
 			Dictionary<Node, HashSet<Node>> pdom = withExit.ToDictionary(n => n, n => new HashSet<Node>(all));
 			pdom[VirtualExit] = new HashSet<Node> { VirtualExit };
@@ -665,7 +658,7 @@ namespace Orion.Backend.StIr
 				foreach (Node n in nodes)
 				{
 					HashSet<Node> next = null;
-					foreach (Node s in succs(n))
+					foreach (Node s in Succs(n))
 					{
 						if (next == null) next = new HashSet<Node>(pdom[s]);
 						else next.IntersectWith(pdom[s]);
@@ -683,7 +676,7 @@ namespace Orion.Backend.StIr
 				candidates.Remove(n);
 				Node chosen = null;
 				foreach (Node c in candidates)
-					if (new HashSet<Node>(pdom[c]).SetEquals(candidates)) { chosen = c; break; }
+					if (pdom[c].SetEquals(candidates)) { chosen = c; break; }
 				ipdom[n] = chosen == VirtualExit ? null : chosen;
 			}
 			return ipdom;

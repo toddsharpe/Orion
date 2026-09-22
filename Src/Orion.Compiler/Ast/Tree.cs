@@ -42,6 +42,12 @@ namespace Orion.Ast
 			SrcExpr x => Of(x.Path).Concat(Many(x.Arguments?.Select(a => a.Value))),
 			Comprehension x => Of(x.Source, x.Condition, x.Body),
 
+			//A #code fragment and what fills it: expressions until CodeBuiltins splices them into statements.
+			CodeExpr x => Many(x.Statements),
+			Hole x => Of(x.Value),
+			//Statements or switch arms; the arms are walked as a Switch's are until ExpandArms takes them.
+			Spliced x => Many(x.Statements).Concat(Many(x.Cases?.SelectMany(CaseChildren))),
+
 			//Literals are leaves here: their values are walked by the binder, not by traversal.
 			Literal => Empty,
 
@@ -62,10 +68,7 @@ namespace Orion.Ast
 			Return x => Of(x.Ret),
 			Assert x => Of(x.Condition, x.Message),
 			Template x => Of(x.Code),
-			CodeExpr x => Many(x.Statements),
 			InsertCode x => Of(x.Code),
-			Hole x => Of(x.Value),
-			Spliced x => Many(x.Statements),
 			Break or Continue => Empty,
 
 			//An expression that could not be lowered has no children to walk; binding reports it.
@@ -148,6 +151,19 @@ namespace Orion.Ast
 					x.Body = Rw(x.Body, f);
 					break;
 
+				//A #code fragment and what fills it.
+				case CodeExpr x: RwList(x.Statements, f); break;
+				case Hole x: x.Value = Rw(x.Value, f); break;
+				case Spliced x:
+					RwList(x.Statements, f);
+					if (x.Cases != null)
+						foreach (SwitchCase c in x.Cases)
+						{
+							c.Value = Rw(c.Value, f);
+							RwList(c.Body, f);
+						}
+					break;
+
 				//Statements.
 				case Assignment x: x.Init = Rw(x.Init, f); break;
 				case ConstDef x: x.Value = Rw(x.Value, f); break;
@@ -173,10 +189,7 @@ namespace Orion.Ast
 				case Return x: x.Ret = Rw(x.Ret, f); break;
 				case Assert x: x.Condition = Rw(x.Condition, f); x.Message = Rw(x.Message, f); break;
 				case Template x: x.Code = Rw(x.Code, f); break;
-				case CodeExpr x: RwList(x.Statements, f); break;
 				case InsertCode x: x.Code = Rw(x.Code, f); break;
-				case Hole x: x.Value = Rw(x.Value, f); break;
-				case Spliced x: RwList(x.Statements, f); break;
 
 				//Return values.
 				case ReturnExpr x: x.Value = Rw(x.Value, f); break;

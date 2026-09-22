@@ -4,7 +4,7 @@ using Orion.IR;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
-using TypeCode = Orion.Symbols.TypeCode;
+using static Orion.Tests.Opt.Tacs;
 
 namespace Orion.Tests.Opt
 {
@@ -12,22 +12,10 @@ namespace Orion.Tests.Opt
 	[TestClass]
 	public class FloatFoldTest
 	{
-		private static readonly TypeSymbol F64 = new PrimitiveTypeSymbol(TypeCode.f64);
-		private static readonly TypeSymbol F32 = new PrimitiveTypeSymbol(TypeCode.f32);
-		private static readonly TypeSymbol Bool = new PrimitiveTypeSymbol(TypeCode.@bool);
-
 		private static SourceFunctionSymbol Func(TypeSymbol resultType, BinaryTacOp op, LiteralSymbol a, LiteralSymbol b, out NamedDataSymbol r)
 		{
-			SymbolTable root = new SymbolTable("Root");
-			SymbolTable table = root.CreateChild("Test");
 			r = new LocalDataSymbol("r", resultType, LocalStorage.Stack);
-			table.Add(r);
-			return new SourceFunctionSymbol("Test", resultType, [], table, new LinkedList<Tac>(
-			[
-				new FunctionMarkTac(MarkOp.Start),
-				new BinaryTac(op, r, a, b),
-				new FunctionMarkTac(MarkOp.End),
-			]));
+			return Function(resultType, Table(r), new BinaryTac(op, r, a, b));
 		}
 
 		private static LiteralSymbol FoldedLiteral(SourceFunctionSymbol func)

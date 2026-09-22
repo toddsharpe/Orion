@@ -19,14 +19,16 @@ namespace Orion.IR
 		internal bool IsBuild;
 		internal readonly Stack<(LabelTac Break, LabelTac Continue)> Loops = new Stack<(LabelTac, LabelTac)>();
 
-		private readonly int[] _labels;
+		//The label numbering is a shared counter: the function's context creates it, and every nested context counts through it.
+		private sealed class Labels { internal int Next; }
+		private readonly Labels _labels;
 
 		internal LowerContext(List<Message> messages, SymbolTable table, bool isBuild)
 		{
 			Messages = messages;
 			Table = table;
 			IsBuild = isBuild;
-			_labels = [Seed(table)];
+			_labels = new Labels { Next = Seed(table) };
 		}
 
 		internal LowerContext(LowerContext outer, SymbolTable table, bool isBuild)
@@ -44,7 +46,7 @@ namespace Orion.IR
 
 		internal LabelTac NewLabel()
 		{
-			LabelSymbol symbol = new LabelSymbol($"$L{_labels[0]++}", IsBuild);
+			LabelSymbol symbol = new LabelSymbol($"$L{_labels.Next++}", IsBuild);
 			Table.Add(symbol);
 			return new LabelTac(symbol);
 		}
@@ -239,7 +241,7 @@ namespace Orion.IR
 			return
 			[
 				.. elements,
-				.. expr.Elements.Select((item, idx) => new AssignTac(expr.Destinations[idx], expr.Elements[idx].Symbol, false)),
+				.. expr.Elements.Select((item, idx) => new AssignTac(expr.Destinations[idx], item.Symbol)),
 				new DataTac(expr.Symbol)
 			];
 		}
@@ -266,7 +268,7 @@ namespace Orion.IR
 					FieldDataSymbol dest = new FieldDataSymbol(i.Key, destType, instance);
 					dest.Hosted = structType.Hosted.GetField(i.Key);
 
-					return new AssignTac(dest, i.Value.Symbol, false);
+					return new AssignTac(dest, i.Value.Symbol);
 				}),
 				new DataTac(into)
 			];
@@ -287,7 +289,7 @@ namespace Orion.IR
 				.. expr.Fields.Select(i =>
 				{
 					FieldDataSymbol dest = new FieldDataSymbol(i.Key, i.Value.Symbol.Type, instance);
-					return new AssignTac(dest, i.Value.Symbol, false);
+					return new AssignTac(dest, i.Value.Symbol);
 				}),
 				new DataTac(expr.Symbol)
 			];
@@ -373,27 +375,20 @@ namespace Orion.IR
 				}
 
 				case AstOp.Subtract:
-				{
-					Tac tac = new UnaryTac(UnaryTacOp.Negate, expr.Symbol as NamedDataSymbol, expr.Operand1.Symbol);
-					return
-						[
-							.. operand,
-							tac
-						];
-				}
-
 				case AstOp.BitNot:
 				{
-					Tac tac = new UnaryTac(UnaryTacOp.BitNot, expr.Symbol as NamedDataSymbol, expr.Operand1.Symbol);
+					UnaryTacOp op = expr.Op == AstOp.Subtract ? UnaryTacOp.Negate : UnaryTacOp.BitNot;
+					Tac tac = new UnaryTac(op, expr.Symbol as NamedDataSymbol, expr.Operand1.Symbol);
 					return
 						[
 							.. operand,
 							tac
 						];
 				}
-			}
 
-			return [];
+				default:
+					throw new NotImplementedException($"Codegen: unary {expr.Op}");
+			}
 		}
 
 		private static List<Tac> Tacs(TernaryOp expr, LowerContext ctx)

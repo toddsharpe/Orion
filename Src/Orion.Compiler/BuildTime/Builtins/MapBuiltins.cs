@@ -2,17 +2,14 @@
 
 namespace Orion.BuildTime.Builtins
 {
-
 	public class BuildMap<K, V>
 	{
-
 		internal readonly System.Collections.Generic.Dictionary<K, V> Items = new System.Collections.Generic.Dictionary<K, V>();
 
 		public int Length => Items.Count;
 
 		public V this[K key]
 		{
-
 			get => (V)BuildAssembly.CopyStruct(Items[key]);
 			set => Items[key] = (V)BuildAssembly.CopyStruct(value);
 		}
@@ -58,7 +55,7 @@ namespace Orion.BuildTime.Builtins
 
 		public static BuildMap<K, V> With<K, V>(BuildMap<K, V> map, K key, V value)
 		{
-			map.Items[key] = value;
+			map.Items[key] = (V)BuildAssembly.CopyStruct(value);
 			return map;
 		}
 	}

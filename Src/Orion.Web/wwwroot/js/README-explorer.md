@@ -73,8 +73,5 @@ neither can read the other, and a CSS-only mode cannot re-measure Monaco.
 
 ## Interop (static `[JSInvokable]` on assembly `Orion.Web`)
 
-- `Compile(files, entry, lang)` → seeds `files` into MEMFS, compiles `entry` for `lang`.
-- `Analyze(source)` → diagnostics + semantic tokens (debounced live analysis).
-- `Hover(source, line, character)` → markdown hover.
-
-All positions are 0-based (LSP); converted to Monaco's 1-based at the boundary.
+The method table is in `Src/Orion.Web/README.md` under "Interop surface". All positions are 0-based
+(LSP); converted to Monaco's 1-based at the boundary.

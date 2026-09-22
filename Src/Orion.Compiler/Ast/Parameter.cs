@@ -36,11 +36,9 @@ namespace Orion.Ast
 		//No directive means an ordinary parameter, passed by the caller rather than bound at build time.
 		private static ParamDirective CreateDirective(Lang.Syntax.Binding binding)
 		{
-			if (binding == null)
-				return ParamDirective.None;
-
 			return binding switch
 			{
+				null => ParamDirective.None,
 				{ IsParam: true } => ParamDirective.Param,
 				{ IsInput: true } => ParamDirective.Input,
 				{ IsPrev: true } => ParamDirective.Prev,

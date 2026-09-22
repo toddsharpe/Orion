@@ -4,7 +4,7 @@ using Orion.Symbols;
 
 namespace Orion.Ast
 {
-	internal abstract class Ret : Node
+	public abstract class Ret : Node
 	{
 		internal DataSymbol Symbol { get; set; }
 
@@ -20,5 +20,16 @@ namespace Orion.Ast
 				Region = InputRegion.Create(value.Value.Start, value.Value.End)
 			};
 		}
+	}
+
+	//`return v;`.
+	public class ReturnExpr : Ret
+	{
+		internal Expression Value { get; set; }
+	}
+
+	//`return;`.
+	public class ReturnVoid : Ret
+	{
 	}
 }

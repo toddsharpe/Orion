@@ -3,18 +3,25 @@
 	//The File:: builtins: line-oriented reads, resolved against the working directory or the source root.
 	public static class FileBuiltins
 	{
+		//Through Lines, so a missing path is reported by name rather than surfacing as an unhandled exception.
 		public static File Open(string filename)
 		{
-			string[] lines = System.IO.File.ReadAllLines(Resolve(filename));
 			return new File
 			{
-				Lines = lines,
+				Lines = Lines(filename),
 				Index = 0
 			};
 		}
 
 		public static string ReadLine(File file)
 		{
+			//Stops the build rather than returning: a loop that reads without testing would otherwise report once per iteration forever.
+			if (!HasLine(file))
+			{
+				Env.Report("File::ReadLine: the file has no more lines; test `File::HasLine` before reading.");
+				throw new BuildStoppedException();
+			}
+
 			string line = file.Lines[file.Index];
 			file.Index++;
 			return line;

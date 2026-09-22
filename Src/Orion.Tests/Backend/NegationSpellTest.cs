@@ -50,6 +50,16 @@ i32 main()
 		}
 
 		[TestMethod]
+		public void CSharpSpellsBang()
+		{
+			CompilerResult result = Harness.CompileTo(BackendLanguage.CSharp, Guard);
+
+			result.AssertNoErrors();
+			StringAssert.Contains(result.CodeOutput, "!ready");
+			Assert.IsFalse(result.CodeOutput.Contains("== false"), result.CodeOutput);
+		}
+
+		[TestMethod]
 		public void CompoundOperandIsParenthesized()
 		{
 			CompilerResult result = Harness.Compile(@"

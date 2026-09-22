@@ -1,6 +1,5 @@
 using Orion.Diagnostics;
 using Orion.Symbols;
-using Orion.Util;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -15,12 +14,9 @@ namespace Orion.IR.Opts
 			"f32_str", "f64_str", "bool_str", "str_str", "str_len", "bytes_hexstr",
 		};
 
-		private static bool IsSimpleTarget(NamedDataSymbol s) =>
-			s is TempDataSymbol || (s is LocalDataSymbol l && l.Storage == LocalStorage.Stack);
-
 		public static void Run(SourceFunctionSymbol function, List<Message> messages)
 		{
-			messages.Add(new Message("## Common Subexpr ##", InputRegion.None, MessageType.Trace));
+			messages.Trace("## Common Subexpr ##");
 
 			static string Id(DataSymbol s) => s switch
 			{
@@ -35,22 +31,22 @@ namespace Orion.IR.Opts
 			{
 				switch (t)
 				{
-					case BinaryTac b when IsSimpleTarget(b.Result):
+					case BinaryTac b when DeadStoreElim.Simple(b.Result):
 					{
 						string a = Id(b.Operand1), c = Id(b.Operand2);
 						return a == null || c == null ? null : $"B:{b.Op}:{a}:{c}";
 					}
-					case UnaryTac u when IsSimpleTarget(u.Result):
+					case UnaryTac u when DeadStoreElim.Simple(u.Result):
 					{
 						string a = Id(u.Operand1);
 						return a == null ? null : $"U:{u.Op}:{a}";
 					}
-					case CastTac c when IsSimpleTarget(c.Result):
+					case CastTac c when DeadStoreElim.Simple(c.Result):
 					{
 						string a = Id(c.Operand1);
 						return a == null ? null : $"C:{c.Result.Type.Name}:{a}";
 					}
-					case CallTac call when call.Result != null && IsSimpleTarget(call.Result)
+					case CallTac call when call.Result != null && DeadStoreElim.Simple(call.Result)
 						&& PureBuiltins.Contains(call.Function.Name):
 					{
 						List<string> ids = call.Arguments.Select(Id).ToList();
@@ -62,7 +58,7 @@ namespace Orion.IR.Opts
 			}
 
 			static IEnumerable<NamedDataSymbol> Writes(Tac t) =>
-				t.GetReadersWriters().Item2.OfType<NamedDataSymbol>();
+				t.GetReadersWriters().Writes.OfType<NamedDataSymbol>();
 
 			Dictionary<string, NamedDataSymbol> avail = new Dictionary<string, NamedDataSymbol>();
 
@@ -98,7 +94,7 @@ namespace Orion.IR.Opts
 				{
 					NamedDataSymbol target = ((ResultTac)t).Result;
 					node.Value = new AssignTac(target, holder);
-					messages.Add(new Message($"CSE: {target} = {holder} (was {t})", InputRegion.None, MessageType.Trace));
+					messages.Trace($"CSE: {target} = {holder} (was {t})");
 					replaced = true;
 				}
 

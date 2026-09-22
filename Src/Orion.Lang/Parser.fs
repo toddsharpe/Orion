@@ -266,9 +266,9 @@ module Parser =
         %% (str "[") -- +.(qty.[0..] / comma * pexpr) -- (str "]") -- ((str ":") <?> "':' -- an array literal carries its type as a suffix, as in [1.0, 2.0]:f32[2]") -- +.ptype -|>
             fun items t -> ArrayExpr(items |> Seq.toList, t)
     //`[body for T x in source if filter]:List<U>` - a comprehension; `for` is reserved, so it parses.
-    //`for T x, i32 i in source` binds the element's position as well, an i32 and nothing else, since that is what a count is.
     let pcomprexpr =
         let pfilter = %% (str_ws "if") -- +.pexpr -|> fun c -> c
+        //`for T x, i32 i in source` binds the element's position as well, an i32 and nothing else, since that is what a count is.
         let pindex = %% comma -- (str_ws "i32" <?> "'i32' -- a comprehension's index is a count, so it is an i32") -- +.pidentifier -|> fun i -> i
         %% (str "[") -- +.pexpr -- (str_ws "for") -- +.pconstflag -- +.ptype -- +.pidentifier -- +.(opt pindex) --
            (str_ws "in") -- +.pexpr -- +.(opt pfilter) -- (str "]") -- (str ":") -- +.ptype -|>
@@ -321,8 +321,8 @@ module Parser =
         let ppath = (attempt pinterp <|> attempt pvalue <|> pidentifiername) |> withPos
         %% (str "#src") -- +.ppath -- +.pidentifier -- (str "(") -- +.(qty.[0..] / comma * withPos pargument) -- (str ")") -|>
             fun path entry args -> Src(path, entry, args |> Seq.toList)
-    //Raw code with ${expr} holes: the block form alone (which #code takes) and the block-or-line form.
-    let _, ptemplate =
+    //Raw code with ${expr} holes, as a `{ }` block or to end of line; `#code` takes a parsed block, not this.
+    let ptemplate =
         let phole = (pstring "${" >>. ws >>. pexpr .>> pstring "}") |>> (fun e -> [IHole e])
 
         //Line form: raw code to end of line. A `$` not starting a `${` hole is literal.
@@ -340,7 +340,7 @@ module Parser =
         pblockcontentref.Value <- many (phole <|> attempt pbraced <|> pblocktext) |>> List.concat
         let pblocktemplate = %% (str "{") -- +.pblockcontent -- (str "}") -|> (fun parts -> parts)
 
-        pblocktemplate, ((attempt pblocktemplate) <|> plinetemplate)
+        (attempt pblocktemplate) <|> plinetemplate
     //`${expr}`, or `${expr}:u16` for a literal of that type; tried before the args literal `${ a = 1 }`.
     let phole =
         %% (pstring "${") -- +.pexpr -- (pstring "}") -- +.(opt (attempt (pstring ":" >>. ptypecode))) -- ws
@@ -683,7 +683,7 @@ module Parser =
         %% (str "<") -- +.(qty.[1..] / comma * pidentifier) -- (str ">") -|> fun x -> x |> Seq.toList
 
     //`i32 add(i32 a, i32 b) { }` and `T pick<T>(bool c, T a, T b) { }`
-    let pfunction =
+    let private pfunction =
         //A qualified name declares INTO a namespace; backends mangle the `::` back out.
         %% +.pexportflag -- +.(opt pbuildonly) -- +.ptype -- +.(attempt pqualified <|> pidentifier) -- +.(opt (attempt ptypeparams)) -- +.pparamlist -- +.pblock -|>
             fun export directive rt name tps ps block -> Function(export, directive, rt, name, (match tps with | Some t -> t | None -> []), ps |> Seq.toList, block)

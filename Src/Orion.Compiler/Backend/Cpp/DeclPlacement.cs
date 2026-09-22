@@ -1,8 +1,10 @@
+using Orion.Backend.Render;
 using Orion.Graphs;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System;
 
 namespace Orion.Backend.Cpp
 {
@@ -12,13 +14,11 @@ namespace Orion.Backend.Cpp
 		internal static (List<Code>, List<Declaration>) FoldLoopInits(List<Code> body, List<Declaration> locals)
 		{
 			Dictionary<string, string> scalarType = locals
-				.Where(d => !d.Name.Contains('[') && !d.Type.StartsWith("Array_"))
+				.Where(d => !d.Type.StartsWith("Array_"))
 				.GroupBy(d => d.Name)
 				.ToDictionary(g => g.Key, g => g.First().Type);
 
-			string full = string.Join("\n", CodeText.Fragments(body));
-			int Count(string text, string name) => Regex.Matches(text, $@"\b{Regex.Escape(name)}\b").Count;
-
+			string full = Text(body);
 			HashSet<string> folded = new HashSet<string>();
 
 			List<Code> newBody = body.Rewrite(c =>
@@ -31,7 +31,7 @@ namespace Orion.Backend.Cpp
 					return inner;
 
 				string name = m.Groups[1].Value;
-				string own = string.Join("\n", CodeText.Fragments(new List<Code> { inner }));
+				string own = Text([inner]);
 				if (Count(full, name) != Count(own, name))
 					return inner;
 
@@ -42,17 +42,15 @@ namespace Orion.Backend.Cpp
 			return (newBody, newLocals);
 		}
 
+		//A local the source declared const is a constant of the frame; only a stack one, a static is a module global.
 		internal static HashSet<string> ReadOnlyLocals(SourceFunctionSymbol func) =>
-			[.. func.Table.Traverse()
-				.SelectMany(i => i.GetAll<LocalDataSymbol>())
-				.Where(i => i.IsReadOnly && i.Storage == LocalStorage.Stack)
-				.Select(i => i.Name)];
+			[.. ModuleBackend.Scoped<LocalDataSymbol>(func).Where(i => i.IsReadOnly && i.Storage == LocalStorage.Stack).Select(i => i.Name)];
 
 		//A value local written exactly once (per the DataGraph) is a constant of the frame; array views stay mutable, they convert to writable std::span at calls.
 		internal static HashSet<string> WriteOnce(SourceFunctionSymbol func)
 		{
 			DataGraph graph = DataGraph.Create(func);
-			return [.. graph.Node1s
+			return [.. graph.Symbols
 				.Where(s => s is LocalDataSymbol { Storage: LocalStorage.Stack } or TempDataSymbol)
 				.Where(s => s.Type is PrimitiveTypeSymbol or EnumTypeSymbol or StructTypeSymbol)
 				.Where(s => graph[s].Incoming.Count == 1)
@@ -62,15 +60,45 @@ namespace Orion.Backend.Cpp
 		internal static (List<Code>, HashSet<string>) FoldDeclInits(List<Code> body, IEnumerable<Declaration> decls, HashSet<string> readOnly)
 		{
 			Dictionary<string, string> foldable = decls
-				.Where(d => !d.Name.Contains('[') && d.Initializer == "{}" && !d.Type.Contains("static"))
+				.Where(d => d.Initializer == "{}" && !d.Type.Contains("static"))
 				.GroupBy(d => d.Name)
 				.ToDictionary(g => g.Key, g => g.First().Type);
 
-			HashSet<string> seen = new HashSet<string>();
+			HashSet<string> folded = new HashSet<string>();
+			List<Code> outBody = FoldLines(body, foldable, readOnly, folded, _ => true);
+			return (outBody, folded);
+		}
+
+		internal static (List<Code>, HashSet<string>) SinkBlockLocals(List<Code> body, IEnumerable<Declaration> decls, HashSet<string> readOnly)
+		{
+			Dictionary<string, string> scalarType = decls
+				.Where(d => !d.Type.StartsWith("Array_") && !d.Type.Contains("static"))
+				.GroupBy(d => d.Name)
+				.ToDictionary(g => g.Key, g => g.First().Type);
+
+			string fullText = Text(body);
 			HashSet<string> folded = new HashSet<string>();
 
-			List<Code> outBody = new List<Code>();
-			foreach (Code c in body)
+			//Innermost first; a name every mention of which sits in this block, and more than once, declares here. Each case body is its own braced scope, so a local only one arm names may declare there.
+			List<Code> Visit(List<Code> codes)
+			{
+				List<Code> rec = [.. codes.Select(c => CodeTree.WithBodies(c, Visit))];
+
+				string here = Text(rec);
+				return FoldLines(rec, scalarType, readOnly, folded,
+					name => !folded.Contains(name) && Count(here, name) == Count(fullText, name) && Count(fullText, name) > 1);
+			}
+
+			List<Code> result = Visit(body);
+			return (result, folded);
+		}
+
+		//The first assignment to a name that allow admits becomes its declaration, `const` where the frame never writes it again; folded collects the names.
+		private static List<Code> FoldLines(List<Code> codes, Dictionary<string, string> types, HashSet<string> readOnly, HashSet<string> folded, Func<string, bool> allow)
+		{
+			HashSet<string> seen = new HashSet<string>();
+			List<Code> result = new List<Code>();
+			foreach (Code c in codes)
 			{
 				if (c is CodeBlock cb)
 				{
@@ -78,7 +106,7 @@ namespace Orion.Backend.Cpp
 					foreach (string line in cb.Lines)
 					{
 						string name = AssignTarget(line);
-						if (name != null && foldable.TryGetValue(name, out string type) && !seen.Contains(name))
+						if (name != null && types.TryGetValue(name, out string type) && !seen.Contains(name) && allow(name))
 						{
 							string rhs = line.Substring(name.Length + 3, line.Length - name.Length - 4);
 							if (!Idents(rhs).Contains(name))
@@ -93,88 +121,21 @@ namespace Orion.Backend.Cpp
 						lines.Add(line);
 						foreach (string id in Idents(line)) seen.Add(id);
 					}
-					outBody.Add(new CodeBlock(lines));
+					result.Add(new CodeBlock(lines));
 				}
 				else
 				{
-					foreach (string frag in CodeText.Fragments(new List<Code> { c }))
+					foreach (string frag in CodeText.Fragments([c]))
 						foreach (string id in Idents(frag)) seen.Add(id);
-					outBody.Add(c);
+					result.Add(c);
 				}
 			}
-
-			return (outBody, folded);
+			return result;
 		}
 
-		internal static (List<Code>, HashSet<string>) SinkBlockLocals(List<Code> body, IEnumerable<Declaration> decls, HashSet<string> readOnly)
-		{
-			Dictionary<string, string> scalarType = decls
-				.Where(d => !d.Name.Contains('[') && !d.Type.StartsWith("Array_") && !d.Type.Contains("static"))
-				.GroupBy(d => d.Name)
-				.ToDictionary(g => g.Key, g => g.First().Type);
+		private static string Text(List<Code> body) => string.Join("\n", CodeText.Fragments(body));
 
-			int Count(string text, string name) => Regex.Matches(text, $@"\b{Regex.Escape(name)}\b").Count;
-			string Full(List<Code> b) => string.Join("\n", CodeText.Fragments(b));
-
-			string fullText = Full(body);
-			HashSet<string> folded = new HashSet<string>();
-
-			List<Code> Visit(List<Code> codes)
-			{
-				List<Code> rec = codes.Select(c => c switch
-				{
-					IfCode i => (Code)new IfCode(i.Condition, Visit(i.Then)),
-					IfElseCode i => new IfElseCode(i.Condition, Visit(i.Then), Visit(i.Else)),
-					LoopCode w => new LoopCode(w.Condition, Visit(w.Body)),
-					DoLoopCode w => new DoLoopCode(Visit(w.Body), w.Condition),
-					ForCode f => new ForCode(f.Init, f.Condition, f.Step, Visit(f.Body)),
-					_ => c
-				}).ToList();
-
-				string here = Full(rec);
-				HashSet<string> seen = new HashSet<string>();
-				List<Code> outc = new List<Code>();
-				foreach (Code c in rec)
-				{
-					if (c is CodeBlock cb)
-					{
-						List<string> lines = new List<string>();
-						foreach (string line in cb.Lines)
-						{
-							string name = AssignTarget(line);
-							if (name != null && scalarType.TryGetValue(name, out string type)
-								&& !folded.Contains(name) && !seen.Contains(name)
-								&& Count(here, name) == Count(fullText, name)
-								&& Count(fullText, name) > 1)
-							{
-								string rhs = line.Substring(name.Length + 3, line.Length - name.Length - 4);
-								if (!Idents(rhs).Contains(name))
-								{
-									folded.Add(name);
-									string frozen = readOnly.Contains(name) ? "const " : string.Empty;
-									lines.Add($"{frozen}{type} {name} = {rhs};");
-									foreach (string id in Idents(line)) seen.Add(id);
-									continue;
-								}
-							}
-							lines.Add(line);
-							foreach (string id in Idents(line)) seen.Add(id);
-						}
-						outc.Add(new CodeBlock(lines));
-					}
-					else
-					{
-						foreach (string frag in CodeText.Fragments(new List<Code> { c }))
-							foreach (string id in Idents(frag)) seen.Add(id);
-						outc.Add(c);
-					}
-				}
-				return outc;
-			}
-
-			List<Code> result = Visit(body);
-			return (result, folded);
-		}
+		private static int Count(string text, string name) => Regex.Matches(text, $@"\b{Regex.Escape(name)}\b").Count;
 
 		private static HashSet<string> Idents(string text)
 		{

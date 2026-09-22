@@ -7,11 +7,12 @@ using TypeCode = Orion.Symbols.TypeCode;
 
 namespace Orion.Tests.Graphs
 {
+	//CallGraph over a hand-built table: leaves are the exits, and BuildCalls walks only the build-time call edges.
 	[TestClass]
 	public class CallGraphTests
 	{
 		[TestMethod]
-		public void TestExits()
+		public void FunctionsThatCallNothingAreTheExits()
 		{
 			SymbolTable root = CreateTable();
 
@@ -23,8 +24,9 @@ namespace Orion.Tests.Graphs
 			Assert.AreEqual("leaf2", exits[1].Name);
 		}
 
+		//Each edge with the build flag on the way down from main, as (caller, callee); the runtime edges are walked but not listed.
 		[TestMethod]
-		public void TestBuildCalls()
+		public void BuildCallsListsEveryBuildEdgeReachableFromMain()
 		{
 			SymbolTable root = CreateTable();
 			CallGraph graph = CallGraph.Create(root);

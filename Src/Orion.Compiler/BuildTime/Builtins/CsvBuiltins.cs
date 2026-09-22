@@ -4,7 +4,6 @@ using System.Reflection;
 
 namespace Orion.BuildTime.Builtins
 {
-
 	[BuildOnly]
 	public static class CsvBuiltins
 	{
@@ -45,11 +44,6 @@ namespace Orion.BuildTime.Builtins
 			}
 
 			return rows;
-		}
-
-		public static int Rows(string path)
-		{
-			return Math.Max(0, FileBuiltins.Lines(path).Length - 1);
 		}
 
 		private static string[] Cells(string line)

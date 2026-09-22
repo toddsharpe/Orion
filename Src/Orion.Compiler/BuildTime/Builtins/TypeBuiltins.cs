@@ -1,38 +1,36 @@
+using Orion.Symbols;
 using System.Collections.Generic;
 
 namespace Orion.BuildTime.Builtins
 {
-
+	[BuildOnly]
 	public static class TypeBuiltins
 	{
-
-		[BuildOnly]
 		public static OrionType Of<T>()
 		{
-			return new OrionType { Symbol = Clr.ClrTypes.FromClrType(Env.Context.Function.Table.GetRoot(), typeof(T)) };
+			return OrionType.Of(Clr.ClrTypes.FromClrType(Env.Context.Function.Table.GetRoot(), typeof(T)));
 		}
 
-		[BuildOnly]
 		public static OrionType Parse(string name)
 		{
-			Symbols.SymbolTable root = Env.Context.Function.Table.GetRoot();
-			if (root.TryGet(name, out Symbols.TypeSymbol symbol))
-				return new OrionType { Symbol = symbol };
+			SymbolTable root = Env.Context.Function.Table.GetRoot();
+			if (root.TryGet(name, out TypeSymbol symbol))
+				return OrionType.Of(symbol);
 
-			if (Sized(root, name) is Symbols.TypeSymbol sized)
-				return new OrionType { Symbol = sized };
+			if (Sized(root, name) is TypeSymbol sized)
+				return OrionType.Of(sized);
 
 			Env.Report($"Parse: no type named '{name}'.");
-			return new OrionType { Symbol = null };
+			return OrionType.None;
 		}
 
-		private static Symbols.TypeSymbol Sized(Symbols.SymbolTable root, string name)
+		private static TypeSymbol Sized(SymbolTable root, string name)
 		{
 			int open = name.IndexOf('[');
 			if (open <= 0 || !name.EndsWith("]"))
 				return null;
 
-			if (!root.TryGet(name.Substring(0, open), out Symbols.TypeSymbol element))
+			if (!root.TryGet(name.Substring(0, open), out TypeSymbol element))
 				return null;
 
 			List<int> dimensions = new List<int>();
@@ -44,81 +42,73 @@ namespace Orion.BuildTime.Builtins
 				dimensions.Add(length);
 			}
 
-			return Symbols.ArrayTypeSymbol.Rectangular(element, dimensions);
+			return ArrayTypeSymbol.Rectangular(element, dimensions);
 		}
 
-		[BuildOnly]
 		public static bool IsStruct(OrionType type)
 		{
-			return type?.Symbol is Symbols.StructTypeSymbol;
+			return type?.Symbol is StructTypeSymbol;
 		}
 
-		[BuildOnly]
 		public static bool IsAlias(OrionType type)
 		{
-			return type?.Symbol is Symbols.AliasTypeSymbol;
+			return type?.Symbol is AliasTypeSymbol;
 		}
 
-		[BuildOnly]
 		public static OrionType AliasBase(OrionType type)
 		{
-			if (type?.Symbol is Symbols.AliasTypeSymbol alias)
-				return new OrionType { Symbol = Language.Primitives[alias.Code] };
+			if (type?.Symbol is AliasTypeSymbol alias)
+				return OrionType.Of(Language.Primitives[alias.Code]);
 
 			Env.Report($"AliasBase: '{type}' is not a typedef.");
-			return new OrionType { Symbol = null };
+			return OrionType.None;
 		}
 
-		[BuildOnly]
 		public static bool IsArray(OrionType type)
 		{
-			return type?.Symbol is Symbols.ArrayTypeSymbol;
+			return type?.Symbol is ArrayTypeSymbol;
 		}
 
-		[BuildOnly]
 		public static int ArrayLength(OrionType type)
 		{
-			if (type?.Symbol is Symbols.ArrayTypeSymbol array)
+			if (type?.Symbol is ArrayTypeSymbol array)
 				return array.Length;
 
 			Env.Report($"ArrayLength: '{type}' is not a sized array.");
 			return 0;
 		}
 
-		[BuildOnly]
 		public static OrionType ArrayElement(OrionType type)
 		{
-			if (type?.Symbol is Symbols.ArrayTypeSymbol array)
-				return new OrionType { Symbol = array.Element };
+			if (type?.Symbol is ArrayTypeSymbol array)
+				return OrionType.Of(array.Element);
 
 			Env.Report($"ArrayElement: '{type}' is not a sized array.");
-			return new OrionType { Symbol = null };
+			return OrionType.None;
 		}
 
-		internal static int Width(Symbols.TypeSymbol type) => Width(type, out Symbols.TypeSymbol _);
-
-		internal static int Width(Symbols.TypeSymbol type, out Symbols.TypeSymbol unsized)
+		internal static int Width(TypeSymbol type, out TypeSymbol unsized)
 		{
 			unsized = type;
 			switch (type)
 			{
-				case Symbols.PrimitiveTypeSymbol p:
+				case PrimitiveTypeSymbol p:
 					switch (p.Code)
 					{
-						case Symbols.TypeCode.f64 or Symbols.TypeCode.i64 or Symbols.TypeCode.u64: return 8;
-						case Symbols.TypeCode.f32 or Symbols.TypeCode.i32 or Symbols.TypeCode.u32: return 4;
-						case Symbols.TypeCode.i16 or Symbols.TypeCode.u16: return 2;
-						case Symbols.TypeCode.i8 or Symbols.TypeCode.u8 or Symbols.TypeCode.@bool: return 1;
+						case TypeCode.f64 or TypeCode.i64 or TypeCode.u64: return 8;
+						case TypeCode.f32 or TypeCode.i32 or TypeCode.u32: return 4;
+						case TypeCode.i16 or TypeCode.u16: return 2;
+						case TypeCode.i8 or TypeCode.u8 or TypeCode.@bool: return 1;
 					}
 					break;
 
-				case Symbols.EnumTypeSymbol:
+				case EnumTypeSymbol:
 					return 4;
 
-				case Symbols.StructTypeSymbol @struct:
+				case StructTypeSymbol @struct:
 				{
 					int total = 0;
-					foreach (Symbols.Field field in @struct.Fields)
+					foreach (Field field in @struct.Fields)
 					{
 						int part = Width(field.Type, out unsized);
 						if (part < 0)
@@ -128,7 +118,7 @@ namespace Orion.BuildTime.Builtins
 					return total;
 				}
 
-				case Symbols.ArrayTypeSymbol array:
+				case ArrayTypeSymbol array:
 				{
 					int element = Width(array.Element, out unsized);
 					return element < 0 ? -1 : array.Length * element;

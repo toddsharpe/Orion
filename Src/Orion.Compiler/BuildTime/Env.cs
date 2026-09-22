@@ -22,8 +22,17 @@ namespace Orion.BuildTime
 		//Report from build-time code, pointing at the callsite that is executing.
 		internal static void Report(string text, MessageType type = MessageType.Error)
 		{
-			Context.Messages.Add(new Message(text, Region, type));
+			Report(Context.Messages, text, type);
 		}
 
+		//The same report into a list the caller holds: one captured before the frontend re-entered, or a solver's.
+		internal static void Report(List<Message> messages, string text, MessageType type = MessageType.Error)
+		{
+			messages.Add(new Message(text, Region, type));
+		}
+
+		//An `${...}` argument bag as a builtin receives it, typed object; anything else reads as an empty one.
+		internal static Dictionary<string, object> Bag(object args) =>
+			args as Dictionary<string, object> ?? new Dictionary<string, object>();
 	}
 }

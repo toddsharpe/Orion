@@ -1,7 +1,6 @@
 ﻿using Orion.Diagnostics;
 using Orion.IR;
 using Orion.Symbols;
-using Orion.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +13,33 @@ namespace Orion.Clr
 	//Tacs -> IL for the build-time executor, not a backend: it runs re-entrantly during the build itself.
 	internal static class Emitter
 	{
+		private static readonly MethodInfo StrAt = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_at));
+		private static readonly MethodInfo StrSet = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_set));
+
+		//One row per primitive element: the unsigned widths load as such but store through the signed opcode, which is all the CLR has.
+		private static readonly Dictionary<TypeCode, (OpCode Load, OpCode Store)> ElementOps = new Dictionary<TypeCode, (OpCode Load, OpCode Store)>
+		{
+			[TypeCode.u8] = (OpCodes.Ldelem_U1, OpCodes.Stelem_I1),
+			[TypeCode.u16] = (OpCodes.Ldelem_U2, OpCodes.Stelem_I2),
+			[TypeCode.u32] = (OpCodes.Ldelem_U4, OpCodes.Stelem_I4),
+			[TypeCode.i8] = (OpCodes.Ldelem_I1, OpCodes.Stelem_I1),
+			[TypeCode.i16] = (OpCodes.Ldelem_I2, OpCodes.Stelem_I2),
+			[TypeCode.i32] = (OpCodes.Ldelem_I4, OpCodes.Stelem_I4),
+			[TypeCode.i64] = (OpCodes.Ldelem_I8, OpCodes.Stelem_I8),
+			[TypeCode.f32] = (OpCodes.Ldelem_R4, OpCodes.Stelem_R4),
+			[TypeCode.f64] = (OpCodes.Ldelem_R8, OpCodes.Stelem_R8),
+			[TypeCode.@bool] = (OpCodes.Ldelem_I1, OpCodes.Stelem_I1),
+			[TypeCode.str] = (OpCodes.Ldelem_Ref, OpCodes.Stelem_Ref),
+		};
+
+		//An enum is its int; a struct, an array or a handle is a reference.
+		private static (OpCode Load, OpCode Store) ElementOp(TypeSymbol sym) => sym switch
+		{
+			EnumTypeSymbol => (OpCodes.Ldelem_I4, OpCodes.Stelem_I4),
+			PrimitiveTypeSymbol prim => ElementOps.TryGetValue(prim.Code, out (OpCode Load, OpCode Store) ops) ? ops : throw new NotImplementedException(),
+			_ => (OpCodes.Ldelem_Ref, OpCodes.Stelem_Ref),
+		};
+
 		public static void Run(SymbolTable root, List<Message> messages)
 		{
 			foreach (SourceFunctionSymbol func in root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()))
@@ -37,12 +63,7 @@ namespace Orion.Clr
 			];
 			syms = [.. syms.Distinct()];
 
-			Dictionary <NamedDataSymbol, LocalBuilder> locals = syms
-				.ToDictionary(k => k, v =>
-				{
-					Type localType = BuildAssembly.GetClrType(v.Type);
-					return ilGen.DeclareLocal(localType);
-				});
+			Dictionary<NamedDataSymbol, LocalBuilder> locals = syms.ToDictionary(k => k, v => ilGen.DeclareLocal(BuildAssembly.GetClrType(v.Type)));
 
 			foreach (NamedDataSymbol inits in syms.Where(i => i.Type is CompositeTypeSymbol || i.Type is ArgsTypeSymbol))
 			{
@@ -63,7 +84,7 @@ namespace Orion.Clr
 					}
 					break;
 
-					case ArgsTypeSymbol s:
+					case ArgsTypeSymbol:
 					{
 						Type type = ArgsTypeSymbol.Underlying;
 						ilGen.Emit(OpCodes.Newobj, type.GetConstructor(Type.EmptyTypes));
@@ -101,7 +122,7 @@ namespace Orion.Clr
 					}
 					break;
 
-					case ReturnVoidTac tac:
+					case ReturnVoidTac:
 					{
 						ilGen.Emit(OpCodes.Ret);
 					}
@@ -117,13 +138,13 @@ namespace Orion.Clr
 
 							if (e.Array.Type is BuiltinTypeSymbol { Index: not null } indexed)
 								ilGen.EmitCall(OpCodes.Callvirt, indexed.Index.Set, null);
-							else if (IsStr(e.Array.Type))
+							else if (e.Array.Type is PrimitiveTypeSymbol { Code: TypeCode.str })
 							{
 								ilGen.EmitCall(OpCodes.Call, StrSet, null);
 								Pop(function, e.Array, locals, ilGen);
 							}
 							else
-								ilGen.Emit(ArrayStore(tac.Result.Type));
+								ilGen.Emit(ElementOp(tac.Result.Type).Store);
 						}
 						else if (tac.Result is FieldDataSymbol field)
 						{
@@ -207,7 +228,6 @@ namespace Orion.Clr
 
 						MethodInfo overload = null;
 
-						PrimitiveTypeSymbol builtin = tac.Result.Type as PrimitiveTypeSymbol;
 						bool overloaded = tac.Operand1.Type is BuiltinTypeSymbol operand
 							&& OperatorMethod(tac.Op) is string name
 							&& operand.Operators.TryGetValue(name, out overload);
@@ -302,7 +322,7 @@ namespace Orion.Clr
 					{
 						if (tac.Function is BuiltinFunctionSymbol { IsExtern: true })
 						{
-							if (tac.Function.ReturnType != function.Table.Get<TypeSymbol>("void"))
+							if (!Language.IsVoid(tac.Function.ReturnType))
 							{
 								PushDefault(ilGen, tac.Result.Type);
 								Pop(function, tac.Result, locals, ilGen);
@@ -334,7 +354,7 @@ namespace Orion.Clr
 
 						ilGen.EmitCall(OpCodes.Call, methodInfo, null);
 
-						if (tac.Function.ReturnType != function.Table.Get<TypeSymbol>("void"))
+						if (!Language.IsVoid(tac.Function.ReturnType))
 							Pop(function, tac.Result, locals, ilGen);
 					}
 					break;
@@ -448,42 +468,6 @@ namespace Orion.Clr
 			}
 		}
 
-		private static bool IsStr(TypeSymbol type) => type is PrimitiveTypeSymbol { Code: TypeCode.str };
-		private static readonly MethodInfo StrAt = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_at));
-		private static readonly MethodInfo StrSet = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_set));
-
-		private static OpCode ArrayLoad(TypeSymbol sym)
-		{
-			switch (sym)
-			{
-				case EnumTypeSymbol:
-					return OpCodes.Ldelem_I4;
-
-				case PrimitiveTypeSymbol prim:
-				{
-					OpCode code = prim.Code switch
-					{
-						TypeCode.u8 => OpCodes.Ldelem_U1,
-						TypeCode.u16 => OpCodes.Ldelem_U2,
-						TypeCode.u32 => OpCodes.Ldelem_U4,
-						TypeCode.i8 => OpCodes.Ldelem_I1,
-						TypeCode.i16 => OpCodes.Ldelem_I2,
-						TypeCode.i32 => OpCodes.Ldelem_I4,
-						TypeCode.i64 => OpCodes.Ldelem_I8,
-						TypeCode.f32 => OpCodes.Ldelem_R4,
-						TypeCode.f64 => OpCodes.Ldelem_R8,
-						TypeCode.@bool => OpCodes.Ldelem_I1,
-						TypeCode.str => OpCodes.Ldelem_Ref,
-						_ => throw new NotImplementedException()
-					};
-					return code;
-				}
-
-				default:
-					return OpCodes.Ldelem_Ref;
-			}
-		}
-
 		private static string OperatorMethod(BinaryTacOp op)
 		{
 			return op switch
@@ -493,38 +477,6 @@ namespace Orion.Clr
 				BinaryTacOp.NotEquals => BuildTime.Surface.OperatorMethods[Ast.AstOp.NotEquals],
 				_ => null
 			};
-		}
-
-		private static OpCode ArrayStore(TypeSymbol sym)
-		{
-			switch (sym)
-			{
-				case EnumTypeSymbol:
-					return OpCodes.Stelem_I4;
-
-				case PrimitiveTypeSymbol prim:
-				{
-					OpCode code = prim.Code switch
-					{
-						TypeCode.u8 => OpCodes.Stelem_I1,
-						TypeCode.u16 => OpCodes.Stelem_I2,
-						TypeCode.u32 => OpCodes.Stelem_I4,
-						TypeCode.i8 => OpCodes.Stelem_I1,
-						TypeCode.i16 => OpCodes.Stelem_I2,
-						TypeCode.i32 => OpCodes.Stelem_I4,
-						TypeCode.i64 => OpCodes.Stelem_I8,
-						TypeCode.f32 => OpCodes.Stelem_R4,
-						TypeCode.f64 => OpCodes.Stelem_R8,
-						TypeCode.@bool => OpCodes.Stelem_I1,
-						TypeCode.str => OpCodes.Stelem_Ref,
-						_ => throw new NotImplementedException()
-					};
-					return code;
-				}
-
-				default:
-					return OpCodes.Stelem_Ref;
-			}
 		}
 
 		private static void Indirect(ILGenerator ilGen, Type type, bool load)
@@ -593,9 +545,9 @@ namespace Orion.Clr
 				case FieldDataSymbol field:
 					Push(function, field.Instance, locals, ilGen);
 					Type type = BuildAssembly.GetClrType(field.Instance.Type);
-					string[] parts = field.Name.Split('.');
-					string name = parts[^1];
-					if (type.IsArray && name == "Length")
+
+					//FieldDataSymbol.Name is qualified ("s.inner.count"), so the field itself is the last step.
+					if (type.IsArray && field.Name.Split('.')[^1] == "Length")
 					{
 						ilGen.Emit(OpCodes.Ldlen);
 					}
@@ -617,10 +569,10 @@ namespace Orion.Clr
 
 					if (element.Array.Type is BuiltinTypeSymbol { Index: not null } indexed)
 						ilGen.EmitCall(OpCodes.Callvirt, indexed.Index.Get, null);
-					else if (IsStr(element.Array.Type))
+					else if (element.Array.Type is PrimitiveTypeSymbol { Code: TypeCode.str })
 						ilGen.EmitCall(OpCodes.Call, StrAt, null);
 					else
-						ilGen.Emit(ArrayLoad(element.Type));
+						ilGen.Emit(ElementOp(element.Type).Load);
 				}
 				break;
 
@@ -706,14 +658,8 @@ namespace Orion.Clr
 							break;
 
 						case TypeCode.@bool:
-						{
-							bool b = (bool)literal.Value;
-							if (b)
-								ilGen.Emit(OpCodes.Ldc_I4_1);
-							else
-								ilGen.Emit(OpCodes.Ldc_I4_0);
-						}
-						break;
+							ilGen.Emit((bool)literal.Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0);
+							break;
 
 						case TypeCode.str:
 						{
@@ -754,13 +700,13 @@ namespace Orion.Clr
 				}
 				break;
 
-				case EnumTypeSymbol @enum:
+				case EnumTypeSymbol:
 				{
 					ilGen.Emit(OpCodes.Ldc_I4, (int)literal.Value);
 				}
 				break;
 
-				case ArgsTypeSymbol args:
+				case ArgsTypeSymbol:
 				{
 					Dictionary<string, object> values = literal.Value as Dictionary<string, object>;
 
@@ -813,7 +759,7 @@ namespace Orion.Clr
 				else
 				{
 					Push(ilGen, new LiteralSymbol(items.GetValue(i), element));
-					ilGen.Emit(ArrayStore(element));
+					ilGen.Emit(ElementOp(element).Store);
 				}
 			}
 		}

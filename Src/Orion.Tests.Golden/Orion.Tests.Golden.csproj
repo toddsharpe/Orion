@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-	<!-- The golden corpus (Tests/*.src paired with Tests/*.txt), compiled to all three backends and run. -->
+	<!-- The golden corpus (Tests/*.src paired with Tests/*.txt), compiled to all four backends and run. -->
 	<PropertyGroup>
 		<!-- Pinned so vcvars64.bat's Platform=x64 cannot move the output to bin\x64\, which the runner rejects. -->
 		<Platform>AnyCPU</Platform>
@@ -25,6 +25,11 @@
 	<!-- Not for its types; this is here so MSBuild builds the compiler before the cases run. -->
 	<ItemGroup>
 		<ProjectReference Include="..\Orion\Orion.csproj" />
+	</ItemGroup>
+
+	<!-- Shared with the unit tests: one walk from the test binary up to the checkout. -->
+	<ItemGroup>
+		<Compile Include="..\Orion.Tests\Repo.cs" Link="Repo.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

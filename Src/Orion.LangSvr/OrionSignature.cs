@@ -13,7 +13,7 @@ namespace Orion.LangSvr
 		public int ActiveParameter { get; init; }
 	}
 
-	// Signature help: find the callee name and active argument index from the enclosing call's text, then build the signature from its declaration -- user functions and #param templates, since builtins are not declared in source.
+	// Signature help: find the callee name and active argument index from the enclosing call's text, then build the signature from its declaration in the pre-pass snapshot (Documents), which still holds the #param templates the Specializer removes; builtins are not declared in source.
 	public static class OrionSignature
 	{
 		public static SignatureInfo At(Analysis analysis, int line0, int char0)
@@ -31,14 +31,11 @@ namespace Orion.LangSvr
 			if (fn == null)
 				return null;
 
-			List<string> paramLabels = fn.Parameters
-				.Select(p => AstDir(p.Directive) + p.TypeName.Name + " " + p.Name)
-				.ToList();
-			string label = fn.ReturnType.Name + " " + fn.Name + "(" + string.Join(", ", paramLabels) + ")";
+			List<string> paramLabels = fn.Parameters.Select(OrionScope.ParamLabel).ToList();
 
 			return new SignatureInfo
 			{
-				Label = label,
+				Label = OrionScope.Signature(fn),
 				Parameters = paramLabels,
 				ActiveParameter = paramLabels.Count == 0 ? 0 : Math.Min(active, paramLabels.Count - 1)
 			};
@@ -92,18 +89,6 @@ namespace Orion.LangSvr
 				i++;
 			}
 			return Math.Min(text.Length, i + col0);
-		}
-
-		private static string AstDir(ParamDirective d)
-		{
-			switch (d)
-			{
-				case ParamDirective.Input: return "#input ";
-				case ParamDirective.Output: return "#output ";
-				case ParamDirective.Pure: return "#pure ";
-				case ParamDirective.Param: return "#param ";
-				default: return "";
-			}
 		}
 	}
 }

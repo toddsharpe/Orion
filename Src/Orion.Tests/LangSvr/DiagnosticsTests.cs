@@ -26,8 +26,7 @@ namespace Orion.Tests.LangSvr
 			IReadOnlyList<Diagnostic> diags = Lang.Diagnostics(
 				"#build bool ok()\n{\n    return true;\n}\n\n#test ok \"a name\"\n\ni32 main()\n{\n    return 0;\n}\n");
 
-			Assert.IsFalse(diags.Any(d => d.Message.Contains("Orion internal error")),
-				"analysis threw: " + string.Join(" | ", diags.Select(d => d.Message)));
+			Lang.AssertNoInternalError(diags);
 			Assert.AreEqual(0, diags.Count, string.Join(" | ", diags.Select(d => d.Message)));
 		}
 
@@ -37,8 +36,7 @@ namespace Orion.Tests.LangSvr
 			IReadOnlyList<Diagnostic> diags = Lang.Diagnostics(
 				"i32 main()\n{\n    i32 x = 1;\n    WriteLine($\"x={x}\");\n    return missing_var;\n}\n");
 
-			Assert.IsFalse(diags.Any(d => d.Message.Contains("Orion internal error")),
-				"analysis threw: " + string.Join(" | ", diags.Select(d => d.Message)));
+			Lang.AssertNoInternalError(diags);
 			Assert.IsTrue(diags.Any(d => d.Message.Contains("missing_var")), "the real diagnostic was lost");
 		}
 
@@ -48,8 +46,7 @@ namespace Orion.Tests.LangSvr
 			IReadOnlyList<Diagnostic> diags = Lang.Diagnostics(
 				"i32 main()\n{\n    Map<str, i32> m = Map<str, i32>{ a = 1 };\n    return missing_var;\n}\n");
 
-			Assert.IsFalse(diags.Any(d => d.Message.Contains("Orion internal error")),
-				"analysis threw: " + string.Join(" | ", diags.Select(d => d.Message)));
+			Lang.AssertNoInternalError(diags);
 			Assert.IsTrue(diags.Any(d => d.Message.Contains("missing_var")), "the real diagnostic was lost");
 		}
 
@@ -59,8 +56,7 @@ namespace Orion.Tests.LangSvr
 			IReadOnlyList<Diagnostic> diags = Lang.Diagnostics(
 				"i32 known()\n{\n    return 1;\n}\n\ni32 main()\n{\n    i32[] xs = [known(), from_another_file()]:i32;\n    return 0;\n}\n");
 
-			Assert.IsFalse(diags.Any(d => d.Message.Contains("Orion internal error")),
-				"analysis threw: " + string.Join(" | ", diags.Select(d => d.Message)));
+			Lang.AssertNoInternalError(diags);
 			Assert.IsTrue(diags.Any(d => d.Message.Contains("undefined function from_another_file")),
 				"the undefined call should still be reported: " + string.Join(" | ", diags.Select(d => d.Message)));
 		}

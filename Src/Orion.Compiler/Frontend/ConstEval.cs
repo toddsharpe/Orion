@@ -76,7 +76,7 @@ namespace Orion.Frontend
 						return true;
 					}
 
-						//String `+` concatenates; the rest folds in double, exact for every Orion integer literal.
+					//String `+` concatenates; the rest folds in double, exact for every Orion integer literal.
 					if (left is string || right is string)
 					{
 						if (b.Op != AstOp.Add)
@@ -104,20 +104,18 @@ namespace Orion.Frontend
 					if (left is bool || right is bool)
 						return false;
 
-					//Two integers fold exactly in decimal (double loses bits past 2^53); an overflowing fold is left alone.
-					if (left is not (double or float) && right is not (double or float))
-						return FoldIntegers(b.Op, left, right, out value);
+					bool floating = left is double or float || right is double or float;
 
-					double l = Convert.ToDouble(left);
-					double r = Convert.ToDouble(right);
-
-					//Ordering yields a bool, so it cannot ride the arithmetic fold below.
+					//Ordering yields a bool, so it cannot ride the arithmetic folds below; integers compare exactly in decimal.
+					int order = floating
+						? Convert.ToDouble(left).CompareTo(Convert.ToDouble(right))
+						: Convert.ToDecimal(left).CompareTo(Convert.ToDecimal(right));
 					bool? compared = b.Op switch
 					{
-						AstOp.LessThan => l < r,
-						AstOp.LessThanEqual => l <= r,
-						AstOp.GreaterThan => l > r,
-						AstOp.GreaterThanEqual => l >= r,
+						AstOp.LessThan => order < 0,
+						AstOp.LessThanEqual => order <= 0,
+						AstOp.GreaterThan => order > 0,
+						AstOp.GreaterThanEqual => order >= 0,
 						_ => null,
 					};
 					if (compared != null)
@@ -125,6 +123,13 @@ namespace Orion.Frontend
 						value = compared.Value;
 						return true;
 					}
+
+					//Two integers fold exactly in decimal (double loses bits past 2^53); an overflowing fold is left alone.
+					if (!floating)
+						return FoldIntegers(b.Op, left, right, out value);
+
+					double l = Convert.ToDouble(left);
+					double r = Convert.ToDouble(right);
 
 					double? folded = b.Op switch
 					{
@@ -138,10 +143,7 @@ namespace Orion.Frontend
 					if (folded == null)
 						return false;
 
-					//Integer operands keep an integer result, so `3 / 2` is 1 as it is everywhere else.
-					value = left is double || left is float || right is double || right is float
-						? folded.Value
-						: (object)(long)folded.Value;
+					value = folded.Value;
 					return true;
 				}
 
@@ -150,7 +152,7 @@ namespace Orion.Frontend
 			}
 		}
 
-		//Exact integer folding; division truncates like every target, and an overflow refuses to fold.
+		//Exact integer folding, so `3 / 2` is 1 as it is everywhere else; division truncates like every target, and an overflow refuses to fold.
 		private static bool FoldIntegers(AstOp op, object left, object right, out object value)
 		{
 			value = null;
@@ -158,20 +160,6 @@ namespace Orion.Frontend
 			{
 				decimal l = Convert.ToDecimal(left);
 				decimal r = Convert.ToDecimal(right);
-
-				bool? compared = op switch
-				{
-					AstOp.LessThan => l < r,
-					AstOp.LessThanEqual => l <= r,
-					AstOp.GreaterThan => l > r,
-					AstOp.GreaterThanEqual => l >= r,
-					_ => null,
-				};
-				if (compared != null)
-				{
-					value = compared.Value;
-					return true;
-				}
 
 				decimal? folded = op switch
 				{

@@ -9,15 +9,13 @@ namespace Orion.Tests.Golden
 	//The corpus on disk; public because MSTest reaches [DynamicData] sources by reflection.
 	public static class Corpus
 	{
-		internal static readonly string Root = FindRoot();
-		internal static readonly string TestsDir = Path.Combine(Root, "Tests");
-		internal static readonly string ErrorsDir = Path.Combine(TestsDir, "Errors");
+		internal static readonly string ErrorsDir = Path.Combine(Repo.TestsDir, "Errors");
 
-		internal static readonly string BuildDir = Path.Combine(TestsDir, "build");
+		internal static readonly string BuildDir = Path.Combine(Repo.TestsDir, "build");
 		internal static readonly string Compiler = FindCompiler();
 
 		//One runtime per backend, beside each other: the C++ -I then names a directory of headers alone.
-		internal static string RuntimeDir(string backend) => Path.Combine(Root, "Runtimes", backend);
+		internal static string RuntimeDir(string backend) => Path.Combine(Repo.Root, "Runtimes", backend);
 
 		//Rewrite the golden instead of failing, a blessed case reports Inconclusive
 		internal static readonly bool Bless = Environment.GetEnvironmentVariable("ORION_BLESS") == "1";
@@ -25,7 +23,7 @@ namespace Orion.Tests.Golden
 		//CI sets this: a runner that lost a backend's tool is broken and must say so, where a machine that never had one is only unable to check that backend.
 		internal static readonly bool RequireTools = Environment.GetEnvironmentVariable("ORION_REQUIRE_TOOLS") == "1";
 
-		//If MSVC is required (Windows only).
+		//The C++ cases need cl.exe, which is Windows-only; Tool.Msvc locates the toolchain lazily when the first case builds.
 		internal static void RequiresMsvc()
 		{
 			if (!OperatingSystem.IsWindows())
@@ -35,18 +33,12 @@ namespace Orion.Tests.Golden
 		//What bounds a `while (Platform_Running())` program: unset, the same source runs forever.
 		internal const string CycleBudget = "3";
 
-		internal static Dictionary<string, string> RunEnv(params (string Key, string Value)[] extra)
-		{
-			Dictionary<string, string> env = new Dictionary<string, string> { { "ORION_CYCLES", CycleBudget } };
-			foreach ((string key, string value) in extra)
-				env[key] = value;
-
-			return env;
-		}
+		internal static Dictionary<string, string> RunEnv() =>
+			new Dictionary<string, string> { { "ORION_CYCLES", CycleBudget } };
 
 		//<name>.src beside <name>.txt, top level only: Lib/ and Configs/ are #used, not cases.
 		public static IEnumerable<object[]> OutputCases =>
-			Directory.GetFiles(TestsDir, "*.src", SearchOption.TopDirectoryOnly)
+			Directory.GetFiles(Repo.TestsDir, "*.src", SearchOption.TopDirectoryOnly)
 				.Where(src => File.Exists(Path.ChangeExtension(src, ".txt")))
 				.OrderBy(src => src, StringComparer.OrdinalIgnoreCase)
 				.Select(src => new object[] { Path.GetFileNameWithoutExtension(src) });
@@ -62,8 +54,8 @@ namespace Orion.Tests.Golden
 		//Names the case after its .src file, so a failure reads "CppMatchesTheGolden (demo_lander)".
 		public static string CaseName(MethodInfo method, object[] data) => $"{method.Name} ({data[0]})";
 
-		internal static string Source(string test) => Path.Combine(TestsDir, test + ".src");
-		internal static string ErrorSource(string test) => Path.Combine(ErrorsDir, test + ".src");
+		internal static string Source(string test) => Path.Combine(Repo.TestsDir, test + ".src");
+		internal static string Golden(string test) => Path.Combine(Repo.TestsDir, test + ".txt");
 
 		//One directory per case per backend
 		internal static string Scratch(string backend, string test)
@@ -77,12 +69,16 @@ namespace Orion.Tests.Golden
 		internal static void Compile(string test, string source, string language, string output)
 		{
 			//--rtti for the whole corpus: the surface stays golden-covered, and the OFF default is unit-tested.
-			ToolResult result = Tool.Run(Compiler, $"compile \"{source}\" -o \"{output}\" -l {language} --rtti", Root);
+			ToolResult result = Tool.Run(Compiler, $"compile \"{source}\" -o \"{output}\" -l {language} --rtti", Repo.Root);
 
 			//The compiler reports errors on stdout and returns non-zero; both matter, so show everything.
 			Assert.IsTrue(result.Ok, $"{test}: compiling to {language} failed.\n{result.Report()}");
 			Assert.IsTrue(File.Exists(output), $"{test}: compiling to {language} reported success but wrote no {output}.");
 		}
+
+		//The built program ran clean; `what` names it as the failure should read: "node exited 1".
+		internal static void AssertRan(string test, string what, ToolResult run) =>
+			Assert.IsTrue(run.Ok, $"{test}: {what} exited {run.ExitCode}.\n{run.Report()}");
 
 		//Compare against <name>.txt with normalized line endings.
 		internal static void AssertMatchesGolden(string test, string goldenPath, string actual)
@@ -144,26 +140,13 @@ namespace Orion.Tests.Golden
 			return string.Empty;
 		}
 
-		//Walk up from the test binary to the repo root
-		private static string FindRoot()
-		{
-			for (DirectoryInfo dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
-			{
-				if (Directory.Exists(Path.Combine(dir.FullName, "Tests")) &&
-					File.Exists(Path.Combine(dir.FullName, "Src", "Orion.sln")))
-					return dir.FullName;
-			}
-
-			throw new InvalidOperationException("could not locate the repository root from " + AppContext.BaseDirectory);
-		}
-
-		//The the SDK emits beside Orion.dll: `Orion.exe` on Windows, extensionless everywhere else.
+		//The apphost the SDK emits beside Orion.dll: `Orion.exe` on Windows, extensionless everywhere else.
 		private static string Apphost => OperatingSystem.IsWindows() ? "Orion.exe" : "Orion";
 
 		//The compiler binary to test; searched, because the bin layout moves with platform and configuration.
 		private static string FindCompiler()
 		{
-			string binDir = Path.Combine(Root, "Src", "Orion", "bin");
+			string binDir = Path.Combine(Repo.Root, "Src", "Orion", "bin");
 			if (!Directory.Exists(binDir))
 				throw new InvalidOperationException($"the compiler has not been built: no {binDir}. Build Src/Orion.sln first.");
 

@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Enum = Orion.Backend.Render.Enum;
+using Orion.Backend.Render;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -9,7 +11,6 @@ namespace Orion.Backend.Cpp
 	{
 		internal void Write(File file)
 		{
-			//Write includes
 			foreach (Reference include in file.Includes)
 				Write(include);
 			AppendLine();
@@ -18,40 +19,19 @@ namespace Orion.Backend.Cpp
 			List<Struct> structs = [.. file.Structs.SelectMany(i => i.Value)];
 			if (structs.Count > 0)
 			{
-				foreach (IGrouping<string, Struct> group in Grouped(structs, i => i.Namespace))
-				{
-					Open(group.Key);
-					foreach (Struct s in group)
-						AppendLine($"struct {s.Name};");
-					Close(group.Key);
-				}
+				Namespaced(structs, i => i.Namespace, s => AppendLine($"struct {s.Name};"));
 				AppendLine();
 			}
 
-			//Enums
-			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Enum @enum in kvp.Value)
-					Write(@enum);
-			}
+			WriteSections(file.Enums, WriteBlockComment, Write);
 			AppendLine();
 
-			//Structs
 			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
 			{
 				if (kvp.Value.Count == 0)
 					continue;
 				WriteBlockComment(kvp.Key);
-				foreach (IGrouping<string, Struct> group in Grouped(kvp.Value, i => i.Namespace))
-				{
-					Open(group.Key);
-					foreach (Struct s in group)
-						Write(s);
-					Close(group.Key);
-				}
+				Namespaced(kvp.Value, i => i.Namespace, Write);
 			}
 			AppendLine();
 
@@ -61,13 +41,7 @@ namespace Orion.Backend.Cpp
 				if (kvp.Value.Count == 0)
 					continue;
 				WriteBlockComment(kvp.Key);
-				foreach (IGrouping<string, Declaration> group in Grouped(kvp.Value, i => i.Namespace))
-				{
-					Open(group.Key);
-					foreach (Declaration global in group)
-						Write(global);
-					Close(group.Key);
-				}
+				Namespaced(kvp.Value, i => i.Namespace, Write);
 				AppendLine();
 			}
 
@@ -85,13 +59,7 @@ namespace Orion.Backend.Cpp
 			if (forward.Count > 0)
 			{
 				WriteBlockComment("Forward Function Declarations");
-				foreach (IGrouping<string, Function> group in Grouped(forward, i => i.Namespace))
-				{
-					Open(group.Key);
-					foreach (Function function in group)
-						Declare(function);
-					Close(group.Key);
-				}
+				Namespaced(forward, i => i.Namespace, Declare);
 				AppendLine();
 			}
 
@@ -99,12 +67,10 @@ namespace Orion.Backend.Cpp
 			foreach (IGrouping<string, Function> group in Grouped(file.Functions, i => i.Namespace))
 			{
 				Open(group.Key);
-				bool firstFunction = true;
-				foreach (Function function in group)
+				foreach ((int i, Function function) in group.Index())
 				{
-					if (!firstFunction)
+					if (i > 0)
 						AppendLine();
-					firstFunction = false;
 					Write(function);
 				}
 				Close(group.Key);
@@ -114,41 +80,7 @@ namespace Orion.Backend.Cpp
 		//The program's surface, for a consumer to include: exported types and function declarations, no globals or bodies.
 		internal void WriteHeader(File file)
 		{
-			AppendLine("#pragma once");
-			AppendLine();
-
-			foreach (Reference include in file.Includes)
-				Write(include);
-			AppendLine();
-
-			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Enum @enum in kvp.Value)
-					Write(@enum);
-				AppendLine();
-			}
-
-			//Forward declare first, as the translation unit does: a `Ref<T>` field may name a struct defined further down.
-			List<Struct> structs = [.. file.Structs.SelectMany(i => i.Value)];
-			if (structs.Count > 0)
-			{
-				foreach (Struct s in structs)
-					AppendLine($"struct {s.Name};");
-				AppendLine();
-			}
-
-			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Struct s in kvp.Value)
-					Write(s);
-				AppendLine();
-			}
+			WriteTypes(file);
 
 			if (file.Functions.Count > 0)
 			{
@@ -167,7 +99,7 @@ namespace Orion.Backend.Cpp
 			}
 		}
 
-		//The exported types alone, as the header used to carry them: a unit includes one program's types, and two units defining a shared type alike is what the one-definition rule allows.
+		//What the header opens with and the types companion is: the guard, the includes, the enums, and the structs behind their forward declarations; two units defining a shared type alike is what the one-definition rule allows.
 		internal void WriteTypes(File file)
 		{
 			AppendLine("#pragma once");
@@ -177,15 +109,7 @@ namespace Orion.Backend.Cpp
 				Write(include);
 			AppendLine();
 
-			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Enum @enum in kvp.Value)
-					Write(@enum);
-				AppendLine();
-			}
+			WriteSections(file.Enums, WriteBlockComment, Write, blankAfter: true);
 
 			//Forward declare first, as the translation unit does: a `Ref<T>` field may name a struct defined further down.
 			List<Struct> structs = [.. file.Structs.SelectMany(i => i.Value)];
@@ -196,20 +120,24 @@ namespace Orion.Backend.Cpp
 				AppendLine();
 			}
 
-			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Struct s in kvp.Value)
-					Write(s);
-				AppendLine();
-			}
+			WriteSections(file.Structs, WriteBlockComment, Write, blankAfter: true);
 		}
 
 		//Namespaced first, then file scope, each one run, so a later declaration may name an earlier one.
 		private static IEnumerable<IGrouping<string, T>> Grouped<T>(IEnumerable<T> items, Func<T, string> ns) =>
 			items.GroupBy(ns).OrderBy(i => i.Key == null);
+
+		//One namespace opened around each run of items that carry it.
+		private void Namespaced<T>(IEnumerable<T> items, Func<T, string> ns, Action<T> write)
+		{
+			foreach (IGrouping<string, T> group in Grouped(items, ns))
+			{
+				Open(group.Key);
+				foreach (T item in group)
+					write(item);
+				Close(group.Key);
+			}
+		}
 
 		private void Open(string ns)
 		{
@@ -315,25 +243,16 @@ namespace Orion.Backend.Cpp
 
 		private void Declare(Function function)
 		{
-			string args = function.Args.Count > 0 ? string.Join(", ", function.Args) : string.Empty;
+			string args = string.Join(", ", function.Args);
 			AppendLine($"{function.ReturnType} {function.Name}({args});");
 		}
 		private void Write(Function function)
 		{
-			string args = function.Args.Count > 0 ? string.Join(", ", function.Args) : string.Empty;
+			string args = string.Join(", ", function.Args);
 			AppendLine($"{function.ReturnType} {function.Name}({args})");
 			BraceCode.Open(this);
 
-			//Write locals (skip a section entirely when it has no declarations -- no empty comment block).
-			foreach (KeyValuePair<string, List<Declaration>> kvp in function.Locals)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Declaration local in kvp.Value)
-					Write(local);
-				AppendLine();
-			}
+			WriteSections(function.Locals, WriteBlockComment, Write, blankAfter: true);
 
 			foreach (Code code in function.Code)
 				BraceCode.Write(this, code);
@@ -341,7 +260,7 @@ namespace Orion.Backend.Cpp
 			BraceCode.Close(this);
 		}
 
-		internal void Write(Enum @enum)
+		private void Write(Enum @enum)
 		{
 			AppendLine($"enum class {@enum.Name}");
 			AppendLine("{");
@@ -354,11 +273,11 @@ namespace Orion.Backend.Cpp
 			AppendLine("};");
 		}
 
-		internal void WriteComment(string comment)
+		private void WriteComment(string comment)
 		{
 			AppendLine($"//{comment}");
 		}
-		internal void WriteBlockComment(string comment)
+		private void WriteBlockComment(string comment)
 		{
 			AppendLine($"/*");
 			AppendLine($" * {comment}.");

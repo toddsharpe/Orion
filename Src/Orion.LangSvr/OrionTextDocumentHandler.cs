@@ -12,7 +12,6 @@ namespace Orion.LangSvr
 	// Full-document sync: open/change stores the text and publishes diagnostics debounced, close drops it and clears them.
 	internal sealed class OrionTextDocumentHandler : TextDocumentSyncHandlerBase
 	{
-		private const string LanguageId = "orion";
 		private readonly OrionWorkspace _workspace;
 		private readonly DiagnosticsPublisher _diagnostics;
 
@@ -23,12 +22,12 @@ namespace Orion.LangSvr
 		}
 
 		public override TextDocumentAttributes GetTextDocumentAttributes(DocumentUri uri) =>
-			new TextDocumentAttributes(uri, LanguageId);
+			new TextDocumentAttributes(uri, OrionWorkspace.LanguageId);
 
 		protected override TextDocumentSyncRegistrationOptions CreateRegistrationOptions(TextSynchronizationCapability capability, ClientCapabilities clientCapabilities) =>
 			new TextDocumentSyncRegistrationOptions
 			{
-				DocumentSelector = TextDocumentSelector.ForLanguage(LanguageId)
+				DocumentSelector = TextDocumentSelector.ForLanguage(OrionWorkspace.LanguageId)
 			};
 
 		public override Task<Unit> Handle(DidOpenTextDocumentParams request, CancellationToken cancellationToken)

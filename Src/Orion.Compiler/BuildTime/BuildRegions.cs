@@ -8,8 +8,6 @@ using System.Linq;
 
 namespace Orion.BuildTime
 {
-	internal record BuildRegion(string Name, LinkedListNode<Tac> Start, LinkedListNode<Tac> End, SourceFunctionSymbol Function);
-
 	internal static class BuildRegions
 	{
 		public static void Run(SymbolTable root, List<Message> messages)
@@ -55,32 +53,44 @@ namespace Orion.BuildTime
 		//Lift every `#run { }` in ONE function into its own build-only function, leaving a build call behind; split out from Run so a function assembled DURING build execution can be lifted after the main generation has closed (see Build::Emit).
 		internal static List<SourceFunctionSymbol> Lift(SourceFunctionSymbol host, List<Message> messages)
 		{
-			return [.. GetBuildSlices(host).Select(i =>
+			List<SourceFunctionSymbol> lifted = new List<SourceFunctionSymbol>();
+
+			//Every Start mark up front, since lifting a region unlinks its nodes from the host.
+			List<LinkedListNode<Tac>> starts = new List<LinkedListNode<Tac>>();
+			for (LinkedListNode<Tac> at = host.Tacs.First; at != null; at = at.Next)
 			{
-				//Walk nodes, not values: Tac is a record, so Remove(Tac) would delete the first value-equal node rather than this region's.
+				if (at.Value is BuildMarkTac { Op: MarkOp.Start })
+					starts.Add(at);
+			}
+
+			foreach (LinkedListNode<Tac> start in starts)
+			{
+				BuildMarkTac mark = (BuildMarkTac)start.Value;
+
+				//Walk nodes, not values, up to the first End mark: Tac is a record, so Remove(Tac) would delete the first value-equal node rather than this region's.
 				List<LinkedListNode<Tac>> nodes = new List<LinkedListNode<Tac>>();
-				for (LinkedListNode<Tac> at = i.Start; at != null; at = at.Next)
+				for (LinkedListNode<Tac> at = start; at != null; at = at.Next)
 				{
 					nodes.Add(at);
-					if (at == i.End)
+					if (at.Value is BuildMarkTac { Op: MarkOp.End })
 						break;
 				}
 
 				LinkedList<Tac> useTacs = new LinkedList<Tac>(nodes.Skip(1).Take(nodes.Count - 2).Select(j => j.Value));
-				LinkedListNode<Tac> prev = i.Start.Previous;
+				LinkedListNode<Tac> prev = start.Previous;
 
 				//Remove from host function
 				foreach (LinkedListNode<Tac> node in nodes)
-					i.Function.Tacs.Remove(node);
+					host.Tacs.Remove(node);
 
 				//A valued `#run { }` names where its value lands; a statement one has no result and lifts to void.
-				NamedDataSymbol result = (i.Start.Value as BuildMarkTac).Result;
-				TypeSymbol returnType = result?.Type ?? i.Function.Table.Get<TypeSymbol>("void");
+				NamedDataSymbol result = mark.Result;
+				TypeSymbol returnType = result?.Type ?? host.Table.Get<TypeSymbol>("void");
 
 				if (result != null && !useTacs.Any(t => t is ReturnSymTac))
 					messages.Add(new Message(
 						"A `#run { }` expression must return a value, e.g. `return Digest{ ... };`.",
-						i.Start.Value.Region, MessageType.Error));
+						mark.Region, MessageType.Error));
 
 				useTacs.AddFirst(new FunctionMarkTac(MarkOp.Start));
 				//The fall-off-the-end path only: the body's own returns are already in useTacs, ahead of this.
@@ -88,37 +98,20 @@ namespace Orion.BuildTime
 				useTacs.AddLast(new FunctionMarkTac(MarkOp.End));
 
 				//Build-only: IsBuild keeps these regions out of the runtime passes and the backend, and lets Prune strip them.
-				SourceFunctionSymbol created = new SourceFunctionSymbol(i.Name, returnType, new List<ParamDataSymbol>(), i.Function.Table, useTacs) with { IsBuild = true };
-				(i.Start.Value as BuildMarkTac).Created = created;
+				SourceFunctionSymbol created = new SourceFunctionSymbol(mark.Name, returnType, new List<ParamDataSymbol>(), host.Table, useTacs) with { IsBuild = true };
+				mark.Created = created;
 
 				//The synthesized call stands in for the whole `#build { }` block and takes its location, so messages raised while executing point back at the source.
-				CallTac call = new CallTac(result, created, [], true) { Region = i.Start.Value.Region };
-				i.Function.Tacs.AddAfter(prev, call);
+				CallTac call = new CallTac(result, created, [], true) { Region = mark.Region };
+				host.Tacs.AddAfter(prev, call);
 
-				created.FuncType = Language.MakeFunctionType(i.Function.Table, created);
-				messages.Add(new Message($"BuildRegions: {i.Function.Name} -> {i.Name}", call.Region, MessageType.Trace));
+				created.FuncType = Language.MakeFunctionType(host.Table, created);
+				messages.Add(new Message($"BuildRegions: {host.Name} -> {mark.Name}", call.Region, MessageType.Trace));
 
-				return created;
-			})];
-		}
-
-		internal static List<BuildRegion> GetBuildSlices(SourceFunctionSymbol func)
-		{
-			List<BuildRegion> slices = new List<BuildRegion>();
-			LinkedListNode<Tac> current = func.Tacs.First;
-			for (; current != null; current = current.Next)
-			{
-				if (current.Value is not BuildMarkTac mark || mark.Op != MarkOp.Start)
-					continue;
-
-				LinkedListNode<Tac> end = current.Next;
-				while (end.Value is not BuildMarkTac endMark || endMark.Op != MarkOp.End)
-					end = end.Next;
-
-				BuildRegion slice = new BuildRegion(mark.Name, current, end, func);
-				slices.Add(slice);
+				lifted.Add(created);
 			}
-			return slices;
+
+			return lifted;
 		}
 	}
 }

@@ -4,7 +4,7 @@ using Orion.IR;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
-using TypeCode = Orion.Symbols.TypeCode;
+using static Orion.Tests.Opt.Tacs;
 
 namespace Orion.Tests.Backend
 {
@@ -12,11 +12,6 @@ namespace Orion.Tests.Backend
 	[TestClass]
 	public class ShortCircuitTests
 	{
-		private static readonly TypeSymbol I32 = new PrimitiveTypeSymbol(TypeCode.i32);
-		private static readonly TypeSymbol Bool = new PrimitiveTypeSymbol(TypeCode.@bool);
-
-		private static LocalDataSymbol Local(string name, TypeSymbol type = null) => new LocalDataSymbol(name, type ?? I32, LocalStorage.Stack);
-		private static TempDataSymbol Temp(string name, TypeSymbol type = null) => new TempDataSymbol(name, type ?? I32);
 		private static StLeaf Leaf(DataSymbol s) => new StLeaf(s);
 
 		//`t = X; if (t) { t = Y }` -- the shape codegen emits for `X && Y`.

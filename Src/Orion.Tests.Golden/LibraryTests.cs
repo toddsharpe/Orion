@@ -9,7 +9,7 @@ namespace Orion.Tests.Golden
 		[TestMethod]
 		public void SelfTestsPass()
 		{
-			ToolResult result = Tool.Run(Corpus.Compiler, $"test --src-root \"{System.IO.Path.Combine(Corpus.Root, "Demo")}\"", Corpus.Root);
+			ToolResult result = Tool.Run(Corpus.Compiler, $"test --src-root \"{System.IO.Path.Combine(Repo.Root, "Demo")}\"", Repo.Root);
 
 			//The count too, not just the exit code: a sweep that matches nothing would pass as "no failures".
 			int ran = result.StdOut.Split('\n').Count(i => i.StartsWith("ok  ") || i.StartsWith("FAIL"));

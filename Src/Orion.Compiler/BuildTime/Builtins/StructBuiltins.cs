@@ -2,12 +2,9 @@
 
 namespace Orion.BuildTime.Builtins
 {
-
 	[BuildOnly]
 	public static class StructBuiltins
 	{
-
-		[BuildOnly]
 		public static BuildList<string> Fields(OrionType type)
 		{
 			BuildList<string> fields = new BuildList<string>();
@@ -21,23 +18,22 @@ namespace Orion.BuildTime.Builtins
 			return fields;
 		}
 
-		[BuildOnly]
 		public static OrionType FieldType(OrionType type, string field)
 		{
 			if (type?.Symbol is not Symbols.StructTypeSymbol @struct)
 			{
 				Env.Report($"FieldType: '{type}' is not a struct.");
-				return new OrionType { Symbol = null };
+				return OrionType.None;
 			}
 
 			Symbols.Field found = @struct.Fields.FirstOrDefault(i => i.Name == field);
 			if (found == null)
 			{
 				Env.Report($"FieldType: struct '{type}' has no field '{field}'.");
-				return new OrionType { Symbol = null };
+				return OrionType.None;
 			}
 
-			return new OrionType { Symbol = found.Type };
+			return OrionType.Of(found.Type);
 		}
 	}
 }
