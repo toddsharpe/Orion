@@ -23,12 +23,7 @@ i32 main()
 	return 0;
 }}";
 
-		private static string Cpp(string template, string creates)
-		{
-			CompilerResult result = Harness.Compile(Program(template, creates));
-			result.AssertNoErrors();
-			return result.CodeOutput;
-		}
+		private static string Cpp(string template, string creates) => Harness.Emit(BackendLanguage.Cpp, Program(template, creates));
 
 		[TestMethod]
 		public void BranchIsChosenByParam()
@@ -48,8 +43,8 @@ void Scale(#param str name, #param bool squared, #output i32 out @ $""{name}_out
 				@"#create Scale(name = ""a"", squared = true), #create Scale(name = ""b"", squared = false)");
 
 			//One instance took each branch. The optimizer folds both, so the assertion is on the result.
-			Assert.AreEqual(1, Occurrences(cpp, "out = 49;"), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "out = 14;"), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "out = 49;"), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "out = 14;"), cpp);
 		}
 
 		[TestMethod]
@@ -188,7 +183,7 @@ void Pick(#param str name, #param str mode, #output i32 out @ $""{name}_out"")
 			Assert.IsFalse(cpp.Contains("out = 7;"), cpp);
 			//Scoped to the specialized block: the `if` in the generated Function_Get is not what this asserts.
 			string block = cpp.Substring(cpp.LastIndexOf("void a("));
-			Assert.AreEqual(0, Occurrences(block, "\tif ("), cpp);
+			Assert.AreEqual(0, Harness.Occurrences(block, "\tif ("), cpp);
 		}
 
 		[TestMethod]
@@ -233,8 +228,8 @@ void Range(#param str name, #param i32 n, #output i32 out @ $""{name}_out"")
 }",
 				@"#create Range(name = ""a"", n = 4), #create Range(name = ""b"", n = 5)");
 
-			Assert.AreEqual(1, Occurrences(cpp, "out = 100;"), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "out = 200;"), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "out = 100;"), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "out = 200;"), cpp);
 		}
 
 		[TestMethod]
@@ -299,14 +294,6 @@ void Bad(#param str name, #output i32 out @ $""{name}_out"")
 				@"#create Bad(name = ""a"")"));
 
 			result.AssertError("#if: the condition is not a build-time constant");
-		}
-
-		private static int Occurrences(string text, string needle)
-		{
-			int count = 0;
-			for (int at = text.IndexOf(needle); at >= 0; at = text.IndexOf(needle, at + needle.Length))
-				count++;
-			return count;
 		}
 	}
 }

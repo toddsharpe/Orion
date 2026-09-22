@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 
 namespace Orion.Tests.Golden
 {
@@ -15,14 +16,11 @@ namespace Orion.Tests.Golden
 
 			Corpus.Compile(test, Corpus.Source(test), "python", pythonFile);
 
-			ToolResult run = Tool.Run(
-				Tool.Python,
-				$"\"{pythonFile}\"",
-				scratch,
-				Corpus.RunEnv(("PYTHONPATH", Corpus.RuntimeDir("Python"))));
-			Assert.IsTrue(run.Ok, $"{test}: python exited {run.ExitCode}.\n{run.Report()}");
-
-			Corpus.AssertMatchesGolden(test, Path.Combine(Corpus.TestsDir, test + ".txt"), run.StdOut);
+			Dictionary<string, string> env = Corpus.RunEnv();
+			env["PYTHONPATH"] = Corpus.RuntimeDir("Python");
+			ToolResult run = Tool.Run(Tool.Python, $"\"{pythonFile}\"", scratch, env);
+			Corpus.AssertRan(test, "python", run);
+			Corpus.AssertMatchesGolden(test, Corpus.Golden(test), run.StdOut);
 		}
 	}
 }

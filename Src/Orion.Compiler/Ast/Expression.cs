@@ -1,4 +1,5 @@
-﻿using Orion.Diagnostics;
+﻿using Block = Microsoft.FSharp.Collections.FSharpList<Orion.Lang.Syntax.Pos<Orion.Lang.Syntax.Statement>>;
+using Orion.Diagnostics;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
@@ -79,7 +80,13 @@ namespace Orion.Ast
 					SymbolName = v.Item.Value,
 					Region = InputRegion.Create(v.Item.Start, v.Item.End)
 				},
-				Expr.Member m => CreateMember(m),
+				//`p.x` is a field access on whatever `p` evaluates to, like `a[i].x`; the chain is kept as written -- FieldDataSymbol models it, nothing downstream needs a path.
+				Expr.Member m => new MemberAccess
+				{
+					Instance = Create(m.Item1.Value),
+					Field = m.Item2.Value,
+					Region = InputRegion.Create(m.Item1.Start, m.Item2.End)
+				},
 				Expr.InfixHole hole => new BinaryOp
 				{
 					Operand1 = Create(hole.Item1.Value),
@@ -96,10 +103,10 @@ namespace Orion.Ast
 				},
 				Expr.InfixOp infix => Unsupported(infix.Item2, InputRegion.Create(infix.Item1.Start, infix.Item3.End)),
 				//`-1.5` is one number: the grammar reads the sign as a prefix operator, folded back here so everywhere wanting a LITERAL accepts a negative one.
-				Expr.PrefixOp prefix when prefix.Item1 == Op.Subtract && Negated(prefix.Item2.Value) != null =>
+				Expr.PrefixOp prefix when prefix.Item1 == Op.Subtract && prefix.Item2.Value is Expr.Value operand && Negate(Literal.Create(operand.Item.Value)) is Literal negated =>
 					new Value
 					{
-						Literal = Negated(prefix.Item2.Value),
+						Literal = negated,
 						Region = InputRegion.Create(prefix.Item2.Start, prefix.Item2.End)
 					},
 				Expr.PrefixOp prefix when AstOps.ContainsKey(prefix.Item1) => new UnaryOp
@@ -238,12 +245,6 @@ namespace Orion.Ast
 			};
 		}
 
-		//The negated literal a `-x` spells, or null when x is not numeric; read before `Create` runs on the operand, so the fold happens once.
-		private static Literal Negated(Expr operand)
-		{
-			return operand is Expr.Value value ? Negate(Literal.Create(value.Item.Value)) : null;
-		}
-
 		//The literal an array element spells, or null when it is not one.
 		private static Literal Scalar(Expression expr)
 		{
@@ -292,17 +293,6 @@ namespace Orion.Ast
 				Expr.IdentifierName name => name.Item.Value,
 				Expr.Member member => Path(member.Item1.Value) is string head ? $"{head}.{member.Item2.Value}" : null,
 				_ => null
-			};
-		}
-
-		//`p.x` is a field access on whatever `p` evaluates to, like `a[i].x`; the chain is kept as written -- FieldDataSymbol models it, nothing downstream needs a path.
-		private static Expression CreateMember(Expr.Member member)
-		{
-			return new MemberAccess
-			{
-				Instance = Create(member.Item1.Value),
-				Field = member.Item2.Value,
-				Region = InputRegion.Create(member.Item1.Start, member.Item2.End)
 			};
 		}
 
@@ -406,5 +396,209 @@ namespace Orion.Ast
 			return new Interpolation { Parts = result, Region = InputRegion.None };
 		}
 
+	}
+
+	//A literal in expression position.
+	public class Value : Expression
+	{
+		internal Literal Literal { get; set; }
+	}
+
+	//A name in expression position.
+	public class Variable : Expression
+	{
+		public string SymbolName { get; set; }
+	}
+
+	//`-x`, `~x`, `x++`, `x--`.
+	public class UnaryOp : Expression
+	{
+		internal Expression Operand1 { get; set; }
+		public AstOp Op { get; set; }
+	}
+
+	//`a <op> b`.
+	public class BinaryOp : Expression
+	{
+		internal Expression Operand1 { get; set; }
+		public AstOp Op { get; set; }
+		internal Expression OpHole { get; set; }
+		internal Expression Operand2 { get; set; }
+	}
+
+	//`c ? a : b`.
+	public class TernaryOp : Expression
+	{
+		internal Expression Clause { get; set; }
+		internal Expression True { get; set; }
+		internal Expression False { get; set; }
+	}
+
+	//`cast<u16>(x)`.
+	public class Cast : Expression
+	{
+		public TypeName TypeName { get; set; }
+		public Expression Operand { get; set; }
+	}
+
+	//`f(x)`, direct or through a function value.
+	public class Call : Expression
+	{
+		public FunctionSymbol Callee { get; internal set; }
+		internal NamedDataSymbol IndirectTarget { get; set; }
+		public bool IsBuildCall { get; set; }
+		public bool IsCreate { get; set; }
+		internal Expression Schedule { get; set; }
+		public string Function { get; set; }
+		internal Expression FuncHole { get; set; }
+		public List<TypeName> GenericArgs { get; set; } = new List<TypeName>();
+		public List<Expression> Arguments { get; set; }
+		public List<string> ArgumentNames { get; set; } = new List<string>();
+	}
+
+	//The Call a `#src` lowers to, marked so `#config` can insist on one.
+	public class SrcCall : Call
+	{
+	}
+
+	//`a[i]`, `m[i, j]`, and `f(x)[0]` -- the index list is what makes a rectangular array indexable.
+	public class Subscript : Expression
+	{
+		public Expression Instance { get; internal set; }
+		public List<Expression> Indices { get; internal set; }
+	}
+
+	//Field access on an arbitrary expression, e.g. arr[i].x or f(y).x.
+	public class MemberAccess : Expression
+	{
+		public Expression Instance { get; internal set; }
+		public string Field { get; internal set; }
+	}
+
+	//`[a, b, c]:T` with computed elements; an all-scalar literal became a Value instead.
+	public class ArrayExpr : Expression
+	{
+		internal TypeName TypeName { get; set; }
+		internal Expression[] Elements { get; set; }
+	
+		internal NamedDataSymbol[] Destinations { get; set; }
+	}
+
+	//`Point{ x = 1, y = 2 }`.
+	public class StructExpr : Expression
+	{
+		internal TypeName TypeName { get; set; }
+		internal Dictionary<string, Expression> Fields { get; set; }
+	}
+
+	//`${ a = 1, b = x }` with computed fields; an all-scalar bag became a Value instead.
+	public class ArgsExpr : Expression
+	{
+		public Dictionary<string, Expression> Fields { get; set; }
+	}
+
+	//A lambda with a return value.
+	public class Func : Expression
+	{
+		internal TypeName TypeName { get; set; }
+		internal TypeName ReturnType { get; set; }
+		internal List<Parameter> Parameters { get; set; }
+		internal List<Statement> Body { get; set; }
+	}
+
+	//A lambda returning nothing.
+	public class Action : Expression
+	{
+		internal TypeName TypeName { get; set; }
+		internal List<Parameter> Parameters { get; set; }
+		internal List<Statement> Body { get; set; }
+	}
+
+	//`#run { ... }`: runs at build time, void as a statement and a spliced-in constant as an initializer.
+	public class RunExpr : Expression
+	{
+		internal List<Statement> Statements { get; set; }
+	
+		internal TypeName ResultType { get; set; }
+	}
+
+	//An expression the grammar accepts but the compiler has no lowering for; binding reports the carried reason.
+	public class Invalid : Expression
+	{
+		internal string Reason { get; set; }
+	}
+
+	//`$(expr)` in a #code: a build-time value, evaluated in the ENCLOSING scope and spliced into the AST.
+	public class Hole : Expression
+	{
+		internal Expression Value { get; set; }
+		internal string Code { get; set; }
+	}
+
+	//A hole that held a Code, carrying its contents until the Exec or switch arm around it consumes them.
+	public class Spliced : Expression
+	{
+		internal List<Statement> Statements { get; set; }
+		internal List<SwitchCase> Cases { get; set; }
+	}
+
+	//`#code { ... }`: a fragment as a value, parsed here; Desugar lowers it to Code::Fill(id, ${holes}).
+	public class CodeExpr : Expression
+	{
+		internal Block Source { get; set; }
+		internal List<Statement> Statements { get; set; }
+	}
+
+	//A faithful `$"a={x} b"`; Desugar processes it to ("a=" + __str(x)) + " b".
+	public class Interpolation : Expression
+	{
+		public class Part
+		{
+			internal string Text { get; set; }
+			internal Expression Hole { get; set; }
+		}
+	
+		internal List<Part> Parts { get; set; }
+	}
+
+	//A faithful `Map<K,V>{ k = v }`; Desugar processes it to chained Map::With over Map::New.
+	public class MapLiteral : Expression
+	{
+		public class Entry
+		{
+			internal Expression Key { get; set; }
+			internal Expression Value { get; set; }
+		}
+	
+		internal TypeName TypeName { get; set; }
+		internal List<Entry> Entries { get; set; }
+	}
+
+	//A faithful `#src <path> <entry>(args)`; Desugar processes it to a Build_src SrcCall.
+	public class SrcExpr : Expression
+	{
+		public class Argument
+		{
+			internal string Name { get; set; }
+			internal Expression Value { get; set; }
+		}
+	
+		internal Expression Path { get; set; }
+		internal string Entry { get; set; }
+		internal List<Argument> Arguments { get; set; }
+	}
+
+	//`[body for T x in Source if Condition]:List<U>`.
+	public class Comprehension : Expression
+	{
+		internal TypeName ElementType { get; set; }
+		internal string ElementName { get; set; }
+		internal bool IsElementConst { get; set; }
+		//The element's position in the source, a `const i32` the body and the filter both see; null when the comprehension binds none.
+		internal string IndexName { get; set; }
+		internal Expression Source { get; set; }
+		internal Expression Condition { get; set; }
+		internal Expression Body { get; set; }
+		internal TypeName ResultType { get; set; }
 	}
 }

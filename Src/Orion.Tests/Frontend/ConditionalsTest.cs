@@ -1,7 +1,7 @@
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using Orion.Ast;
 using Orion.Diagnostics;
 using Orion.Frontend;
-using ParserResult = FParsec.CharParsers.ParserResult<Orion.Lang.Syntax.TranslationUnit, Microsoft.FSharp.Core.Unit>;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -11,17 +11,10 @@ namespace Orion.Tests.Frontend
 	[TestClass]
 	public class ConditionalsTest
 	{
-		private static TranslationUnit Parse(string src)
-		{
-			ParserResult result = Lang.Parse.Parse(src);
-			Assert.IsTrue(result.IsSuccess, $"could not parse test source: {src}");
-			return TranslationUnit.Create((result as ParserResult.Success).Item1);
-		}
-
 		//The body of `f`, folded with `env`; the messages the fold produced come back alongside it.
 		private static (List<Statement> Body, List<Message> Messages) Fold(string body, FoldEnv env, string blocks = "")
 		{
-			TranslationUnit tu = Parse($"{blocks}\nvoid f()\n{{\n{body}\n}}");
+			TranslationUnit tu = Parsed.Parse($"{blocks}\nvoid f()\n{{\n{body}\n}}");
 			Function fn = tu.Blocks.OfType<Function>().Single(i => i.Name == "f");
 
 			List<Message> messages = new List<Message>();

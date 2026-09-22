@@ -12,7 +12,6 @@ namespace Orion.BuildTime.Builtins
 	{
 		public static Solver New(IReadOnlyList<OrionFunction> funcs)
 		{
-
 			List<SourceFunctionSymbol> underlying = [.. funcs.Where(i => i != null).Select(i => i.Function)];
 			return new Solver(underlying, Env.Context.Function.Table.GetRoot());
 		}
@@ -28,14 +27,8 @@ namespace Orion.BuildTime.Builtins
 
 		public static void Export(Solver solver, long dt_ns)
 		{
-
-			solver._exported = true;
-			solver._dt = dt_ns;
-			solver.Solve(Env.Context.Messages);
+			solver.SolveExported(dt_ns, Env.Context.Messages);
 			LastSolved = solver;
-
-			if (!BuildBuiltins.Failed())
-				solver.Export(dt_ns);
 		}
 
 		//The netlist as a Graph, for Output::Write after Solve or Export.
@@ -65,11 +58,12 @@ namespace Orion.BuildTime.Builtins
 			return BuildBuiltins.Failed() ? CodeBuiltins.Empty() : CodeBuiltins.Of(solver.ViewState());
 		}
 
-		private static Dictionary<string, (string Template, string Params, OrionFunction Func, InputRegion Region)> _blocks => Compiler.Session.SolverBlocks;
+		//One `#create`d block: the template it came from, its specialization and schedule as text, the function, and where it was created.
+		internal record Cached(string Template, string Params, OrionFunction Func, InputRegion Region);
 
-		private static HashSet<Symbol> _ran => Compiler.Session.SolverRan;
+		private static Dictionary<string, Cached> _blocks => Compiler.Session.SolverBlocks;
 
-		internal static void Ran(SourceFunctionSymbol function) => _ran.Add(function);
+		internal static void Ran(SourceFunctionSymbol function) => Compiler.Session.SolverRan.Add(function);
 
 		private static string Known()
 		{
@@ -83,7 +77,7 @@ namespace Orion.BuildTime.Builtins
 
 		private static (long Period, long Phase) Schedule(string block, object args)
 		{
-			Dictionary<string, object> values = args as Dictionary<string, object> ?? [];
+			Dictionary<string, object> values = Env.Bag(args);
 			foreach (string key in values.Keys.Where(i => i is not (PeriodKey or PhaseKey)))
 				Env.Report($"`#create {block}` was given the schedule property '{key}'. A schedule bag takes " +
 					$"`{PeriodKey}` and `{PhaseKey}`, both times, and nothing else.");
@@ -131,7 +125,7 @@ namespace Orion.BuildTime.Builtins
 
 		private static OrionFunction Instantiate(string name, object args, object schedule)
 		{
-			Dictionary<string, object> values = (Dictionary<string, object>)args;
+			Dictionary<string, object> values = Env.Bag(args);
 
 			if (!Frontend.Specializer.Templates.TryGetValue(name, out Ast.Function template))
 			{
@@ -143,7 +137,6 @@ namespace Orion.BuildTime.Builtins
 			Dictionary<string, Ast.Literal> env = new Dictionary<string, Ast.Literal>();
 			foreach (Ast.Parameter p in template.Parameters.Where(p => p.Directive == Ast.ParamDirective.Param))
 			{
-
 				if (values.TryGetValue(p.Name, out object v))
 					env[p.Name] = Frontend.Specializer.ToLiteral(v, p.TypeName);
 				else if (p.Default is Ast.Value dv && dv.Literal != null)
@@ -161,9 +154,8 @@ namespace Orion.BuildTime.Builtins
 
 			string mangled = Frontend.Specializer.Mangle(template, env);
 			string described = $"{Frontend.Specializer.Describe(template, env)}@{period}+{phase}";
-			if (_blocks.TryGetValue(mangled, out (string Template, string Params, OrionFunction Func, InputRegion Region) cached))
+			if (_blocks.TryGetValue(mangled, out Cached cached))
 			{
-
 				if (cached.Template != name)
 				{
 					Env.Report($"`#create {name}(name = \"{env["name"].Boxed}\")`: block '{cached.Template}' is " +
@@ -200,7 +192,7 @@ namespace Orion.BuildTime.Builtins
 				built.Function.Phase = phase;
 			}
 
-			_blocks[mangled] = (name, described, built, Env.Region);
+			_blocks[mangled] = new Cached(name, described, built, Env.Region);
 			return built;
 		}
 
@@ -213,10 +205,10 @@ namespace Orion.BuildTime.Builtins
 				.Select(i => (Symbol)i.Function), ReferenceEqualityComparer.Instance);
 
 			messages.Trace($"Checked {Messages.Count(_blocks.Count, "block")} for an #init nothing runs");
-			foreach ((string Template, string Params, OrionFunction Func, InputRegion Region) instance in _blocks.Values)
+			foreach (Cached instance in _blocks.Values)
 			{
 				SourceFunctionSymbol block = instance.Func?.Function;
-				if (block?.Init == null || called.Contains(block.Init) || _ran.Contains(block.Init))
+				if (block?.Init == null || called.Contains(block.Init) || Compiler.Session.SolverRan.Contains(block.Init))
 					continue;
 
 				messages.Add(new Message(
@@ -230,7 +222,6 @@ namespace Orion.BuildTime.Builtins
 		private static void RunEscapes(Ast.Function template, Ast.Function clone,
 			Dictionary<string, Ast.Literal> env, string mangled)
 		{
-
 			List<Ast.Parameter> parameters = [.. template.Parameters
 				.Where(p => p.Directive == Ast.ParamDirective.Param)
 				.Select(p => new Ast.Parameter { TypeName = p.TypeName, Name = p.Name, Region = p.Region })];

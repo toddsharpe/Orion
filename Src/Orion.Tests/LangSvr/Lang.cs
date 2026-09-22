@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Orion.LangSvr;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
 
@@ -8,11 +9,15 @@ namespace Orion.Tests.LangSvr
 	//Drives the language server's analysis over a source string, locating positions by substring.
 	internal static class Lang
 	{
-		public static Analysis Analyze(string src) => new OrionWorkspace().Analyze(src);
+		//A fresh workspace each time: `path` is what `#using` resolves against, `read` what an open buffer says instead of disk.
+		internal static Analysis Analyze(string src, string path = null, Func<string, string> read = null) =>
+			new OrionWorkspace().Analyze(src, path, read);
 
 		public static IReadOnlyList<Diagnostic> Diagnostics(string src) => Analyze(src).Diagnostics;
 
-		public static IReadOnlyList<SemToken> Tokens(string src) => OrionSemanticTokens.Collect(Analyze(src).Ast);
+		//The analysis catches its own exceptions into one diagnostic, so a throw is caught here rather than read as a real error.
+		public static void AssertNoInternalError(IReadOnlyList<Diagnostic> diags) =>
+			Assert.IsFalse(diags.Any(d => d.Message.Contains("Orion internal error")), "analysis threw: " + string.Join(" | ", diags.Select(d => d.Message)));
 
 		public static string Hover(string src, string needle, int occurrence = 0)
 		{
@@ -36,7 +41,7 @@ namespace Orion.Tests.LangSvr
 		public static SemToken? TokenAt(string src, string needle, int occurrence = 0)
 		{
 			(int line, int col) = Pos(src, needle, occurrence);
-			foreach (SemToken t in Tokens(src))
+			foreach (SemToken t in OrionSemanticTokens.Collect(Analyze(src).Ast))
 				if (t.Line == line && t.Char == col)
 					return t;
 			return null;

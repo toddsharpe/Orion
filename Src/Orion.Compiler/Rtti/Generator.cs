@@ -31,23 +31,14 @@ namespace Orion.Rtti
 				return;
 			}
 
-			SymbolTable scope = root;
-
-			if (!Bind(Types, scope, messages))
+			if (!Bind(Read("Orion.Rtti.Types.src"), root, messages))
 				return;
 
-			GlobalDataSymbol placeholder = new GlobalDataSymbol("_Functions", new ArrayTypeSymbol(scope.Get<StructTypeSymbol>("RtFunction"), 1));
-			scope.Add(placeholder);
-			Compiler.Session.RttiOwned.Add(placeholder);
+			StructTypeSymbol rtFunction = root.Get<StructTypeSymbol>("RtFunction");
+			Owned(root, new GlobalDataSymbol("_Functions", new ArrayTypeSymbol(rtFunction, 1)));
+			Owned(root, new GlobalDataSymbol(Miss, rtFunction) { Declared = rtFunction });
 
-			GlobalDataSymbol miss = new GlobalDataSymbol(Miss, scope.Get<StructTypeSymbol>("RtFunction"))
-			{
-				Declared = scope.Get<StructTypeSymbol>("RtFunction"),
-			};
-			scope.Add(miss);
-			Compiler.Session.RttiOwned.Add(miss);
-
-			Bind(Code, scope, messages);
+			Bind(Read("Orion.Rtti.Code.src"), root, messages);
 		}
 
 		public static void Fill(SymbolTable root, List<Message> messages)
@@ -103,7 +94,7 @@ namespace Orion.Rtti
 				types.Add(null);
 
 				TypeSymbol element = type is BufferTypeSymbol buffer ? buffer.Element : null;
-				types[index] = new RttType(type.Name, Kind(type), Math.Max(0, TypeBuiltins.Width(type)),
+				types[index] = new RttType(type.Name, OrionType.Of(type).Kind.ToString(), Math.Max(0, TypeBuiltins.Width(type, out _)),
 					type is ArrayTypeSymbol a ? a.Length : 0, Type(element), Fields(type));
 				return index;
 			}
@@ -119,7 +110,7 @@ namespace Orion.Rtti
 				{
 					fields.Add(new RttField(field.Label, Type(field.Type), offset));
 
-					int width = TypeBuiltins.Width(field.Type);
+					int width = TypeBuiltins.Width(field.Type, out _);
 					offset = width < 0 || offset < 0 ? -1 : offset + width;
 				}
 
@@ -137,10 +128,7 @@ namespace Orion.Rtti
 				List<RttPort> outputs = Ports(function.Parameters.Where(i => i.Direction == ParamDirection.Out));
 				List<RttPort> state = Ports(function.Parameters.Where(i => i.Direction == ParamDirection.State));
 
-				state.AddRange(function.Table.Traverse()
-					.SelectMany(i => i.GetAll<LocalDataSymbol>())
-					.Where(i => i.Storage == LocalStorage.Static)
-					.Distinct()
+				state.AddRange(OrionFunction.StateLocals(function)
 					.Select(i => new RttPort(i.Name, Type(i.Type), nameof(ParamDirection.State))));
 
 				described.Add(new RttFunction(function.Name, Type(function.ReturnType), inputs, outputs, state));
@@ -148,8 +136,6 @@ namespace Orion.Rtti
 
 			return new Model(types, described);
 		}
-
-		private static string Kind(TypeSymbol type) => new OrionType { Symbol = type }.Kind.ToString();
 
 		private static bool Bind(string source, SymbolTable scope, List<Message> messages)
 		{
@@ -190,12 +176,31 @@ namespace Orion.Rtti
 				Compiler.Session.RttiOwned.Add(symbol);
 		}
 
+		//A generated global enters the scope and the owned set together, so no pass mistakes it for the program's.
+		private static GlobalDataSymbol Owned(SymbolTable scope, GlobalDataSymbol symbol)
+		{
+			scope.Add(symbol);
+			Compiler.Session.RttiOwned.Add(symbol);
+			return symbol;
+		}
+
+		//A table of `element` rows as its own global, or the shared empty span when there are none.
+		private static DataSymbol Table(SymbolTable scope, string name, StructTypeSymbol element, DataSymbol none, List<DataSymbol> rows)
+		{
+			if (rows.Count == 0)
+				return none;
+
+			ArrayTypeSymbol type = new ArrayTypeSymbol(element, rows.Count);
+			return Owned(scope, new GlobalDataSymbol(name, type)
+			{
+				Declared = type,
+				Initializer = new AggregateSymbol(type, rows),
+			});
+		}
+
 		private const string Miss = "_NoFunction";
-
 		private const string NoPorts = "_NoPorts";
-
 		private const string NoFields = "_NoFields";
-
 
 		private static void Tables(SymbolTable scope, Model model)
 		{
@@ -211,32 +216,15 @@ namespace Orion.Rtti
 			StructTypeSymbol rtPort = scope.Get<StructTypeSymbol>("RtPort");
 			SpanTypeSymbol view = new SpanTypeSymbol(rtPort);
 
-			GlobalDataSymbol none = new GlobalDataSymbol(NoPorts, view) { Initializer = new AggregateSymbol(view, []) };
-			scope.Add(none);
-			Compiler.Session.RttiOwned.Add(none);
+			GlobalDataSymbol none = Owned(scope, new GlobalDataSymbol(NoPorts, view) { Initializer = new AggregateSymbol(view, []) });
 
-			DataSymbol List(string function, string list, List<RttPort> items)
-			{
-				if (items.Count == 0)
-					return none;
-
-				ArrayTypeSymbol type = new ArrayTypeSymbol(rtPort, items.Count);
-				GlobalDataSymbol global = new GlobalDataSymbol($"{function}_{list}", type)
-				{
-					Declared = type,
-					Initializer = new AggregateSymbol(type, [.. items.Select(i => (DataSymbol)new AggregateSymbol(rtPort,
-					[
-						new LiteralSymbol(i.Name, str),
-						new RefSymbol(cells[i.Type], reference),
-						new LiteralSymbol(System.Enum.Parse(direction.Hosted, i.Direction), direction),
-					]))]),
-				};
-
-				scope.Add(global);
-				Compiler.Session.RttiOwned.Add(global);
-
-				return global;
-			}
+			DataSymbol List(string function, string list, List<RttPort> items) =>
+				Table(scope, $"{function}_{list}", rtPort, none, [.. items.Select(i => (DataSymbol)new AggregateSymbol(rtPort,
+				[
+					new LiteralSymbol(i.Name, str),
+					new RefSymbol(cells[i.Type], reference),
+					new LiteralSymbol(System.Enum.Parse(direction.Hosted, i.Direction), direction),
+				]))]);
 
 			Dictionary<RttFunction, List<DataSymbol>> lists = model.Functions.ToDictionary(i => i, i =>
 			(List<DataSymbol>)
@@ -260,13 +248,18 @@ namespace Orion.Rtti
 			GlobalDataSymbol functions = scope.Get<GlobalDataSymbol>("_Functions");
 			functions.Declared = table;
 			functions.Initializer = new AggregateSymbol(table, rows);
-			scope.Remove(functions);
-			scope.Add(functions);
+			Reseat(scope, functions);
 
 			GlobalDataSymbol miss = scope.Get<GlobalDataSymbol>(Miss);
-			miss.Initializer = Empty(scope, scope.Get<StructTypeSymbol>("RtFunction"));
-			scope.Remove(miss);
-			scope.Add(miss);
+			miss.Initializer = Empty(scope, rtFunction);
+			Reseat(scope, miss);
+		}
+
+		//A global declared before the cells its initializer now references leaves and re-enters the scope, so it is emitted after them.
+		private static void Reseat(SymbolTable scope, GlobalDataSymbol global)
+		{
+			scope.Remove(global);
+			scope.Add(global);
 		}
 
 		private static GlobalDataSymbol[] Cells(SymbolTable scope, List<RttType> types, StructTypeSymbol rtType,
@@ -275,40 +268,22 @@ namespace Orion.Rtti
 			GlobalDataSymbol[] cells = new GlobalDataSymbol[types.Count];
 
 			for (int i = 0; i < types.Count; i++)
-			{
 				cells[i] = new GlobalDataSymbol($"_Type{i}", rtType) { Declared = rtType };
-				Compiler.Session.RttiOwned.Add(cells[i]);
-			}
 
 			StructTypeSymbol rtField = scope.Get<StructTypeSymbol>("RtField");
 			SpanTypeSymbol view = new SpanTypeSymbol(rtField);
 
-			GlobalDataSymbol none = new GlobalDataSymbol(NoFields, view) { Initializer = new AggregateSymbol(view, []) };
-			scope.Add(none);
-			Compiler.Session.RttiOwned.Add(none);
+			GlobalDataSymbol none = Owned(scope, new GlobalDataSymbol(NoFields, view) { Initializer = new AggregateSymbol(view, []) });
 
-			DataSymbol List(RttType type)
-			{
-				if (type.Fields.Count == 0)
-					return none;
+			DataSymbol List(RttType type) =>
+				Table(scope, $"{type.Name}_fields", rtField, none, [.. type.Fields.Select(i => (DataSymbol)new AggregateSymbol(rtField,
+				[
+					new LiteralSymbol(i.Name, str),
+					new RefSymbol(cells[i.Type], reference),
+					new LiteralSymbol(i.Offset, i32),
+				]))]);
 
-				ArrayTypeSymbol array = new ArrayTypeSymbol(rtField, type.Fields.Count);
-				GlobalDataSymbol global = new GlobalDataSymbol($"{type.Name}_fields", array)
-				{
-					Declared = array,
-					Initializer = new AggregateSymbol(array, [.. type.Fields.Select(i => (DataSymbol)new AggregateSymbol(rtField,
-					[
-						new LiteralSymbol(i.Name, str),
-						new RefSymbol(cells[i.Type], reference),
-						new LiteralSymbol(i.Offset, i32),
-					]))]),
-				};
-
-				scope.Add(global);
-				Compiler.Session.RttiOwned.Add(global);
-				return global;
-			}
-
+			//Dependency order, a cell after its element's and its fields' cells, and each entered only once it has its initializer.
 			foreach (int index in Ordered(types))
 			{
 				RttType type = types[index];
@@ -325,7 +300,7 @@ namespace Orion.Rtti
 					fields,
 				]);
 
-				scope.Add(cells[index]);
+				Owned(scope, cells[index]);
 			}
 
 			return cells;
@@ -368,9 +343,6 @@ namespace Orion.Rtti
 			RefTypeSymbol => new RefSymbol(scope.Get<GlobalDataSymbol>($"_Type{None}"), type),
 			_ => new LiteralSymbol(0, type),
 		};
-
-		private static string Types => Read("Orion.Rtti.Types.src");
-		private static string Code => Read("Orion.Rtti.Code.src");
 
 		private static string Read(string resource)
 		{

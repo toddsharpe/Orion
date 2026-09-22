@@ -16,10 +16,11 @@ namespace Orion.Web.Interop
 	{
 		private const int MaxAstNodes = 20000;
 
+		//What a tree row holds: how it renders once selected, and for a symbol table, the table its children come from.
 		private sealed class Entry
 		{
-			public string Kind;
-			public object Value;
+			public Func<bool, AnalysisDetail> Render;
+			public SymbolTable Table;
 		}
 
 		private static readonly Dictionary<string, Entry> _nodes = new Dictionary<string, Entry>();
@@ -34,7 +35,7 @@ namespace Orion.Web.Interop
 		internal static AnalysisNode Phase(PhaseResult phase)
 		{
 			//Every phase lists its messages, so a quiet one reads as quiet rather than as missing.
-			List<AnalysisNode> children = new List<AnalysisNode> { Leaf("messages", "Messages", phase.Messages) };
+			List<AnalysisNode> children = new List<AnalysisNode> { MessagesLeaf(phase.Messages) };
 
 			foreach (PropertyInfo info in phase.State?.GetType().GetProperties() ?? [])
 			{
@@ -51,70 +52,56 @@ namespace Orion.Web.Interop
 			return Branch($"{phase} ({phase.Elapsed.TotalMilliseconds:F1}ms)", children);
 		}
 
-		internal static AnalysisNode Outcome(bool success) =>
-			Branch(success ? "Success" : "Failed", new List<AnalysisNode>());
-
 		internal static AnalysisNode Failed(Exception ex) =>
-			Branch("Failed", new List<AnalysisNode> { Leaf("exception", "Exception", ex) });
+			Branch("Failed", new List<AnalysisNode> { ExceptionLeaf(ex) });
 
 		internal static AnalysisNode Branch(string label, List<AnalysisNode> children) =>
 			new AnalysisNode { Label = label, Children = children, HasChildren = children.Count > 0 };
 
 		private static AnalysisNode For(object value, string name) => value switch
 		{
-			List<Message> messages => Leaf("messages", "Messages", messages),
+			List<Message> messages => MessagesLeaf(messages),
 			List<CompilerFile> files => Branch("ASTs : CompilerFiles", files.Select(AstLeaf).ToList()),
 			CompilerFile file => AstLeaf(file),
 			SymbolTable table => Symbols(table),
-			CallGraph.Node node => Leaf("callGraph", node.Value.Name, node),
-			Emitted code => Leaf("code", "Code", code),
-			Exception ex => Leaf("exception", "Exception", ex),
-			Module module => Leaf("msil", "MSIL", module),
+			CallGraph.Node node => Leaf("CallGraph", node.Value.Name, dark => Graph(null, Diagrams.Diagrams.CallGraph(node), dark)),
+			Emitted code => Leaf("Code", "Code", _ => Text(null, code.Text, MonacoLanguage(code.Lang))),
+			Exception ex => ExceptionLeaf(ex),
+			Module => Leaf("Module", "MSIL", _ => Text(null, Msil())),
 
-			_ => Leaf("value", name, value),
+			_ => Leaf("Generic", name, _ => Text(null, value?.ToString() ?? "<null>")),
 		};
 
-		private static AnalysisNode AstLeaf(CompilerFile file) => Leaf("ast", "AST", file);
+		private static AnalysisNode MessagesLeaf(IEnumerable<Message> messages) =>
+			Leaf("Result", "Messages", _ => Text(null, messages.Any() ? string.Join("\n", messages.Select(m => m.Text)) : "No messages."));
 
-		private static AnalysisNode Symbols(SymbolTable table)
-		{
-			AnalysisNode node = Leaf("symbols", table.Name, table);
-			node.HasChildren = true;
-			return node;
-		}
+		private static AnalysisNode AstLeaf(CompilerFile file) =>
+			Leaf("TranslationUnit", "AST", _ => Text(null, AstOutline(file)));
 
-		private static AnalysisNode FunctionLeaf(SourceFunctionSymbol fn) => Leaf("function", fn.Name, fn);
+		private static AnalysisNode ExceptionLeaf(Exception ex) =>
+			Leaf("Exception", "Exception", _ => Text(null, $"Message\n{ex.Message}\n\nSource\n{ex.Source}\n\nStack Trace\n{ex.StackTrace}"));
 
-		private static AnalysisNode Leaf(string kind, string name, object value)
+		private static AnalysisNode Symbols(SymbolTable table) =>
+			Leaf("SymbolTable", table.Name, _ => Rows(table), table);
+
+		//`slug` is what the label calls the kind of thing selected; `render` draws it when it is; a symbol table's children are listed on demand from `table`.
+		private static AnalysisNode Leaf(string slug, string name, Func<bool, AnalysisDetail> render, SymbolTable table = null)
 		{
 			string id = "a" + _seq++;
-			_nodes[id] = new Entry { Kind = kind, Value = value };
-			return new AnalysisNode { Id = id, Label = $"{name} : {Slug(kind)}" };
+			_nodes[id] = new Entry { Render = render, Table = table };
+			return new AnalysisNode { Id = id, Label = $"{name} : {slug}", HasChildren = table != null };
 		}
-
-		private static string Slug(string kind) => kind switch
-		{
-			"messages" => "Result",
-			"ast" => "TranslationUnit",
-			"symbols" => "SymbolTable",
-			"callGraph" => "CallGraph",
-			"code" => "Code",
-			"msil" => "Module",
-			"exception" => "Exception",
-			"function" => "Function",
-			_ => "Generic",
-		};
 
 		[JSInvokable]
 		public static List<AnalysisNode> GetAnalysisChildren(string id)
 		{
-			if (id == null || !_nodes.TryGetValue(id, out Entry entry) || entry.Value is not SymbolTable table)
+			if (id == null || !_nodes.TryGetValue(id, out Entry entry) || entry.Table == null)
 				return new List<AnalysisNode>();
 
 			return new List<AnalysisNode>
 			{
-				Branch("Children", table.Children.Select(Symbols).ToList()),
-				Branch("Functions", table.GetAll<SourceFunctionSymbol>().Select(FunctionLeaf).ToList())
+				Branch("Children", entry.Table.Children.Select(Symbols).ToList()),
+				Branch("Functions", entry.Table.GetAll<SourceFunctionSymbol>().Select(fn => Leaf("Function", fn.Name, dark => FunctionViews(fn, dark))).ToList())
 			};
 		}
 
@@ -124,50 +111,9 @@ namespace Orion.Web.Interop
 			if (id == null || !_nodes.TryGetValue(id, out Entry entry))
 				return new AnalysisDetail { Kind = "empty" };
 
-			try { return Render(entry, dark); }
+			//A renderer that throws reports in its own pane rather than surfacing as a JS interop failure.
+			try { return entry.Render(dark); }
 			catch (Exception ex) { return Text(null, "Could not render this node: " + ex.Message); }
-		}
-
-		private static AnalysisDetail Render(Entry entry, bool dark)
-		{
-			switch (entry.Kind)
-			{
-				case "messages":
-				{
-					IEnumerable<Message> messages = (IEnumerable<Message>)entry.Value;
-					return Text(null, messages.Any() ? string.Join("\n", messages.Select(m => m.Text)) : "No messages.");
-				}
-
-				case "ast":
-					return Text(null, AstOutline((CompilerFile)entry.Value));
-
-				case "symbols":
-					return Rows((SymbolTable)entry.Value);
-
-				case "callGraph":
-					return Graph(null, Diagrams.Diagrams.CallGraph((CallGraph.Node)entry.Value), dark);
-
-				case "code":
-				{
-					Emitted code = (Emitted)entry.Value;
-					return Text(null, code.Text, MonacoLanguage(code.Lang));
-				}
-
-				case "msil":
-					return Text(null, Msil((Module)entry.Value));
-
-				case "exception":
-				{
-					Exception ex = (Exception)entry.Value;
-					return Text(null, $"Message\n{ex.Message}\n\nSource\n{ex.Source}\n\nStack Trace\n{ex.StackTrace}");
-				}
-
-				case "function":
-					return FunctionViews((SourceFunctionSymbol)entry.Value, dark);
-
-				default:
-					return Text(null, entry.Value?.ToString() ?? "<null>");
-			}
 		}
 
 		private static AnalysisDetail FunctionViews(SourceFunctionSymbol fn, bool dark)
@@ -252,31 +198,28 @@ namespace Orion.Web.Interop
 
 		private static string Describe(Node node, CompilerFile file)
 		{
-			List<(string, string)> parts = node switch
+			string detail = node switch
 			{
-				Function f => [("Name", f.Name)],
-				Variable v => [("Name", v.SymbolName)],
-				Call c => [("Target", c.Function)],
-				Construct c => [("Name", c.SymbolName)],
-				Parameter p => [("Name", p.Name), ("Dir", p.Directive.ToString())],
+				Function f => $"  Name={f.Name}",
+				Variable v => $"  Name={v.SymbolName}",
+				Call c => $"  Target={c.Function}",
+				Construct c => $"  Name={c.SymbolName}",
+				Parameter p => $"  Name={p.Name}, Dir={p.Directive}",
 
-				BinaryOp o => [("Op", o.Op.ToString())],
-				UnaryOp o => [("Op", o.Op.ToString())],
+				BinaryOp o => $"  Op={o.Op}",
+				UnaryOp o => $"  Op={o.Op}",
 
-				BoolLiteral l => [("Value", l.Value.ToString())],
-				IntLiteral l => [("Value", l.Value.ToString())],
-				StringLiteral l => [("Value", l.Value as string)],
-				TranslationUnit => [("File", file.File?.Filename ?? "<unknown>")],
-				_ => [],
+				BoolLiteral l => $"  Value={l.Value}",
+				IntLiteral l => $"  Value={l.Value}",
+				StringLiteral l => $"  Value={l.Value as string}",
+				TranslationUnit => $"  File={file.File?.Filename ?? "<unknown>"}",
+				_ => string.Empty,
 			};
 
-			string name = node.GetType().Name;
-			return parts.Count == 0
-				? name
-				: name + "  " + string.Join(", ", parts.Select(p => $"{p.Item1}={p.Item2}"));
+			return node.GetType().Name + detail;
 		}
 
-		private static string Msil(Module module)
+		private static string Msil()
 		{
 			string msil = Display.Msil();
 			return msil.Length != 0 ? msil : "No build-time methods were emitted.";

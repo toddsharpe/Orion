@@ -33,9 +33,8 @@ namespace Orion.Graphs
 			Build = 2
 		}
 
-		private CallGraph() : base()
+		private CallGraph()
 		{
-
 		}
 
 		public static CallGraph Create(SymbolTable root)
@@ -55,26 +54,22 @@ namespace Orion.Graphs
 
 			HashSet<FunctionSymbol> known = [.. functions];
 
-			//Create edges
 			foreach (SourceFunctionSymbol func in functions.OfType<SourceFunctionSymbol>())
 			{
+				//One edge per callee carrying every call's flag, in the order the callee is first seen.
+				OrderedDictionary<FunctionSymbol, Flags> callees = new OrderedDictionary<FunctionSymbol, Flags>();
 				foreach (Tac current in func.Tacs)
 				{
 					//Only a direct call is an edge: a function named as a value is an argument, and Prune walks FunctionRefSymbols separately for it.
-					(FunctionSymbol callee, Flags callFlag) = current switch
-					{
-						CallTac tac => (tac.Function, tac.IsBuild ? Flags.Build : Flags.Runtime),
-						_ => (null, Flags.None)
-					};
-
-					if (callee == null || !known.Contains(callee))
+					if (current is not CallTac tac || tac.Function == null || !known.Contains(tac.Function))
 						continue;
 
-					graph.TryGetEdge(func, callee, out Flags flags);
-					graph.RemoveEdge(func, callee);
-
-					graph.AddEdge(func, callee, flags | callFlag);
+					callees.TryGetValue(tac.Function, out Flags flags);
+					callees[tac.Function] = flags | (tac.IsBuild ? Flags.Build : Flags.Runtime);
 				}
+
+				foreach (KeyValuePair<FunctionSymbol, Flags> callee in callees)
+					graph.AddEdge(func, callee.Key, callee.Value);
 			}
 
 			return graph;

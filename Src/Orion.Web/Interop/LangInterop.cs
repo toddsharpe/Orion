@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 using Microsoft.JSInterop;
 using Orion.LangSvr;
 using OmniSharp.Extensions.LanguageServer.Protocol.Models;
@@ -10,16 +10,8 @@ namespace Orion.Web.Interop
 	// Language features straight from the reused Orion frontend analysis, shaped for Monaco's provider APIs -- no LSP transport runs in the browser.
 	public static class LangInterop
 	{
-		// Must line up with the type/modifier indices produced in BuildTokens below.
-		private static readonly List<string> LegendTypes = new List<string> { "parameter", "variable" };
-		private static readonly List<string> LegendModifiers = new List<string> { "readonly" };
-
-		// OrionWorkspace locks around analysis because the compiler holds process-global state, which single-threaded WASM makes a non-issue.
+		//The LSP's own workspace: it caches an analysis per document until any tab's text changes, which is what diagnostics, tokens and hover asking the same question need.
 		private static readonly OrionWorkspace Workspace = new OrionWorkspace();
-
-		// Diagnostics, tokens and hover analyze the same buffer and each parses the whole #using graph, so hold the last result against the exact inputs that produced it -- Workspace.Analyze itself is uncached.
-		private static string _lastKey;
-		private static Analysis _lastAnalysis;
 
 		//`files` are the open tabs and their support libs seeded into MEMFS as a compile does, so analysis can follow the #using graph; `entry` names the document, whose text comes from `files`.
 		[JSInvokable]
@@ -28,7 +20,7 @@ namespace Orion.Web.Interop
 			Analysis analysis = Run(files, entry);
 
 			// Only errors become squiggles: the frontend's trace messages carry node regions too and would otherwise mark valid code, and they remain visible in the Output tab.
-			List<AnalyzeDiagnostic> diagnostics = new List<AnalyzeDiagnostic>();
+			List<MessageDto> diagnostics = new List<MessageDto>();
 			if (analysis.Diagnostics != null)
 			{
 				foreach (Diag d in analysis.Diagnostics)
@@ -88,48 +80,31 @@ namespace Orion.Web.Interop
 			if (sig == null)
 				return null;
 
-			List<SignatureParamDto> parameters = new List<SignatureParamDto>();
-			if (sig.Parameters != null)
-				foreach (string p in sig.Parameters)
-					parameters.Add(new SignatureParamDto { Label = p });
-
 			return new SignatureHelpDto
 			{
 				Label = sig.Label,
 				ActiveParameter = sig.ActiveParameter,
-				Parameters = parameters
+				Parameters = sig.Parameters
 			};
 		}
 
 		//Seed MEMFS then analyze from the entry's path: MEMFS is a real file system to .NET, so the #using walk reads the seeded tabs without an in-memory overlay.
 		private static Analysis Run(ProjectFile[] files, string entry)
 		{
-			string key = Key(files, entry);
-			if (_lastAnalysis != null && key == _lastKey)
-				return _lastAnalysis;
-
 			string path = CompileInterop.Seed(files, entry);
-			string source = System.IO.File.Exists(path) ? System.IO.File.ReadAllText(path) : string.Empty;
 
-			_lastAnalysis = Workspace.Analyze(source, path, null);
-			_lastKey = key;
-			return _lastAnalysis;
-		}
-
-		//Every input that can change the result: which document, and the content of all of them.
-		private static string Key(ProjectFile[] files, string entry)
-		{
-			StringBuilder key = new StringBuilder(entry);
+			//Every tab is a workspace document under its MEMFS path, so the entry is analyzed as an open LSP buffer would be.
 			foreach (ProjectFile file in files ?? new ProjectFile[0])
-				key.Append('\0').Append(file?.Path).Append('').Append(file?.Content);
+				if (file != null && !string.IsNullOrEmpty(file.Path))
+					Workspace.Set(System.IO.Path.Combine(CompileInterop.ProjDir, file.Path), file.Content ?? string.Empty);
 
-			return key.ToString();
+			return Workspace.AnalyzeCurrent(path);
 		}
 
-		private static AnalyzeDiagnostic FromLsp(Diag d)
+		private static MessageDto FromLsp(Diag d)
 		{
 			Range r = d.Range;
-			return new AnalyzeDiagnostic
+			return new MessageDto
 			{
 				Severity = d.Severity == DiagnosticSeverity.Error ? "Error" : "Info",
 				Message = d.Message,
@@ -140,6 +115,9 @@ namespace Orion.Web.Interop
 			};
 		}
 
+		private static readonly List<string> LegendTypes = new List<string> { "parameter", "variable" };
+		private static readonly List<string> LegendModifiers = new List<string> { "readonly" };
+
 		private static TokensDto BuildTokens(Analysis analysis)
 		{
 			List<int> data = new List<int>();
@@ -149,14 +127,9 @@ namespace Orion.Web.Interop
 				int prevChar = 0;
 				foreach (SemToken t in OrionSemanticTokens.Collect(analysis.Ast))
 				{
+					//Monaco indexes the legend lists above: 0/1 for the types, bit 0 for readonly.
 					int typeIdx = t.Type == SemanticTokenType.Parameter ? 0 : 1;
-					int mods = 0;
-					if (t.Modifiers != null)
-					{
-						foreach (SemanticTokenModifier m in t.Modifiers)
-							if (m == SemanticTokenModifier.Readonly)
-								mods |= 1;
-					}
+					int mods = t.Modifiers.Contains(SemanticTokenModifier.Readonly) ? 1 : 0;
 
 					int deltaLine = t.Line - prevLine;
 					int deltaChar = deltaLine == 0 ? t.Char - prevChar : t.Char;

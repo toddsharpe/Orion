@@ -3,6 +3,7 @@ using Orion.Diagnostics;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System;
 
 namespace Orion.Commands
@@ -37,16 +38,9 @@ namespace Orion.Commands
 				return 1;
 			}
 
-			List<Message> discovery = new List<Message>();
-			List<string> sources = SrcRoot.Sources(root, discovery);
-			foreach (Message message in discovery)
-				Console.WriteLine($"Error: {message.Text}");
-
-			if (discovery.HasError())
-				return 1;
-
+			List<string> sources = SrcRoot.Sources(root);
 			Console.WriteLine($"Root: {root}");
-			Console.WriteLine($"\t{sources.Count} source file{(sources.Count == 1 ? string.Empty : "s")}");
+			Console.WriteLine($"\t{Messages.Count(sources.Count, "source file")}");
 
 			if (sources.Count == 0)
 			{
@@ -71,12 +65,16 @@ namespace Orion.Commands
 		//`#using` every swept file, then an entry to hoist into: exactly what a hand-written test program says.
 		private static string Entry(string root, List<string> sources)
 		{
-			IEnumerable<string> usings = sources
-				.Select(i => Path.GetRelativePath(root, i).Replace('\\', '/'))
-				.Select(i => $"#using \"{i}\"");
+			StringBuilder sb = new StringBuilder();
+			foreach (string source in sources)
+				sb.AppendLine($"#using \"{Path.GetRelativePath(root, source).Replace('\\', '/')}\"");
 
-			return string.Join(Environment.NewLine, usings) +
-				$"{Environment.NewLine}{Environment.NewLine}i32 main(){Environment.NewLine}{{{Environment.NewLine}\treturn 0;{Environment.NewLine}}}{Environment.NewLine}";
+			sb.AppendLine();
+			sb.AppendLine("i32 main()");
+			sb.AppendLine("{");
+			sb.AppendLine("\treturn 0;");
+			sb.AppendLine("}");
+			return sb.ToString();
 		}
 
 		private static int Run(string entry, string root, bool verbose)
@@ -89,18 +87,17 @@ namespace Orion.Commands
 				SrcRoot = root,
 				Testing = true,
 				Lang = BackendLanguage.Cpp,
-				OnPhase = verbose ? Report.Phase : null,
+				OnPhase = verbose ? Phase : null,
 			};
 
 			CompilerResult result = Compiler.Run(options);
 			List<Message> errors = [.. result.Phases.SelectMany(i => i.Messages).Errors()];
 
 			//An error is matched to a test by the `#test` line its hoisted `#run` carries; what is left is a build error.
-			List<DeclaredTest> declared = [.. result.Declared];
 			HashSet<Message> claimed = new HashSet<Message>();
 			int failed = 0;
 
-			foreach (DeclaredTest test in declared)
+			foreach (DeclaredTest test in result.Declared)
 			{
 				List<Message> mine = [.. errors.Where(test.Claims)];
 				claimed.UnionWith(mine);
@@ -123,11 +120,18 @@ namespace Orion.Commands
 			}
 
 			Console.WriteLine();
-			Console.WriteLine($"{declared.Count - failed} passed, {failed} failed" +
-				(build.Count > 0 ? $", {build.Count} build error{(build.Count == 1 ? string.Empty : "s")}" : string.Empty));
+			Console.WriteLine($"{result.Declared.Count - failed} passed, {failed} failed" +
+				(build.Count > 0 ? $", {Messages.Count(build.Count, "build error")}" : string.Empty));
 
 			return failed > 0 || build.Count > 0 ? 1 : 0;
 		}
 
+		//The phase banner and its messages; the state a phase produced is `compile -v`'s to show.
+		private static void Phase(PhaseResult phase)
+		{
+			StringBuilder header = new StringBuilder();
+			Display.PhaseHeader(header, phase);
+			Console.Write(header);
+		}
 	}
 }

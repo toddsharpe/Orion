@@ -16,21 +16,6 @@ namespace Orion.Frontend
 		//A `#run { }` statement: the escape Solver::Block emits and runs while walking the specialized body.
 		public static bool IsEscape(Statement s) => s is Exec { Expression: RunExpr };
 
-		//A `#state` local declaration: `#state i32 c = 0;`, which the parser always gives an initializer.
-		private static bool StateLocal(Node node, out string name, out InputRegion region)
-		{
-			if (node is Construct c && c.Directive == LocalDirective.State)
-			{
-				name = c.SymbolName;
-				region = c.Region;
-				return true;
-			}
-
-			name = null;
-			region = null;
-			return false;
-		}
-
 		//Register every #param template and take it out of the unit; Solver::Block specializes once `#create` supplies values.
 		public static void Extract(TranslationUnit tu, List<Message> messages)
 		{
@@ -55,19 +40,17 @@ namespace Orion.Frontend
 			foreach (KeyValuePair<string, Function> t in templates)
 				Templates[t.Key] = t.Value;
 
-			//Every block names itself, and first, so its nets read uniformly and two instances stay apart.
+			//Every shape check on each template, in one pass.
 			foreach (Function t in templates.Values)
 			{
+				//Every block names itself, and first, so its nets read uniformly and two instances stay apart.
 				Parameter first = t.Parameters.FirstOrDefault(p => p.Directive == ParamDirective.Param);
 				if (first == null || first.Name != "name" || first.TypeName.Name != "str")
 					messages.Add(new Message(
 						$"Block '{t.Name}' must declare `#param str name` as its first #param; it is what names the block's nets.",
 						t.Region, MessageType.Error));
-			}
 
-			//A #param folds by substituting every Variable of its name, and an assignment target is one too, so a port sharing the name turns `code = x` into `7 = x`; reported here, where both names are still in front of us.
-			foreach (Function t in templates.Values)
-			{
+				//A #param folds by substituting every Variable of its name, and an assignment target is one too, so a port sharing the name turns `code = x` into `7 = x`; reported here, where both names are still in front of us.
 				HashSet<string> parameters = [.. t.Parameters.Where(p => p.Directive == ParamDirective.Param).Select(p => p.Name)];
 
 				foreach (Parameter port in t.Parameters.Where(p => p.Directive != ParamDirective.Param && parameters.Contains(p.Name)))
@@ -75,10 +58,8 @@ namespace Orion.Frontend
 						$"Block '{t.Name}': `{port.Name}` is both a #param and a port. A #param folds to its " +
 						$"value everywhere the name appears, so the port could never be written; rename one.",
 						port.Region, MessageType.Error));
-			}
 
-			//A default is substituted as a literal at `#create`, so anything else written there could never apply.
-			foreach (Function t in templates.Values)
+				//A default is substituted as a literal at `#create`, so anything else written there could never apply.
 				foreach (Parameter p in t.Parameters.Where(p => p.Directive == ParamDirective.Param && p.Default != null))
 					if (p.Default is not Value { Literal: not null } && !IsEmptyCollection(p.Default))
 						messages.Add(new Message(
@@ -87,9 +68,7 @@ namespace Orion.Frontend
 							$"anything else is passed at `#create`.",
 							p.Region, MessageType.Error));
 
-			//#init runs once before any cycle: one per block, at the top level where that can be true.
-			foreach (Function t in templates.Values)
-			{
+				//#init runs once before any cycle: one per block, at the top level where that can be true.
 				List<InitBlock> inits = [.. t.Body.SelectMany(s => s.DescendantsAndSelf()).OfType<InitBlock>()];
 				if (inits.Count > 1)
 					messages.Add(new Message(
@@ -100,24 +79,15 @@ namespace Orion.Frontend
 					messages.Add(new Message(
 						$"Block '{t.Name}': #init must be a statement at the top level of the body, since it runs once before any cycle.",
 						nested.Region, MessageType.Error));
-			}
 
-			//Sibling #build escapes are fine, but nesting one inside another is meaningless.
-			foreach (Function t in templates.Values)
-			{
-				bool nested = t.Body.SelectMany(s => s.DescendantsAndSelf()).OfType<RunExpr>()
-					.Any(outer => outer.Statements.SelectMany(s => s.DescendantsAndSelf()).OfType<RunExpr>().Any());
-				if (nested)
+				//Sibling #build escapes are fine, but nesting one inside another is meaningless.
+				if (t.Body.SelectMany(s => s.DescendantsAndSelf()).OfType<RunExpr>()
+					.Any(outer => outer.Statements.SelectMany(s => s.DescendantsAndSelf()).OfType<RunExpr>().Any()))
 					messages.Add(new Message(
 						$"Block '{t.Name}' nests a #build scope inside another; #build scopes cannot be nested (sibling #build blocks are fine).",
 						t.Region, MessageType.Error));
-			}
 
-			//A valued `#run { }` in a block is ordinary code now that Build::Emit lifts its own regions; see Docs/BuildTime.md.
-
-			//An #init is lifted into a function of its own, so a #state LOCAL of the block is out of reach.
-			foreach (Function t in templates.Values)
-			{
+				//An #init is lifted into a function of its own, so a #state LOCAL of the block is out of reach.
 				InitBlock init = t.Body.OfType<InitBlock>().FirstOrDefault();
 				if (init == null)
 					continue;
@@ -131,8 +101,8 @@ namespace Orion.Frontend
 						if (node is RunExpr)
 							break;
 
-						if (StateLocal(node, out string name, out InputRegion _))
-							locals.Add(name);
+						if (node is Construct { Directive: LocalDirective.State } local)
+							locals.Add(local.SymbolName);
 					}
 				}
 
@@ -214,7 +184,7 @@ namespace Orion.Frontend
 			Desugar.Run(clone, messages);
 
 			//...and hoist its `#build` locals under the TEMPLATE's name: the cell the main pass declared.
-			BuildLocals.Run(clone, template.Name, messages);
+			BuildLocals.Hoist(clone, template.Name, messages);
 
 			//An escape stays in the body below; Solver::Block emits and runs it once the ports are settled.
 			List<Parameter> ports = clone.Parameters.Where(p => p.Directive != ParamDirective.Param).ToList();
@@ -256,7 +226,7 @@ namespace Orion.Frontend
 		{
 			//The name IS the name: `#create Add(name = "my_add")` emits `my_add`, not `Add_my_add`.
 			string instance = env.TryGetValue("name", out Literal lit) ? lit.Boxed as string : null;
-			string sanitized = Sanitize(instance ?? string.Empty);
+			string sanitized = Monomorphizer.Sanitize(instance ?? string.Empty);
 			return sanitized.Length > 0 ? sanitized : template.Name;
 		}
 
@@ -287,7 +257,6 @@ namespace Orion.Frontend
 			}
 		}
 
-		//Convert a build-time value (from a ${...} field) into the literal used for the fold/net.
 		//`List::New<T>()`, `Map::New<K, V>()` or `[]:List<T>`: the one non-literal a `#param` default may be.
 		public static bool IsEmptyCollection(Expression expr) => expr switch
 		{
@@ -296,6 +265,7 @@ namespace Orion.Frontend
 			_ => false,
 		};
 
+		//Convert a build-time value (from a ${...} field) into the literal used for the fold/net.
 		public static Literal ToLiteral(object value)
 		{
 			return value switch
@@ -355,7 +325,5 @@ namespace Orion.Frontend
 					throw new NotImplementedException($"Specializer: unsupported @ net expression '{net.GetType().Name}'.");
 			}
 		}
-
-		private static string Sanitize(string s) => new string(s.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
 	}
 }

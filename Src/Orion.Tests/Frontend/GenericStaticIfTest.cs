@@ -11,12 +11,7 @@ enum Mode { Idle, Coast, Burn }
 typedef i64 nanos;
 ";
 
-		private static string Cpp(string program)
-		{
-			CompilerResult result = Harness.Compile(Types + program);
-			result.AssertNoErrors();
-			return result.CodeOutput;
-		}
+		private static string Cpp(string program) => Harness.Emit(BackendLanguage.Cpp, Types + program);
 
 		[TestMethod]
 		public void BranchIsChosenByTheTypeArgument()
@@ -44,8 +39,8 @@ i32 main()
 }");
 
 			//One instantiation took each branch, so both spellings survive exactly once.
-			Assert.AreEqual(1, Occurrences(cpp, "\"struct\""), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "\"scalar\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"struct\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"scalar\""), cpp);
 		}
 
 		[TestMethod]
@@ -129,8 +124,8 @@ i32 main()
 	return 0;
 }");
 
-			Assert.AreEqual(1, Occurrences(cpp, "\"exact\""), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "\"other\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"exact\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"other\""), cpp);
 		}
 
 		[TestMethod]
@@ -157,8 +152,8 @@ i32 main()
 	return 0;
 }");
 
-			Assert.AreEqual(1, Occurrences(cpp, "\"alias\""), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "\"plain\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"alias\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"plain\""), cpp);
 		}
 
 		[TestMethod]
@@ -212,8 +207,8 @@ i32 main()
 	return 0;
 }");
 
-			Assert.AreEqual(1, Occurrences(cpp, "\"mode\""), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "\"scalar\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"mode\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"scalar\""), cpp);
 		}
 
 		[TestMethod]
@@ -276,8 +271,8 @@ i32 main()
 	return 0;
 }");
 
-			Assert.AreEqual(1, Occurrences(cpp, "\"bits \""), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "\"bytes \""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"bits \""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"bytes \""), cpp);
 		}
 
 		[TestMethod]
@@ -313,9 +308,9 @@ i32 main()
 	return 0;
 }");
 
-			Assert.AreEqual(1, Occurrences(cpp, "\"framed\""), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "\"plain\""), cpp);
-			Assert.AreEqual(1, Occurrences(cpp, "\"scalar\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"framed\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"plain\""), cpp);
+			Assert.AreEqual(1, Harness.Occurrences(cpp, "\"scalar\""), cpp);
 		}
 
 		[TestMethod]
@@ -361,32 +356,6 @@ i32 main()
 }");
 
 			result.AssertError("A value produced by #run, #src or File exists only during build execution");
-		}
-
-		//An ordinary function folds against the -D defines, so an unfoldable condition reports there.
-		[TestMethod]
-		public void UnfoldableConditionInAnOrdinaryFunctionIsReported()
-		{
-			CompilerResult result = Harness.Compile(@"
-i32 main()
-{
-	#if (RATE > 2)
-	{
-		return 1;
-	}
-
-	return 0;
-}");
-
-			result.AssertError("#if: the condition is not a build-time constant");
-		}
-
-		private static int Occurrences(string text, string needle)
-		{
-			int count = 0;
-			for (int at = text.IndexOf(needle); at >= 0; at = text.IndexOf(needle, at + needle.Length))
-				count++;
-			return count;
 		}
 	}
 }

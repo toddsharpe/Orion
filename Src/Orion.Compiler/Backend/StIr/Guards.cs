@@ -6,27 +6,18 @@ namespace Orion.Backend.StIr
 	//Drops control flow that says nothing: an else whose if-arm already jumped away, and a switch whose every arm is empty.
 	internal static class Guards
 	{
-		internal static StCtrl Flatten(StCtrl c) => Rewrite(c);
-
-		private static StCtrl Rewrite(StCtrl c) => c switch
+		internal static StCtrl Flatten(StCtrl c) => c switch
 		{
-			StSeq s => new StSeq(Splice(s.Items.Select(Rewrite))),
+			StSeq s => new StSeq(Splice(s.Items.Select(Flatten))),
 			StIf f => Guard(f),
-			StLoop l => new StLoop(Rewrite(l.Body)),
-			StWhile w => new StWhile(w.Cond, Rewrite(w.Body)),
-			StDoWhile d => new StDoWhile(d.Cond, Rewrite(d.Body)),
-			StFor r => new StFor(r.Init, r.Cond, r.Step, Rewrite(r.Body)),
 			StSwitch sw => Switch(sw),
-			_ => c,
+			_ => c.RewriteChildren(Flatten),
 		};
 
 		//Every arm empty means the dispatch decides nothing; the clause is a leaf the relooper recovered, so dropping it evaluates nothing away.
 		private static StCtrl Switch(StSwitch sw)
 		{
-			StSwitch rewritten = new StSwitch(
-				sw.Clause,
-				[.. sw.Cases.Select(i => new StCase(i.Value, Rewrite(i.Body)))],
-				sw.Default == null ? null : Rewrite(sw.Default));
+			StSwitch rewritten = (StSwitch)sw.RewriteChildren(Flatten);
 
 			bool empty = rewritten.Cases.All(i => Silent(i.Body))
 				&& (rewritten.Default == null || Silent(rewritten.Default));
@@ -45,8 +36,8 @@ namespace Orion.Backend.StIr
 		//The else's statements move out beside the if, so the body they held stops being indented under it.
 		private static StCtrl Guard(StIf f)
 		{
-			StCtrl then = Rewrite(f.Then);
-			StCtrl els = f.Else == null ? null : Rewrite(f.Else);
+			StCtrl then = Flatten(f.Then);
+			StCtrl els = f.Else == null ? null : Flatten(f.Else);
 
 			if (els == null || !Jumps(then))
 				return new StIf(f.Cond, f.Negate, then, els);
@@ -69,15 +60,15 @@ namespace Orion.Backend.StIr
 			return flat;
 		}
 
+		//The else's own items, spliced out of the StSeq it may be.
 		private static List<StCtrl> Items(StCtrl c) => c is StSeq s ? Splice(s.Items) : [c];
 
-		//Whether control always leaves this node, so whatever the else held can follow it unguarded.
+		//Whether control always leaves this node, so whatever the else held can follow it unguarded; unlike StTree.Exits, an if whose both arms leave counts.
 		private static bool Jumps(StCtrl c) => c switch
 		{
-			StReturn or StBreak or StContinue => true,
-			StSeq s => s.Items.Count > 0 && Jumps(s.Items[^1]),
 			StIf f => f.Else != null && Jumps(f.Then) && Jumps(f.Else),
-			_ => false,
+			StSeq s => s.Items.Count > 0 && Jumps(s.Items[^1]),
+			_ => c.Exits(),
 		};
 	}
 }

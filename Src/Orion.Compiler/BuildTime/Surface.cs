@@ -40,6 +40,7 @@ namespace Orion.BuildTime
 		public static readonly Type[] Bare = new Type[]
 		{
 			typeof(Builtins.CoreBuiltins),
+			typeof(Builtins.PackBuiltins),
 			typeof(Builtins.MathBuiltins),
 		};
 
@@ -83,10 +84,11 @@ namespace Orion.BuildTime
 
 		internal static bool IsGenericBuiltin(string name) => GenericFunctions.ContainsKey(name);
 
+		//The generic builtins whose emitted name carries the type argument: `pack_le<u16>` emits `pack_le_u16`.
+		private static readonly HashSet<string> PerType = ["pack_le", "pack_be", "unpack_le", "unpack_be"];
+
 		//A generic builtin that emits `name_T`: not every T has one, so the binder checks the one picked.
-		internal static bool EmitsPerType(string name) =>
-			GenericFunctions.TryGetValue(name, out MethodInfo open)
-			&& open.IsDefined(typeof(EmitPerTypeAttribute), false);
+		internal static bool EmitsPerType(string name) => PerType.Contains(name);
 
 		//The stringify builtins (i32_str, ...) are what to_str and interpolation lower to, not a user-facing API: naming one restates a type the compiler knows.
 		private static readonly HashSet<string> StrBuiltins =
@@ -229,8 +231,7 @@ namespace Orion.BuildTime
 		{
 			foreach ((Type type, string ns) in Surfaces)
 			{
-				MethodInfo[] methods = type.GetMethods(BindingFlags.Static | BindingFlags.Public);
-				foreach (MethodInfo method in methods)
+				foreach (MethodInfo method in type.GetMethods(BindingFlags.Static | BindingFlags.Public))
 				{
 					//Generic method definitions (List::New<T>, ...) are instantiated per call, not registered up front -- their open signature has no concrete Orion type.
 					if (method.IsGenericMethodDefinition)
@@ -246,9 +247,6 @@ namespace Orion.BuildTime
 			//Resolve every param/return type through FromClrType, registering on demand: a builtin's BuildList<string> param maps to "List<str>", not the raw CLR name.
 			SymbolTable root = table.GetRoot();
 
-			bool buildOnly = method.IsDefined(typeof(BuildOnlyAttribute), false)
-				|| method.DeclaringType.IsDefined(typeof(BuildOnlyAttribute), false);
-
 			//`Function::Name` is what Orion writes; `Function_Name` is what a backend emits, because the target's library satisfies the builtin under that spelling.
 			string orion = ns == null ? method.Name : $"{ns}::{method.Name}";
 			BuiltinFunctionSymbol builtin = new BuiltinFunctionSymbol(
@@ -257,12 +255,16 @@ namespace Orion.BuildTime
 				[.. method.GetParameters().Select(i => Formal(root, i))],
 				method
 			)
-			{ IsBuild = buildOnly, EmitName = Language.Mangled(orion) };
+			{ IsBuild = BuildOnly(method), EmitName = Language.Mangled(orion) };
 			builtin.FuncType = Language.MakeFunctionType(table, builtin);
 			BuildAssembly.CreateGlobal(builtin);
 
 			table.Add(builtin);
 		}
+
+		//[BuildOnly] on the method or on its class: either keeps a builtin out of runtime code.
+		private static bool BuildOnly(MethodInfo method) =>
+			method.IsDefined(typeof(BuildOnlyAttribute), false) || method.DeclaringType.IsDefined(typeof(BuildOnlyAttribute), false);
 
 		//A build collection -- a List or a Map -- as opposed to any other generic builtin.
 		internal static bool IsCollection(TypeSymbol type) =>
@@ -299,16 +301,14 @@ namespace Orion.BuildTime
 			List<ParamDataSymbol> parameters = [.. concrete.GetParameters().Select(i => Formal(root, i))];
 
 			//Same rule as a non-generic builtin: [BuildOnly] is what makes it build-only, not genericity.
-			bool buildOnly = open.IsDefined(typeof(BuildOnlyAttribute), false)
-				|| open.DeclaringType.IsDefined(typeof(BuildOnlyAttribute), false);
+			bool buildOnly = BuildOnly(open);
 
-			//The symbol name carries the type arguments; [EmitPerType] puts the width in the emitted name.
-			bool perType = open.IsDefined(typeof(EmitPerTypeAttribute), false);
+			//The symbol name carries the type arguments; a PerType builtin puts the width in the emitted name.
 			BuiltinFunctionSymbol builtin = new BuiltinFunctionSymbol(mangled, retType, parameters, concrete)
 			{
 				IsBuild = buildOnly,
 				//From the CLR name, not the `::` one: a backend has to emit something it can call.
-				EmitName = perType ? $"{open.Name}_{typeArgs[0].Name}" : open.Name,
+				EmitName = EmitsPerType(name) ? $"{open.Name}_{typeArgs[0].Name}" : open.Name,
 			};
 			builtin.FuncType = Language.MakeFunctionType(root, builtin);
 			root.Add(builtin);

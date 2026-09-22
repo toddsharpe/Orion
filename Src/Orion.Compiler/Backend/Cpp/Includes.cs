@@ -1,3 +1,4 @@
+using Orion.Backend.Render;
 using Orion.IR;
 using Orion.Symbols;
 using System.Collections.Generic;
@@ -8,15 +9,15 @@ namespace Orion.Backend.Cpp
 	//Which tiers a generated file includes: the ABIs always, text/io/<functional> only when still used.
 	internal static class Includes
 	{
-		internal sealed class Needs
+		private sealed class Needs
 		{
 			public bool Text;
 			public bool Io;
 			public bool Functional;
 		}
 
-		//The translation unit: every rendered signature, body, struct and global.
-		internal static Needs Survey(SymbolTable root, IEnumerable<SourceFunctionSymbol> reachable)
+		//The includes of one translation unit: every rendered signature, body, struct and global surveyed for the tiers it still uses.
+		internal static List<Reference> For(SymbolTable root, IEnumerable<SourceFunctionSymbol> reachable)
 		{
 			Needs needs = new Needs();
 			HashSet<TypeSymbol> visited = new HashSet<TypeSymbol>();
@@ -51,12 +52,8 @@ namespace Orion.Backend.Cpp
 
 			//The io builtins take a str, so printing implies the text tier whatever else survived.
 			needs.Text |= needs.Io;
-			return needs;
-		}
 
-		//Cumulative and in order; the platform and channel ABIs are declaration-only, so every program carries them.
-		internal static List<Reference> References(Needs needs)
-		{
+			//Cumulative and in order; the platform and channel ABIs are declaration-only, so every program carries them.
 			List<Reference> includes = new List<Reference> { new Reference("Orion_core.h"), new Reference("Orion_assert.h") };
 
 			if (needs.Text)
@@ -90,16 +87,9 @@ namespace Orion.Backend.Cpp
 						Walk(param, needs, visited);
 					break;
 
-				case SpanTypeSymbol s:
-					Walk(s.Element, needs, visited);
-					break;
-
-				case ArrayTypeSymbol a:
-					Walk(a.Element, needs, visited);
-					break;
-
-				case AutoArrayTypeSymbol a:
-					Walk(a.Element, needs, visited);
+				//A sized array, a view and an inferred array all hold one element type.
+				case BufferTypeSymbol b:
+					Walk(b.Element, needs, visited);
 					break;
 
 				case RefTypeSymbol r:

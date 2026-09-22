@@ -23,9 +23,8 @@ namespace Orion.Tests.Golden
 				File.ReadAllText(jsFile)));
 
 			ToolResult run = Tool.Run(Tool.Node, $"\"{bundleFile}\"", scratch, Corpus.RunEnv());
-			Assert.IsTrue(run.Ok, $"{test}: node exited {run.ExitCode}.\n{run.Report()}");
-
-			Corpus.AssertMatchesGolden(test, Path.Combine(Corpus.TestsDir, test + ".txt"), run.StdOut);
+			Corpus.AssertRan(test, "node", run);
+			Corpus.AssertMatchesGolden(test, Corpus.Golden(test), run.StdOut);
 		}
 	}
 }

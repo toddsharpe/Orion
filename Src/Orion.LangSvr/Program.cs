@@ -25,6 +25,7 @@ namespace Orion.LangSvr
 				.WithHandler<OrionSemanticTokensHandler>()
 				.WithHandler<OrionHoverHandler>()
 				.WithHandler<OrionDefinitionHandler>()
+				.WithHandler<OrionSignatureHelpHandler>()
 			);
 
 			await server.WaitForExit;

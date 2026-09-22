@@ -50,6 +50,7 @@ scap = init.get("result",{}).get("capabilities",{}) if init else {}
 print("textDocumentSync:", json.dumps(scap.get("textDocumentSync")))
 print("semanticTokensProvider advertised:", scap.get("semanticTokensProvider") is not None)
 print("definitionProvider advertised:", scap.get("definitionProvider") is not None)
+print("signatureHelpProvider advertised:", scap.get("signatureHelpProvider") is not None)
 
 # --- diagnostics ---
 send({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{

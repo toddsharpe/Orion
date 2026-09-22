@@ -1,5 +1,4 @@
-﻿using Orion.Diagnostics;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System;
@@ -38,13 +37,13 @@ namespace Orion
 		}
 
 		//Every `.src` under the root, absolute, sorted, skipping `build/` output and programs: a sweep merges into ONE program, so a `#test` inside an app does not run.
-		public static List<string> Sources(string root, List<Message> messages, Func<string, string> read = null)
+		public static List<string> Sources(string root)
 		{
 			if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
 				return new List<string>();
 
 			return [.. Directory.GetFiles(root, "*.src", SearchOption.AllDirectories)
-				.Where(i => !Scratch(root, i) && !Program(i, read))
+				.Where(i => !Scratch(root, i) && !Program(i))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.OrderBy(i => i, StringComparer.OrdinalIgnoreCase)];
 		}
@@ -56,12 +55,12 @@ namespace Orion
 				.Any(part => part.Equals("build", StringComparison.OrdinalIgnoreCase));
 
 		//Declares an entry, so it is a program rather than something to merge into one; read as text, because a sweep decides what to COMPILE and has compiled nothing yet.
-		private static bool Program(string file, Func<string, string> read)
+		private static bool Program(string file)
 		{
 			string text;
 			try
 			{
-				text = read != null ? read(file) : File.ReadAllText(file);
+				text = File.ReadAllText(file);
 			}
 			catch (Exception)
 			{

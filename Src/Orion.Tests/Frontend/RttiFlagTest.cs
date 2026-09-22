@@ -39,7 +39,7 @@ i32 main()
 		[TestMethod]
 		public void FlagEnablesTheSurface()
 		{
-			CompilerResult result = Harness.Compile(true, Uses);
+			CompilerResult result = Harness.CompileRtti(Uses);
 
 			result.AssertNoErrors();
 			Assert.IsTrue(result.CodeOutput.Contains("_Functions"), result.CodeOutput);

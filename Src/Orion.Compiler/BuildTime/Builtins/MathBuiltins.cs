@@ -3,10 +3,8 @@ using System.Numerics;
 
 namespace Orion.BuildTime.Builtins
 {
-
 	public static class MathBuiltins
 	{
-
 		public static double sqrt_f64(double x) => Math.Sqrt(x);
 
 		public static float sqrt_f32(float x) => (float)Math.Sqrt(x);

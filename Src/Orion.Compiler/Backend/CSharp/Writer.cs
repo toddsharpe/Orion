@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Orion.Backend.Render;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Orion.Backend.CSharp
@@ -28,80 +29,52 @@ namespace Orion.Backend.CSharp
 			AppendLine($"namespace {(file.HasEntry || _name == null ? "Program" : _name)};");
 			AppendLine();
 
-			//Enums
-			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Enum @enum in kvp.Value)
-					Write(@enum);
-			}
-
-			//Structs
-			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Struct s in kvp.Value)
-					Write(s);
-			}
+			WriteSections(file.Enums, WriteBlockComment, Write);
+			WriteSections(file.Structs, WriteBlockComment, Write);
 
 			AppendLine("public static class Program");
-			OpenScope();
+			BraceCode.Open(this);
 
-			//Globals (skip empty sections so no bare comment block is emitted)
-			foreach (KeyValuePair<string, List<Declaration>> kvp in file.Globals)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Declaration global in kvp.Value)
-					AppendLine($"{Access}{Field(global)}");
-				AppendLine();
-			}
+			WriteSections(file.Globals, WriteBlockComment, global => AppendLine($"{Access}{Field(global)}"), blankAfter: true);
 
 			//A global that names itself cannot say so in its own initializer, so the static constructor completes it -- field initializers all run first, so the target already exists.
 			if (file.Fixups?.Count > 0)
 			{
 				WriteBlockComment("Self references");
 				AppendLine("static Program()");
-				OpenScope();
+				BraceCode.Open(this);
 				foreach (Fixup fixup in file.Fixups)
 					AppendLine($"{fixup.Target} = {fixup.Value};");
-				CloseScope();
+				BraceCode.Close(this);
 				AppendLine();
 			}
 
 			//Functions, one blank line between them
-			bool firstFunction = true;
-			foreach (Function function in file.Functions)
+			for (int i = 0; i < file.Functions.Count; i++)
 			{
-				if (!firstFunction)
+				if (i > 0)
 					AppendLine();
-				firstFunction = false;
-				Write(function);
+				Write(file.Functions[i]);
 			}
 
-			CloseScope();
+			BraceCode.Close(this);
 		}
 
 		private void Write(Enum @enum)
 		{
 			AppendLine($"public enum {@enum.Name}");
-			OpenScope();
+			BraceCode.Open(this);
 			foreach (KeyValuePair<string, int> item in @enum.Values)
 				AppendLine($"{item.Key} = {item.Value},");
-			CloseScope();
+			BraceCode.Close(this);
 			AppendLine();
 		}
 
-		//A class, not a C# struct: `struct RtType { Ref<RtType> Element; }` is a layout cycle (CS0523) and RTTI is in every program, so value semantics come from Copy(). See Docs/CSharp.md.
+		//A class, not a C# struct: `struct RtType { Ref<RtType> Element; }` is a layout cycle (CS0523) and RTTI is in every program, so value semantics come from Copy() through copy_value. See Docs/CSharp.md.
 		private void Write(Struct s)
 		{
 			AppendLine($"public sealed class {s.Name} : IOrionValue");
-			OpenScope();
+			BraceCode.Open(this);
 
 			foreach (KeyValuePair<string, string> field in s.Fields)
 				AppendLine($"public {field.Value} {field.Key};");
@@ -109,21 +82,19 @@ namespace Orion.Backend.CSharp
 
 			string args = string.Join(", ", s.Fields.Select(i => $"{i.Value} {i.Key}"));
 			AppendLine($"public {s.Name}({args})");
-			OpenScope();
+			BraceCode.Open(this);
 			foreach (string field in s.Fields.Keys)
 				AppendLine($"this.{field} = {field};");
-			CloseScope();
+			BraceCode.Close(this);
 			AppendLine();
 
 			//Structs are values: assigning, passing or returning one copies all the way down, an array or struct field included -- a Ref field passes through, naming the same storage, as C++ does.
 			AppendLine("public object Copy()");
-			OpenScope();
-			string copied = string.Join(", ", s.Fields.Keys.Select(i =>
-				s.Aliased?.Contains(i) == true ? $"this.{i}" : $"copy_value(this.{i})"));
-			AppendLine($"return new {s.Name}({copied});");
-			CloseScope();
+			BraceCode.Open(this);
+			AppendLine($"return new {s.Name}({ModuleBackend.Copied(s, "this")});");
+			BraceCode.Close(this);
 
-			CloseScope();
+			BraceCode.Close(this);
 			AppendLine();
 		}
 
@@ -135,104 +106,22 @@ namespace Orion.Backend.CSharp
 
 		private void Write(Function function)
 		{
-			string args = function.Args.Count > 0 ? string.Join(", ", function.Args) : string.Empty;
+			string args = string.Join(", ", function.Args);
 			AppendLine($"{Access}{function.ReturnType} {function.Name}({args})");
-			OpenScope();
+			BraceCode.Open(this);
 
-			//Locals (skip an empty section so no bare comment block appears)
-			foreach (KeyValuePair<string, List<Declaration>> kvp in function.Locals)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Declaration local in kvp.Value)
-					AppendLine(Field(local));
-				AppendLine();
-			}
+			WriteSections(function.Locals, WriteBlockComment, local => AppendLine(Field(local)), blankAfter: true);
 
 			//Orion integers wrap and C# only agrees inside `unchecked`: checking turned on would throw where other backends truncate, and an out-of-range CONSTANT is an ERROR whatever the setting.
 			AppendLine("unchecked");
-			OpenScope();
+			BraceCode.Open(this);
 			foreach (Code code in function.Code)
-				Write(code);
-			CloseScope();
+				BraceCode.Write(this, code);
+			BraceCode.Close(this);
 
-			CloseScope();
+			BraceCode.Close(this);
 		}
 
-		private void Write(CodeBlock c)
-		{
-			if (c.Lines.Count == 0)
-				return;
-			foreach (string line in c.Lines.Where(i => !string.IsNullOrEmpty(i)))
-				AppendLine(line);
-		}
-
-		private void Write(IfCode c)
-		{
-			AppendLine($"if ({c.Condition})");
-			OpenScope();
-			foreach (Code item in c.Then)
-				Write(item);
-			CloseScope();
-		}
-
-		private void Write(IfElseCode c)
-		{
-			AppendLine($"if ({c.Condition})");
-			OpenScope();
-			foreach (Code item in c.Then)
-				Write(item);
-			CloseScope();
-			AppendLine("else");
-			OpenScope();
-			foreach (Code item in c.Else)
-				Write(item);
-			CloseScope();
-		}
-
-		private void Write(LoopCode c)
-		{
-			AppendLine($"while ({c.Condition})");
-			OpenScope();
-			foreach (Code item in c.Body)
-				Write(item);
-			CloseScope();
-		}
-
-		private void Write(Code code)
-		{
-			switch (code)
-			{
-				case CodeBlock c: Write(c); break;
-				case Line l:
-					if (!string.IsNullOrEmpty(l.Text))
-						AppendLine(l.Text);
-					break;
-				case IfCode c: Write(c); break;
-				case IfElseCode c: Write(c); break;
-				case LoopCode c: Write(c); break;
-				default: throw new System.NotImplementedException();
-			}
-		}
-
-		private void WriteBlockComment(string comment)
-		{
-			AppendLine("//");
-			AppendLine($"// {comment}");
-			AppendLine("//");
-		}
-
-		private void OpenScope()
-		{
-			AppendLine("{");
-			PushScope();
-		}
-
-		private void CloseScope()
-		{
-			PopScope();
-			AppendLine("}");
-		}
+		private void WriteBlockComment(string comment) => WriteBanner("//", "// ", comment);
 	}
 }

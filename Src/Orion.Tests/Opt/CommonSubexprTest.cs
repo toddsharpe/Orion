@@ -3,8 +3,7 @@ using Orion.IR.Opts;
 using Orion.IR;
 using Orion.Symbols;
 using System.Collections.Generic;
-using System.Linq;
-using TypeCode = Orion.Symbols.TypeCode;
+using static Orion.Tests.Opt.Tacs;
 
 namespace Orion.Tests.Opt
 {
@@ -12,34 +11,6 @@ namespace Orion.Tests.Opt
 	[TestClass]
 	public class CommonSubexprTest
 	{
-		private static readonly TypeSymbol I32 = new PrimitiveTypeSymbol(TypeCode.i32);
-		private static readonly TypeSymbol Str = new PrimitiveTypeSymbol(TypeCode.str);
-		private static readonly TypeSymbol Void = new PrimitiveTypeSymbol(TypeCode.@void);
-
-		private static SymbolTable Table(params Symbol[] symbols)
-		{
-			SymbolTable root = new SymbolTable("Root");
-			SymbolTable table = root.CreateChild("Test");
-			foreach (Symbol s in symbols)
-				table.Add(s);
-			return table;
-		}
-
-		private static SourceFunctionSymbol Function(SymbolTable table, params Tac[] body)
-		{
-			LinkedList<Tac> tacs = new LinkedList<Tac>();
-			tacs.AddLast(new FunctionMarkTac(MarkOp.Start));
-			foreach (Tac t in body)
-				tacs.AddLast(t);
-			tacs.AddLast(new FunctionMarkTac(MarkOp.End));
-			return new SourceFunctionSymbol("Test", I32, new List<ParamDataSymbol>(), table, tacs);
-		}
-
-		private static List<Tac> Body(SourceFunctionSymbol func) => func.Tacs.Where(t => t is not FunctionMarkTac).ToList();
-
-		private static SourceFunctionSymbol Callee(string name, TypeSymbol ret, params ParamDataSymbol[] parms) =>
-			new SourceFunctionSymbol(name, ret, parms.ToList(), new SymbolTable("Root").CreateChild(name), new LinkedList<Tac>());
-
 		[TestMethod]
 		public void ReusesRepeatedArithmetic()
 		{

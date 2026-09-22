@@ -1,4 +1,5 @@
-﻿using Orion.Symbols;
+﻿using Orion.Backend.Render;
+using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -40,7 +41,8 @@ namespace Orion.Backend.Cpp
 				//A header declares no storage: a global is the translation unit's own, and RTTI is not a program's surface.
 				new Dictionary<string, List<Declaration>>(),
 				CreateFunctions(reachable),
-				Externs: CreateExterns(reachable)
+				//The externs the program calls, declared here so the platform's definition compiles against the same contract; one naming an unexported type stays out, since the header could not spell it.
+				Externs: [.. Codegen.UsedExterns(reachable).Where(DeclaresExtern).Select(Codegen.ExternDecl)]
 			);
 		}
 
@@ -61,10 +63,6 @@ namespace Orion.Backend.Cpp
 				new Dictionary<string, List<Declaration>>(),
 				[]
 			);
-
-		//The externs the program calls, declared here so the platform's definition compiles against the same contract; one naming an unexported type stays out, since the header could not spell it.
-		private static List<Function> CreateExterns(List<SourceFunctionSymbol> reachable) =>
-			[.. Codegen.UsedExterns(reachable).Where(DeclaresExtern).Select(Codegen.ExternDecl)];
 
 		//Whether the header can spell the type: every struct or enum the signature names must be exported.
 		private static bool Representable(TypeSymbol type) => type switch
@@ -96,7 +94,7 @@ namespace Orion.Backend.Cpp
 					HashSet<ParamDataSymbol> written = Codegen.WrittenParams(i);
 					List<string> args = [.. i.Parameters.Select(p => Codegen.Declare(p, written))];
 
-					//No storage class: `Storage` gives an export external linkage, which is what a declaration in a header already means.
+					//No storage class: an export has external linkage, which is what a declaration in a header already means.
 					return new Function(Codegen.Cpp(i.ReturnType), Codegen.Cpp(i.Name), args, null, null);
 				})
 				.ToList();

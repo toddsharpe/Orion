@@ -6,7 +6,7 @@ namespace Orion.Tests.Golden
 	[TestClass]
 	public class CppHeaderGoldenTests
 	{
-		private static readonly string HeadersDir = Path.Combine(Corpus.TestsDir, "Headers");
+		private static readonly string HeadersDir = Path.Combine(Repo.TestsDir, "Headers");
 
 		[TestMethod]
 		public void AConsumerCompilesAgainstTheHeaderAlone()
@@ -31,7 +31,7 @@ namespace Orion.Tests.Golden
 
 			//The consumer compiles from ITS directory with the scratch on the include path, so all it can see of the program is the header just written.
 			string consumer = Path.Combine(HeadersDir, test + "_consumer.cpp");
-			string dir = QuotedDir(scratch);
+			string dir = Tool.QuotedDir(scratch);
 			ToolResult build = Tool.Run(
 				Tool.Msvc,
 				$"\"{cppFile}\" \"{consumer}\" -I\"{Corpus.RuntimeDir("Cpp")}\" -I\"{scratch}\" /Fo:{dir} /Fe:{dir} /EHsc /std:c++20 /nologo",
@@ -40,13 +40,9 @@ namespace Orion.Tests.Golden
 			Assert.IsTrue(build.Ok, $"{test}: cl.exe rejected the consumer or the header.\n{build.Report()}");
 
 			ToolResult run = Tool.Run(exeFile, null, scratch, Corpus.RunEnv());
-			Assert.IsTrue(run.Ok, $"{test}: the linked program exited {run.ExitCode}.\n{run.Report()}");
+			Corpus.AssertRan(test, "the linked program", run);
 
 			Corpus.AssertMatchesGolden(test, Path.Combine(HeadersDir, test + ".txt"), run.StdOut);
 		}
-
-		//The .exe is named for the first source, and the separator is doubled because Windows reads `\"` as an escaped quote, so /Fo:"C:\dir\" never closes.
-		private static string QuotedDir(string dir) =>
-			"\"" + dir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar + Path.DirectorySeparatorChar + "\"";
 	}
 }

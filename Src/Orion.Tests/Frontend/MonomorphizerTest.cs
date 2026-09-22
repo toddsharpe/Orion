@@ -1,7 +1,7 @@
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using Orion.Ast;
 using Orion.Diagnostics;
 using Orion.Frontend;
-using ParserResult = FParsec.CharParsers.ParserResult<Orion.Lang.Syntax.TranslationUnit, Microsoft.FSharp.Core.Unit>;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,9 +13,7 @@ namespace Orion.Tests.Frontend
 	{
 		private static TranslationUnit Expand(string src, out List<Message> messages)
 		{
-			ParserResult parseResult = Lang.Parse.Parse(src);
-			ParserResult.Success parseSuccess = parseResult as ParserResult.Success;
-			TranslationUnit tu = TranslationUnit.Create(parseSuccess.Item1);
+			TranslationUnit tu = Parsed.Parse(src);
 			messages = new List<Message>();
 			Monomorphizer.Expand(tu, messages);
 			return tu;

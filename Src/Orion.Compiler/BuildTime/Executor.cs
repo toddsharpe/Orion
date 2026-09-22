@@ -57,21 +57,31 @@ namespace Orion.BuildTime
 				method.Invoke(null, null);
 				return true;
 			}
-			catch (TargetInvocationException ex) when (Wraps<BuildStoppedException>(ex))
-			{
-				//Already reported by whatever stopped; a second message would only bury it.
-				return false;
-			}
-			catch (TargetInvocationException ex) when (Wraps<AssertFailedException>(ex))
-			{
-				messages.Add(new Message("Build Exception: Assertion failed.", Env.Region, MessageType.Error));
-				return false;
-			}
 			catch (Exception ex)
 			{
-				messages.Add(new Message($"Build Exception: Unhandled exception {ex}.", Env.Region, MessageType.Error));
+				Classify(ex, null, messages);
 				return false;
 			}
+		}
+
+		//One message per failure, none for a stop already reported; `subject` is the `Function::` caller's prefix, null for the executor's own wording.
+		internal static void Classify(Exception ex, string subject, List<Message> messages)
+		{
+			if (ex is TargetInvocationException && Wraps<BuildStoppedException>(ex))
+				return;
+
+			bool asserted = ex is TargetInvocationException && Wraps<AssertFailedException>(ex);
+			string text;
+			if (asserted && subject == null)
+				text = "Build Exception: Assertion failed.";
+			else if (asserted)
+				text = $"{subject} failed an assertion.";
+			else if (subject == null)
+				text = $"Build Exception: Unhandled exception {ex}.";
+			else
+				text = $"{subject} threw {ex.InnerException?.Message ?? ex.Message}.";
+
+			messages.Add(new Message(text, Env.Region, MessageType.Error));
 		}
 
 		//Execute, and splice away, every build call in one function. False means it gave up part way.
@@ -143,8 +153,8 @@ namespace Orion.BuildTime
 							else
 							{
 								//Trace, not Error: this fires scanning a #build function's body, whose calls run as compiled MSIL via #run rather than TAC-by-TAC here.
-							messages.Add(new Message($"Unable to execute build call {call.Function.Name} from {function.Name}. " +
-								$"'{argument}' is not a literal, an earlier build result or an args bag.", Env.Region, MessageType.Trace));
+								messages.Add(new Message($"Unable to execute build call {call.Function.Name} from {function.Name}. " +
+									$"'{argument}' is not a literal, an earlier build result or an args bag.", Env.Region, MessageType.Trace));
 								return false;
 							}
 						}
@@ -154,24 +164,14 @@ namespace Orion.BuildTime
 						{
 							value = Call(func, args);
 						}
-						catch (TargetInvocationException ex) when (Wraps<BuildStoppedException>(ex))
-						{
-							//Already reported by whatever stopped; a second message would only bury it.
-							return false;
-						}
-						catch (TargetInvocationException ex) when (Wraps<AssertFailedException>(ex))
-						{
-							messages.Add(new Message("Build Exception: Assertion failed.", Env.Region, MessageType.Error));
-							return false;
-						}
 						catch (Exception ex)
 						{
-							messages.Add(new Message($"Build Exception: Unhandled exception {ex}.", Env.Region, MessageType.Error));
+							Classify(ex, null, messages);
 							return false;
 						}
 
-						//Replace value
-						Trace.Assert(value != null == (call.Function.ReturnType != function.Table.Get<TypeSymbol>("void")));
+						//A builtin that reported answers null on a non-void signature, so the shape check only holds on a clean run.
+						Trace.Assert(messages.HasError() || value != null == !Language.IsVoid(call.Function.ReturnType));
 						if (value != null)
 						{
 							int dim = value is Array array ? array.Length : 1;
@@ -204,7 +204,7 @@ namespace Orion.BuildTime
 							bag.Nodes.Clear();
 						}
 
-						string argsString = args.Count == 0 ? string.Empty : args.Select(ToString).Aggregate((a, b) => a + ", " + b);
+						string argsString = string.Join(", ", args.Select(Text));
 						messages.Add(new Message($"Executed build call {call.Function.Name} from {function.Name}", Env.Region, MessageType.Trace));
 						messages.Add(new Message($"{call.Function.Name}({argsString}) -> \"{value}\"", Env.Region, MessageType.Trace));
 					}
@@ -332,8 +332,8 @@ namespace Orion.BuildTime
 			return method.Invoke(args[0], args.Count == 1 ? null : args.Skip(1).ToArray());
 		}
 
-		//An exception inside a generator wraps once per reflection hop, so unwrap the chain; internal because BuildBuiltins classifies a block's escape the same way.
-		internal static bool Wraps<T>(Exception ex) where T : Exception
+		//An exception inside a generator wraps once per reflection hop, so unwrap the chain.
+		private static bool Wraps<T>(Exception ex) where T : Exception
 		{
 			for (Exception at = ex.InnerException; at != null; at = at.InnerException)
 				if (at is T)
@@ -341,15 +341,9 @@ namespace Orion.BuildTime
 			return false;
 		}
 
-		private static string ToString(object value)
+		private static string Text(object value)
 		{
-			if (value.GetType().IsArray)
-			{
-				Array a = (Array)value;
-				return "[" + string.Join(",", a.Cast<object>().Select(i => i.ToString())) + "]";
-			}
-			else
-				return value.ToString();
+			return value is Array a ? "[" + string.Join(",", a.Cast<object>()) + "]" : value.ToString();
 		}
 	}
 }

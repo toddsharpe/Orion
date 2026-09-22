@@ -3,6 +3,7 @@ using Orion.Diagnostics;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
+using static Orion.Tests.Opt.Tacs;
 
 namespace Orion.Tests.BuildTime
 {
@@ -10,8 +11,6 @@ namespace Orion.Tests.BuildTime
 	[TestClass]
 	public class SolverTest
 	{
-		private static readonly TypeSymbol I32 = new PrimitiveTypeSymbol(Orion.Symbols.TypeCode.i32);
-
 		private static SourceFunctionSymbol Block(string name, params ParamDataSymbol[] ports) =>
 			new SourceFunctionSymbol(name, I32, new List<ParamDataSymbol>(ports), null, null);
 

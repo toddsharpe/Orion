@@ -4,9 +4,7 @@
 	[TestClass]
 	public class TypeHoleTest
 	{
-		private static string Cpp(string body)
-		{
-			CompilerResult result = Harness.Compile($@"
+		private static string Cpp(string body) => Harness.Emit(BackendLanguage.Cpp, $@"
 i32 main()
 {{
 	#run
@@ -16,9 +14,6 @@ i32 main()
 
 	return 0;
 }}");
-			result.AssertNoErrors();
-			return result.CodeOutput;
-		}
 
 		//`const` carries its type on ConstDef, not on the Construct a mutable declaration uses.
 		[TestMethod]

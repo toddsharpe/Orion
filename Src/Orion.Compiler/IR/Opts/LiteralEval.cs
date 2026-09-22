@@ -1,6 +1,5 @@
 using Orion.Diagnostics;
 using Orion.Symbols;
-using Orion.Util;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System;
@@ -13,39 +12,34 @@ namespace Orion.IR.Opts
 	{
 		public static void Run(SourceFunctionSymbol func, List<Message> messages)
 		{
-			messages.Add(new Message("## Literal Eval ##", InputRegion.None, MessageType.Trace));
+			messages.Trace("## Literal Eval ##");
 
 			foreach (LinkedListNode<Tac> current in func.Tacs.EnumerateNodes())
 			{
 				if (current.Value is not ResultTac resultTac || resultTac.Result == null)
 					continue;
 
-				if (resultTac.Result.Type is not PrimitiveTypeSymbol resultPrim)
+				if (resultTac.Result.Type is not PrimitiveTypeSymbol)
 					continue;
 
 				switch (current.Value)
 				{
 					case BinaryTac bin when bin.Operand1 is LiteralSymbol lit1 && bin.Operand2 is LiteralSymbol lit2:
 					{
-						messages.Add(new Message($"Candidate: {bin}", InputRegion.None, MessageType.Trace));
+						messages.Trace($"Candidate: {bin}");
 
 						bool isShift = bin.Op is BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight;
 						Trace.Assert(isShift || lit1.Type == lit2.Type);
-						PrimitiveTypeSymbol builtin = bin.Operand1.Type as PrimitiveTypeSymbol;
+
+						//A bool result passes the guard above with two enum operands, whose comparison nothing here folds.
+						if (bin.Operand1.Type is not PrimitiveTypeSymbol builtin)
+							continue;
 
 						if (builtin.Code == TypeCode.f32 || builtin.Code == TypeCode.f64)
 						{
 							object folded = FoldFloat(bin.Op, builtin.Code, lit1.Value, lit2.Value);
-							if (folded == null)
-								break;
-							if (!func.Table.TryGet(folded, bin.Result.Type, out LiteralSymbol flit))
-							{
-								flit = new LiteralSymbol(folded, bin.Result.Type);
-								func.Table.Add(flit);
-							}
-							AssignTac freplace = new AssignTac(bin.Result, flit);
-							messages.Add(new Message($"\tResult: {freplace}", InputRegion.None, MessageType.Trace));
-							current.Value = freplace;
+							if (folded != null)
+								Replace(func, current, bin.Result, folded, messages);
 							break;
 						}
 
@@ -66,53 +60,48 @@ namespace Orion.IR.Opts
 							_ => FoldInteger(bin.Op, builtin.Code, lit1.Value, lit2.Value),
 						};
 
-						if (value == null)
-							break;
-
-						if (!func.Table.TryGet(value, bin.Result.Type, out LiteralSymbol literal))
-						{
-							literal = new LiteralSymbol(value, bin.Result.Type);
-							func.Table.Add(literal);
-						}
-
-						AssignTac replace = new AssignTac(bin.Result, literal);
-						messages.Add(new Message($"\tResult: {replace}", InputRegion.None, MessageType.Trace));
-						current.Value = replace;
+						if (value != null)
+							Replace(func, current, bin.Result, value, messages);
 					}
 					break;
 
 					case UnaryTac unary when unary.Operand1 is LiteralSymbol lit:
 					{
-						PrimitiveTypeSymbol builtin = unary.Operand1.Type as PrimitiveTypeSymbol;
-						messages.Add(new Message($"Candidate: {unary}", InputRegion.None, MessageType.Trace));
+						if (unary.Operand1.Type is not PrimitiveTypeSymbol builtin)
+							continue;
 
+						messages.Trace($"Candidate: {unary}");
 
 						object value = (unary.Op, builtin.Code) switch
 						{
 							(UnaryTacOp.BitNot, _) => FoldBitNot(builtin.Code, lit.Value),
 
-							(UnaryTacOp.Negate, TypeCode.f32) => (object)(float)(-System.Convert.ToDouble(lit.Value)),
-							(UnaryTacOp.Negate, TypeCode.f64) => (object)(-System.Convert.ToDouble(lit.Value)),
+							(UnaryTacOp.Negate, TypeCode.f32) => (object)(float)(-Convert.ToDouble(lit.Value)),
+							(UnaryTacOp.Negate, TypeCode.f64) => (object)(-Convert.ToDouble(lit.Value)),
 
 							_ => FoldUnary(unary.Op, builtin.Code, lit.Value),
 						};
 
-						if (value == null)
-							break;
-
-						if (!func.Table.TryGet(value, unary.Result.Type, out LiteralSymbol literal))
-						{
-							literal = new LiteralSymbol(value, unary.Result.Type);
-							func.Table.Add(literal);
-						}
-
-						AssignTac replace = new AssignTac(unary.Result, literal);
-						messages.Add(new Message($"\tResult: {replace}", InputRegion.None, MessageType.Trace));
-						current.Value = replace;
+						if (value != null)
+							Replace(func, current, unary.Result, value, messages);
 					}
 					break;
 				}
 			}
+		}
+
+		//The folded value, interned in the function's table and written over the tac as a plain assign.
+		private static void Replace(SourceFunctionSymbol func, LinkedListNode<Tac> current, NamedDataSymbol result, object value, List<Message> messages)
+		{
+			if (!func.Table.TryGet(value, result.Type, out LiteralSymbol literal))
+			{
+				literal = new LiteralSymbol(value, result.Type);
+				func.Table.Add(literal);
+			}
+
+			AssignTac replace = new AssignTac(result, literal);
+			messages.Trace($"\tResult: {replace}");
+			current.Value = replace;
 		}
 
 		private static object FoldFloat(BinaryTacOp op, TypeCode code, object left, object right)
@@ -160,19 +149,19 @@ namespace Orion.IR.Opts
 				return null;
 
 			int count = 0;
+			ulong b = 0;
 			if (op == BinaryTacOp.ShiftLeft || op == BinaryTacOp.ShiftRight)
 			{
 				if (right is not (sbyte or short or int or long or byte or ushort or uint or ulong))
 					return null;
 				count = (int)(Convert.ToInt64(right) & (width - 1));
 			}
-			else if (!TryUnsigned(code, right, out ulong _))
+			else if (!TryUnsigned(code, right, out b))
 			{
 				return null;
 			}
 
 			bool signed = code is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64;
-			ulong b = op is BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight ? 0 : ToUnsigned(code, right);
 
 			ulong result = op switch
 			{
@@ -263,16 +252,15 @@ namespace Orion.IR.Opts
 		private static bool TryUnsigned(TypeCode code, object value, out ulong bits)
 		{
 			bits = 0;
-			if (!TryWidth(code, out int _) || value is not (sbyte or short or int or long or byte or ushort or uint or ulong))
+			if (!TryWidth(code, out int width) || value is not (sbyte or short or int or long or byte or ushort or uint or ulong))
 				return false;
 
-			bits = ToUnsigned(code, value);
+			bits = ToUnsigned(value, width);
 			return true;
 		}
 
-		private static ulong ToUnsigned(TypeCode code, object value)
+		private static ulong ToUnsigned(object value, int width)
 		{
-			TryWidth(code, out int width);
 			ulong mask = width == 64 ? ulong.MaxValue : (1UL << width) - 1;
 			ulong bits = value switch
 			{

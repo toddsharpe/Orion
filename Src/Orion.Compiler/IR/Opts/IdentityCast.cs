@@ -1,6 +1,5 @@
 using Orion.Diagnostics;
 using Orion.Symbols;
-using Orion.Util;
 using System.Collections.Generic;
 
 namespace Orion.IR.Opts
@@ -10,14 +9,14 @@ namespace Orion.IR.Opts
 	{
 		public static void Run(SourceFunctionSymbol function, List<Message> messages)
 		{
-			messages.Add(new Message("## Identity cast ##", InputRegion.None, MessageType.Trace));
+			messages.Trace("## Identity cast ##");
 
 			foreach (LinkedListNode<Tac> node in function.Tacs.EnumerateNodes())
 			{
 				if (node.Value is not CastTac cast || !SameRuntime(cast.Operand1.Type, cast.Result.Type))
 					continue;
 
-				messages.Add(new Message($"Dropped cast: {node.Value}", InputRegion.None, MessageType.Trace));
+				messages.Trace($"Dropped cast: {node.Value}");
 				Tac assign = new AssignTac(cast.Result, cast.Operand1);
 				assign.Region = node.Value.Region;
 				node.Value = assign;

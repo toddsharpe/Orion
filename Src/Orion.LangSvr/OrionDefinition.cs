@@ -80,14 +80,14 @@ namespace Orion.LangSvr
 
 			foreach (Parameter p in fn.Parameters)
 				if (p.Name == ident)
-					return At(analysis.Path, p.Region);
+					return Target(analysis.Path, p.Region);
 
 			foreach (Node n in fn.DescendantsAndSelf())
 			{
 				if (n is Construct c && c.SymbolName == ident)
-					return At(analysis.Path, c.Region);
+					return Target(analysis.Path, c.Region);
 				if (n is ConstDef cd && cd.Name == ident)
-					return At(analysis.Path, cd.Region);
+					return Target(analysis.Path, cd.Region);
 			}
 
 			return null;
@@ -109,31 +109,33 @@ namespace Orion.LangSvr
 					};
 
 					if (match)
-						return At(doc.Path, block.Region);
+						return Target(doc.Path, block.Region);
 				}
 
 			return null;
 		}
 
 		//An empty range at the declaration's first character, so the editor reveals the line and places the cursor rather than selecting the whole declaration.
-		private static Location At(string path, InputRegion r)
+		private static Location Target(string path, InputRegion r)
 		{
 			if (r == null)
 				return null;
-			return At(path, new LspPosition(Max0((int)r.Start.Line - 1), Max0((int)r.Start.Column - 1)));
+
+			(int line, int col, _, _) = r.ZeroBased();
+			return At(path, new LspPosition(line, col));
 		}
 
+		//Null for a document analyzed without a path.
 		private static Location At(string path, LspPosition position)
 		{
 			if (string.IsNullOrEmpty(path))
 				return null;
+
 			return new Location
 			{
 				Uri = DocumentUri.FromFileSystemPath(path),
 				Range = new LspRange(position, position),
 			};
 		}
-
-		private static int Max0(int x) => x < 0 ? 0 : x;
 	}
 }

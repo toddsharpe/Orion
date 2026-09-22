@@ -12,7 +12,7 @@ namespace Orion.Tests.Golden
 		public void CompilationFailsWithTheExpectedError(string test)
 		{
 			string scratch = Corpus.Scratch("errors", test);
-			string source = Corpus.ErrorSource(test);
+			string source = Path.Combine(Corpus.ErrorsDir, test + ".src");
 			string errFile = Path.ChangeExtension(source, ".err");
 			string expected = File.ReadAllText(errFile).Trim();
 
@@ -20,7 +20,7 @@ namespace Orion.Tests.Golden
 			ToolResult result = Tool.Run(
 				Corpus.Compiler,
 				$"compile \"{source}\" -o \"{Path.Combine(scratch, test + ".cpp")}\" -l cpp",
-				Corpus.Root);
+				Repo.Root);
 
 			Assert.IsFalse(result.Ok, $"{test}: expected the compile to fail, but it succeeded.\n{result.Report()}");
 

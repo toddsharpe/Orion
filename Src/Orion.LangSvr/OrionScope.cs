@@ -15,7 +15,7 @@ namespace Orion.LangSvr
 		{
 			if (text == null)
 				return null;
-			string[] lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+			string[] lines = Lines(text);
 			if (line0Based < 0 || line0Based >= lines.Length)
 				return null;
 			string ln = lines[line0Based];
@@ -33,24 +33,26 @@ namespace Orion.LangSvr
 		}
 
 		//The smallest function whose span covers the cursor (1-based), templates included: the Specializer removes them from the tu, so neither the bound Ast nor a symbol table can answer inside one.
-		public static Function Enclosing(Analysis analysis, long line, long col)
+		public static Function Enclosing(Analysis analysis, long line, long col) =>
+			Smallest(Functions(analysis), Span, line, col);
+
+		//The item whose region is the smallest holding the 1-based cursor, the first of equals; null when none does or `region` gives none.
+		public static T Smallest<T>(IEnumerable<T> items, Func<T, InputRegion> region, long line, long col) where T : class
 		{
-			Function best = null;
+			T best = null;
 			long bestSize = long.MaxValue;
 
-			foreach (Function fn in Functions(analysis))
+			foreach (T item in items)
 			{
-				(long startLine, long startCol, long endLine, long endCol) = Span(fn);
-				bool after = line > startLine || (line == startLine && col >= startCol);
-				bool before = line < endLine || (line == endLine && col <= endCol);
-				if (startLine == 0 || !after || !before)
+				InputRegion r = region(item);
+				if (r == null || !Contains(r, line, col))
 					continue;
 
-				long size = (endLine - startLine) * 1_000_000L + (endCol - startCol);
+				long size = Size(r);
 				if (size < bestSize)
 				{
 					bestSize = size;
-					best = fn;
+					best = item;
 				}
 			}
 
@@ -73,27 +75,56 @@ namespace Orion.LangSvr
 				.Distinct();
 		}
 
-		//Function.Region is the declaration HEADER alone, so a body hover resolves to the body's own nodes; deciding which function the cursor is IN needs the body, so this spans header to last descendant.
-		public static (long StartLine, long StartCol, long EndLine, long EndCol) Span(Function fn)
+		//Function.Region is the declaration HEADER alone, so a body hover resolves to the body's own nodes; deciding which function the cursor is IN needs the body, so this spans header to last descendant; null for a function with no position.
+		private static InputRegion Span(Function fn)
 		{
-			if (fn.Region == null)
-				return (0, 0, 0, 0);
+			if (fn.Region == null || fn.Region.Start.Line == 0)
+				return null;
 
-			long endLine = fn.Region.Stop.Line, endCol = fn.Region.Stop.Column;
+			Position stop = fn.Region.Stop;
 			foreach (Node n in fn.DescendantsAndSelf())
 			{
 				InputRegion r = n.Region;
-				if (r == null)
-					continue;
-				if (r.Stop.Line > endLine || (r.Stop.Line == endLine && r.Stop.Column > endCol))
-				{
-					endLine = r.Stop.Line;
-					endCol = r.Stop.Column;
-				}
+				if (r != null && (r.Stop.Line > stop.Line || (r.Stop.Line == stop.Line && r.Stop.Column > stop.Column)))
+					stop = r.Stop;
 			}
 
-			return (fn.Region.Start.Line, fn.Region.Start.Column, endLine, endCol);
+			return new InputRegion(fn.Region.Start, stop, fn.Region.File);
 		}
+
+		//Whether a 1-based cursor sits inside the region, both ends inclusive.
+		private static bool Contains(InputRegion r, long line, long col)
+		{
+			bool afterStart = line > r.Start.Line || (line == r.Start.Line && col >= r.Start.Column);
+			bool beforeStop = line < r.Stop.Line || (line == r.Stop.Line && col <= r.Stop.Column);
+			return afterStart && beforeStop;
+		}
+
+		//A region's extent, for picking the smallest of several holding the cursor: lines dominate, columns break ties.
+		private static long Size(InputRegion r) =>
+			(r.Stop.Line - r.Start.Line) * 1_000_000L + (r.Stop.Column - r.Start.Column);
+
+		//The text's lines with every line-ending style normalized, so a Windows buffer indexes as a Unix one does.
+		public static string[] Lines(string text) =>
+			text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+
+		//A parameter's directive as written, trailing space included; empty for a plain parameter.
+		public static string AstDir(ParamDirective d) => d switch
+		{
+			ParamDirective.Input => "#input ",
+			ParamDirective.Prev => "#prev ",
+			ParamDirective.Output => "#output ",
+			ParamDirective.Pure => "#pure ",
+			ParamDirective.Param => "#param ",
+			_ => "",
+		};
+
+		//A parameter as a signature spells it: directive, type, name.
+		public static string ParamLabel(Parameter p) => AstDir(p.Directive) + p.TypeName.Name + " " + p.Name;
+
+		//A function's signature from its declaration, so a solver block shows its #param/#input/#output directives.
+		public static string Signature(Function fn) =>
+			fn.ReturnType.Name + " " + fn.Name + "(" + string.Join(", ", fn.Parameters.Select(ParamLabel)) + ")";
 
 		//The analyzed document's own pre-pass snapshot, or null when the text was analyzed without a path.
 		public static SourceDocument Self(Analysis analysis)
@@ -103,7 +134,7 @@ namespace Orion.LangSvr
 			return analysis.Documents.FirstOrDefault(d => Same(d.Path, analysis.Path));
 		}
 
-		public static bool Same(string a, string b)
+		private static bool Same(string a, string b)
 		{
 			if (a == null || b == null)
 				return false;

@@ -31,9 +31,6 @@ namespace Orion.Clr
 		private static BuildAssembly _self => Compiler.Session.Assembly;
 		public static ModuleBuilder Builder => _self._module;
 		private static Generation _open { get => _self._current; set => _self._current = value; }
-		private static int _generations { get => _self._count; set => _self._count = value; }
-		private static List<Type> _sealed => _self._baked;
-		private static HashSet<Type> _structTypes => _self._structs;
 
 		//One type per round of emission, holding its methods, delegate fields and `#build` cells.
 		private sealed class Generation(TypeBuilder type)
@@ -50,13 +47,13 @@ namespace Orion.Clr
 		}
 
 		//Every sealed generation, in order: what the MSIL dumps walk instead of the module's types.
-		public static IReadOnlyList<Type> Generations => Compiler.Session != null ? _sealed : [];
+		public static IReadOnlyList<Type> Generations => Compiler.Session != null ? _self._baked : [];
 
 		//Opened on demand rather than eagerly, so a Close with nothing after it leaves no empty type.
 		private static Generation Open()
 		{
 			return _open ??= new Generation(Builder.DefineType(
-				$"Build_{_generations++}",
+				$"Build_{_self._count++}",
 				TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed | TypeAttributes.Abstract));
 		}
 
@@ -93,7 +90,7 @@ namespace Orion.Clr
 			ilGen.Emit(OpCodes.Ret);
 
 			Type baked = generation.Type.CreateType();
-			_sealed.Add(baked);
+			_self._baked.Add(baked);
 
 			foreach (SourceFunctionSymbol func in generation.Sources)
 				func.Info = baked.GetMethod(Language.Mangled(func.Name));
@@ -108,12 +105,6 @@ namespace Orion.Clr
 		{
 			_open?.Bodied.Add(func);
 			return func.Builder.GetILGenerator();
-		}
-
-		public static Type Create(StructTypeSymbol @struct)
-		{
-			Begin(@struct);
-			return Complete(@struct);
 		}
 
 		//The type before any field: a builder is already a Type, so a field may name it. See Docs/Compiler.md.
@@ -135,7 +126,7 @@ namespace Orion.Clr
 			@struct.CtorBuilder = Zeroing(builder, @struct, fields);
 
 			Type created = builder.CreateType();
-			_structTypes.Add(created);
+			_self._structs.Add(created);
 
 			//The struct's type bakes here, not at a Close, so its constructor resolves right away.
 			@struct.CtorInfo = created.GetConstructor(Type.EmptyTypes);
@@ -249,10 +240,10 @@ namespace Orion.Clr
 				return clone;
 			}
 
-			if (!_structTypes.Contains(value.GetType()))
+			Type type = value.GetType();
+			if (!_self._structs.Contains(type))
 				return value;
 
-			Type type = value.GetType();
 			object copy = Activator.CreateInstance(type);
 			foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
 				field.SetValue(copy, CopyStruct(field.GetValue(value)));
@@ -276,9 +267,6 @@ namespace Orion.Clr
 		//Every writable parameter takes a reference, including types already CLR references: a field or element write would reach the caller anyway, but assigning the parameter WHOLE rebinds the local, and the assignment site cannot tell the two apart (Docs/BuildTime.md).
 		public static bool IsByRef(ParamDataSymbol parameter) => parameter.Direction.IsWritable();
 
-		private static Type ClrParameter(ParamDataSymbol parameter) =>
-			IsByRef(parameter) ? GetClrType(parameter.Type).MakeByRefType() : GetClrType(parameter.Type);
-
 		public static MethodBuilder Define(SourceFunctionSymbol func)
 		{
 			Generation generation = Open();
@@ -287,12 +275,12 @@ namespace Orion.Clr
 				//An Orion name may be qualified (`Function::Get`); a CLR method name may not.
 				Language.Mangled(func.Name),
 				MethodAttributes.Public | MethodAttributes.Static,
-				IsNull(func.ReturnType) ? null : GetClrType(func.ReturnType),
-				[.. func.Parameters.Select(ClrParameter)]
+				Language.IsVoid(func.ReturnType) ? null : GetClrType(func.ReturnType),
+				[.. func.Parameters.Select(i => IsByRef(i) ? GetClrType(i.Type).MakeByRefType() : GetClrType(i.Type))]
 			);
 
-			foreach ((ParamDataSymbol arg, int idx) in func.Parameters.Select((a, i) => (a, i)))
-				method.DefineParameter(idx + 1, ParameterAttributes.None, arg.Name);
+			for (int i = 0; i < func.Parameters.Count; i++)
+				method.DefineParameter(i + 1, ParameterAttributes.None, func.Parameters[i].Name);
 
 			generation.Sources.Add(func);
 			func.Builder = method;
@@ -366,7 +354,7 @@ namespace Orion.Clr
 					return GetClrType(reference.Element);
 				}
 
-				//Create() is the only definer and every caller assigns Hosted, so the symbol already has it.
+				//Create() and Begin() are the only definers and both assign Hosted, so the symbol already has it.
 				case StructTypeSymbol @struct:
 				{
 					return @struct.Hosted;
@@ -382,7 +370,7 @@ namespace Orion.Clr
 					return func.Clr;
 				}
 
-				case ArgsTypeSymbol args:
+				case ArgsTypeSymbol:
 				{
 					return ArgsTypeSymbol.Underlying;
 				}
@@ -390,11 +378,6 @@ namespace Orion.Clr
 				default:
 					throw new NotImplementedException();
 			}
-		}
-
-		private static bool IsNull(TypeSymbol type)
-		{
-			return type is PrimitiveTypeSymbol prim && prim.Code == Symbols.TypeCode.@void;
 		}
 	}
 }

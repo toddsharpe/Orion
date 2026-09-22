@@ -14,25 +14,23 @@ namespace Orion.Web.Interop
 	//Runs the full pipeline in the browser; editor text is written into MEMFS so Compiler.Run works unchanged.
 	public static class CompileInterop
 	{
-		private const string ProjDir = "/proj";
+		internal const string ProjDir = "/proj";
 
 		[JSInvokable]
 		public static CompileResult Compile(ProjectFile[] files, string entry, string lang, bool dark)
 		{
 			string entryPath = Seed(files, entry);
 
-			BackendLanguage backend =
-				string.Equals(lang, "Python", StringComparison.OrdinalIgnoreCase) ? BackendLanguage.Python :
-				string.Equals(lang, "JavaScript", StringComparison.OrdinalIgnoreCase) ? BackendLanguage.JavaScript :
-				string.Equals(lang, "CSharp", StringComparison.OrdinalIgnoreCase) ? BackendLanguage.CSharp :
-				BackendLanguage.Cpp;
+			if (!Enum.TryParse(lang, true, out BackendLanguage backend))
+				backend = BackendLanguage.Cpp;
 
 			string headerName = Path.GetFileNameWithoutExtension(string.IsNullOrEmpty(entry) ? "main.src" : entry) + ".h";
 
 			StringBuilder log = new StringBuilder();
-			CallGraph.Node capturedMain = null;
-			SymbolTable capturedRoot = null;
 			List<AnalysisNode> analysis = new List<AnalysisNode>();
+			//What the phases hand the graphs: main's call-graph node, and the root symbol table once its functions carry TACs.
+			CallGraph.Node main = null;
+			SymbolTable root = null;
 
 			AnalysisInterop.Reset();
 
@@ -51,12 +49,13 @@ namespace Orion.Web.Interop
 					HeaderName = headerName,
 					OnPhase = phase =>
 					{
-						WritePhase(log, phase);
+						Display.PhaseHeader(log, phase);
+						Display.PhaseState(log, phase);
 						analysis.Add(AnalysisInterop.Phase(phase));
-						CallGraph.Node node = FindCallGraphNode(phase.State);
-						if (node != null) capturedMain = node;
-						SymbolTable root = FindSymbolTable(phase.State);
-						if (root != null && HasTacs(root)) capturedRoot = root;
+						main = Find<CallGraph.Node>(phase.State) ?? main;
+						SymbolTable table = Find<SymbolTable>(phase.State);
+						if (table != null && HasTacs(table))
+							root = table;
 					},
 				};
 				result = Compiler.Run(options);
@@ -72,12 +71,12 @@ namespace Orion.Web.Interop
 					BuildOutput = string.Empty,
 					Log = log.ToString(),
 					Analysis = analysis,
-					Messages = new List<CompileMessage>
+					Messages = new List<MessageDto>
 					{
-						new CompileMessage
+						new MessageDto
 						{
 							Severity = "Error",
-							Text = "Compiler exception: " + ex.Message,
+							Message = "Compiler exception: " + ex.Message,
 							StartLine = 0, StartCol = 0, EndLine = 0, EndCol = 1
 						}
 					}
@@ -88,7 +87,7 @@ namespace Orion.Web.Interop
 				Console.SetOut(prevOut);
 			}
 
-			List<CompileMessage> messages = new List<CompileMessage>();
+			List<MessageDto> messages = new List<MessageDto>();
 			List<PhaseTiming> phases = new List<PhaseTiming>();
 			if (result.Phases != null)
 			{
@@ -101,11 +100,11 @@ namespace Orion.Web.Interop
 				}
 			}
 
-			analysis.Add(AnalysisInterop.Outcome(result.Success));
+			analysis.Add(AnalysisInterop.Branch(result.Success ? "Success" : "Failed", []));
 
 			List<GraphDto> graphs = new List<GraphDto>();
-			if (capturedMain != null)
-				graphs.Add(new GraphDto { Name = "Call graph", Dot = Dot.Write(Diagrams.Diagrams.CallGraph(capturedMain), dark) });
+			if (main != null)
+				graphs.Add(new GraphDto { Name = "Call graph", Dot = Dot.Write(Diagrams.Diagrams.CallGraph(main), dark) });
 
 			if (Orion.BuildTime.Builtins.SolverBuiltins.LastSolved != null)
 				graphs.Add(new GraphDto { Name = "Solver netlist", Dot = Dot.Write(Diagrams.Diagrams.Netlist(Orion.BuildTime.Builtins.SolverBuiltins.LastSolved), dark) });
@@ -115,10 +114,10 @@ namespace Orion.Web.Interop
 				if (extra.Name.EndsWith(".dot", StringComparison.OrdinalIgnoreCase))
 					graphs.Add(new GraphDto { Name = extra.Name, Dot = extra.Text });
 
-			if (capturedRoot != null)
+			if (root != null)
 			{
-				HashSet<string> reachable = capturedMain != null ? ReachableFunctionNames(capturedMain) : null;
-				foreach (SymbolTable table in capturedRoot.Traverse())
+				HashSet<string> reachable = main != null ? ReachableFunctionNames(main) : null;
+				foreach (SymbolTable table in root.Traverse())
 					foreach (SourceFunctionSymbol fn in table.GetAll<SourceFunctionSymbol>())
 					{
 						if (fn.Tacs == null || fn.Tacs.Count == 0)
@@ -157,11 +156,7 @@ namespace Orion.Web.Interop
 			$"// ==================== {file} -- {what} ====================\n\n";
 
 		[JSInvokable]
-		public static void SeedSamples(ProjectFile[] files)
-		{
-			Directory.CreateDirectory(ProjDir);
-			SeedFiles(files);
-		}
+		public static void SeedSamples(ProjectFile[] files) => Seed(files, null);
 
 		internal static string Seed(ProjectFile[] files, string entry)
 		{
@@ -180,8 +175,9 @@ namespace Orion.Web.Interop
 				if (f == null || string.IsNullOrEmpty(f.Path))
 					continue;
 
+				//A path that climbs out of the project is dropped; the separator keeps a sibling such as /project from passing.
 				string full = Path.GetFullPath(Path.Combine(ProjDir, f.Path));
-				if (!full.StartsWith(ProjDir, StringComparison.Ordinal))
+				if (!full.StartsWith(ProjDir + "/", StringComparison.Ordinal))
 					continue;
 
 				string dir = Path.GetDirectoryName(full);
@@ -191,89 +187,16 @@ namespace Orion.Web.Interop
 			}
 		}
 
-		private static void WritePhase(StringBuilder log, PhaseResult phase)
+		//The first property of a phase's state record holding a T, or null: the states are anonymous records, so they are searched rather than named.
+		private static T Find<T>(object state) where T : class
 		{
-			log.Append("=== ").Append(phase).Append(" (")
-			   .Append(phase.Elapsed.TotalMilliseconds.ToString("F1")).Append("ms) ===\n");
-
-			foreach (Message m in phase.Messages)
-				log.Append("  ").Append(m.Type).Append(": ").Append(m.Text).Append('\n');
-
-			foreach (PropertyInfo p in phase.State?.GetType().GetProperties() ?? [])
-			{
-				object v;
-				try { v = p.GetValue(phase.State, null); }
-				catch { continue; }
-
-				switch (v)
-				{
-					case null:
-						log.Append(p.Name).Append(": <null>\n");
-						break;
-					case string s:
-						log.Append(p.Name).Append(": ").Append(s).Append('\n');
-						break;
-					case CompilerFile cf:
-						log.Append(p.Name).Append(": ").Append(cf.Summary()).Append('\n');
-						break;
-					case IEnumerable<CompilerFile> cfs:
-						log.Append(p.Name).Append(":\n");
-						foreach (CompilerFile f in cfs)
-							log.Append("  - ").Append(f?.Summary() ?? "<unknown>").Append('\n');
-						break;
-					case SymbolTable table:
-						log.Append(p.Name).Append(":\n").Append(Display.Symbols(table));
-						break;
-					case CallGraph.Node node:
-						log.Append(p.Name).Append(":\n").Append(Display.CallGraph(node));
-						break;
-					default:
-						string tn = v.GetType().Name;
-						if (tn == "Emitted")
-						{
-							PropertyInfo textProp = v.GetType().GetProperty("Text");
-							log.Append("--- Code ---\n").Append(textProp?.GetValue(v)).Append('\n');
-						}
-						else if (v is ValueType)
-						{
-							log.Append(p.Name).Append(": ").Append(v).Append('\n');
-						}
-						else
-						{
-							log.Append(p.Name).Append(": [").Append(tn).Append("]\n");
-						}
-						break;
-				}
-			}
-			log.Append('\n');
-		}
-
-		private static CallGraph.Node FindCallGraphNode(object state)
-		{
-			if (state == null)
-				return null;
-			foreach (PropertyInfo p in state.GetType().GetProperties())
+			foreach (PropertyInfo p in state?.GetType().GetProperties() ?? [])
 			{
 				object v;
 				try { v = p.GetValue(state, null); }
 				catch { continue; }
-				if (v is CallGraph.Node node)
-					return node;
-			}
-			return null;
-		}
-
-		private static SymbolTable FindSymbolTable(object state)
-		{
-			if (state == null)
-				return null;
-			foreach (PropertyInfo p in state.GetType().GetProperties())
-			{
-				object v;
-				try { v = p.GetValue(state, null); }
-				catch { continue; }
-				if (v is SymbolTable t)
-					return t;
+				if (v is T found)
+					return found;
 			}
 			return null;
 		}
@@ -304,14 +227,14 @@ namespace Orion.Web.Interop
 			return names;
 		}
 
-		private static CompileMessage ToMessage(Message m)
+		private static MessageDto ToMessage(Message m)
 		{
 			(int sl, int sc, int el, int ec) = m.Region?.ZeroBased() ?? (0, 0, 0, 1);
 
-			return new CompileMessage
+			return new MessageDto
 			{
-				Severity = m.Type == MessageType.Error ? "Error" : "Trace",
-				Text = m.Text,
+				Severity = m.Type == MessageType.Error ? "Error" : "Info",
+				Message = m.Text,
 				StartLine = sl, StartCol = sc, EndLine = el, EndCol = ec
 			};
 		}

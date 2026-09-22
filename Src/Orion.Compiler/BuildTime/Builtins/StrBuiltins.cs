@@ -1,16 +1,13 @@
 ﻿namespace Orion.BuildTime.Builtins
 {
-
 	[BuildOnly]
 	public static class StrBuiltins
 	{
-
 		public static string[] Split(string s, string delim)
 		{
 			return s.Split(delim);
 		}
 
-		[BuildOnly]
 		public static Scalar To(string text, OrionType type)
 		{
 			string code = type?.Symbol?.Name;

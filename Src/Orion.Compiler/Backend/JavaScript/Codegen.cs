@@ -1,3 +1,4 @@
+using Orion.Backend.Render;
 using Orion.Backend.StIr;
 using Orion.BuildTime;
 using Orion.Graphs;
@@ -12,21 +13,20 @@ using TypeCode = Orion.Symbols.TypeCode;
 namespace Orion.Backend.JavaScript
 {
 	//Renders the program as JavaScript.
-	internal class Codegen : ScriptBackend
+	internal class Codegen : ModuleBackend
 	{
-		private static readonly Dictionary<BinaryTacOp, string> BinaryOps = Spelling.Binary;
-
-		private static readonly Dictionary<UnaryTacOp, string> UnaryOps = Spelling.Unary;
-
-		private static string JsOp(BinaryTacOp op, TypeSymbol type) =>
-			op == BinaryTacOp.ShiftRight && IsUnsigned(type) ? ">>>" : BinaryOps[op];
-
 		private static bool IsUnsigned(TypeSymbol type) =>
 			(type as PrimitiveTypeSymbol)?.Code is TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64;
 
-		private static bool IsIntegerDivide(BinaryTacOp op, TypeSymbol type) =>
-			op == BinaryTacOp.Divide && type is PrimitiveTypeSymbol p &&
-			p.Code != TypeCode.f32 && p.Code != TypeCode.f64;
+		//A 32-bit product passes 2^53, so `a * b` loses low bits before any mask can run; use Math.imul.
+		private static bool NeedsExactMultiply(BinaryTacOp op, TypeSymbol type) =>
+			op == BinaryTacOp.Multiply &&
+			type is PrimitiveTypeSymbol { Code: TypeCode.i8 or TypeCode.i16 or TypeCode.i32
+				or TypeCode.u8 or TypeCode.u16 or TypeCode.u32 };
+
+		//&, | and ^ return a signed int32: a high-bit u32 comes back negative, and two bools come back a number where `true & false` has to stay a bool.
+		private static bool NeedsBitwiseCast(BinaryTacOp op, TypeSymbol type) =>
+			ExprPrinter.IsBitwise(op) && type is PrimitiveTypeSymbol { Code: TypeCode.u32 or TypeCode.u64 or TypeCode.@bool };
 
 		//No imports: the host concatenates the runtime ahead of this file. An enum member keeps the name the source wrote, so only that spelling is an identity.
 		protected override List<Reference> Includes => [];
@@ -52,15 +52,8 @@ namespace Orion.Backend.JavaScript
 		{
 			return reachable.Select(i =>
 			{
-				List<Code> body = new List<Code>();
-				body.AddRange(Lowered.Run(i.St));
-
-				Dictionary<string, List<Declaration>> locals = new Dictionary<string, List<Declaration>>();
-				if (i.Wired)
-					foreach (string section in Netlist.Sections)
-						locals[section] = [.. Netlist.Ports(i, section).Select(p => new Declaration("let", p.Name, Netlist.Cell(p)))];
-				locals["Locals"] = i.Table.Traverse().SelectMany(i => i.GetAll<LocalDataSymbol>()).Where(i => i.Storage != LocalStorage.Static).Distinct().Select(Declare).ToList();
-				locals["Temps"] = CodeText.Referenced(i.Table.Traverse().SelectMany(i => i.GetAll<TempDataSymbol>()).Distinct().Select(Declare).ToList(), body);
+				List<Code> body = Lowered.Run(i.St);
+				Dictionary<string, List<Declaration>> locals = Frame(i, p => new Declaration("let", p.Name, Netlist.Cell(p)), Declare, body);
 
 				List<string> args = i.Wired ? [Solver.ParamName] : i.Parameters.Select(p => p.Name).ToList();
 				return new Function(Js(i.ReturnType), Language.Mangled(i.Name), args, locals, body);
@@ -71,7 +64,7 @@ namespace Orion.Backend.JavaScript
 		{
 			protected override string Forever => "true";
 			protected override string End => ";";
-			protected override string Not(StExpr condition) => $"!{Print(condition, ExprPrinter.UnaryPrec)}";
+			protected override string Not(StExpr condition) => $"!{Px(condition, ExprPrinter.UnaryPrec)}";
 			protected override string Expr(StExpr e) => Px(e);
 			protected override string Name(DataSymbol symbol) => Js(symbol);
 			protected override string Tuple(string items) => $"[{items}]";
@@ -81,55 +74,58 @@ namespace Orion.Backend.JavaScript
 
 		private static readonly Lowering Lowered = new Lowering();
 
-		private static string Px(StExpr e) => Print(e, 0);
+		private static string Px(StExpr e) => Px(e, 0);
 
-		private static string Print(StExpr e, int minPrec)
+		private static string Px(StExpr e, int minPrec)
 		{
 			switch (e)
 			{
 				case StLeaf l: return Js(l.Symbol);
 
 				case StIndex ix when ix.Container is PrimitiveTypeSymbol { Code: TypeCode.str }:
-					return $"str_at({Print(ix.Array, 0)}, {Print(ix.Index, 0)})";
+					return $"str_at({Px(ix.Array)}, {Px(ix.Index)})";
 
-				case StIndex ix: return $"{Print(ix.Array, 0)}[{Print(ix.Index, 0)}]";
-				case StMember m: return $"{Print(m.Instance, 0)}.{m.Field}";
-				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner: return $"!{Print(inner, ExprPrinter.UnaryPrec)}";
-				case StBin b when IsIntegerDivide(b.Op, b.Type):
+				case StIndex ix: return $"{Px(ix.Array)}[{Px(ix.Index)}]";
+				case StMember m: return $"{Px(m.Instance)}.{m.Field}";
+				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner: return $"!{Px(inner, ExprPrinter.UnaryPrec)}";
+				//An integer quotient truncates, where `/` on numbers does not.
+				case StBin b when b.Op == BinaryTacOp.Divide && b.Type is PrimitiveTypeSymbol { Code: not (TypeCode.f32 or TypeCode.f64) }:
 				{
 					int p = ExprPrinter.Prec(b.Op);
-					return $"Math.trunc({Print(b.Left, p)} / {Print(b.Right, p + 1)})";
+					return $"Math.trunc({Px(b.Left, p)} / {Px(b.Right, p + 1)})";
 				}
 				case StBin b:
 				{
 					int p = ExprPrinter.Prec(b.Op);
 					(int lp, int rp) = ExprPrinter.OperandPrec(b.Op);
 
-					if (ExprPrinter.NeedsExactMultiply(b.Op, b.Type))
-						return $"cast_{Spelling.Emitted(b.Type)}(Math.imul({Print(b.Left, 0)}, {Print(b.Right, 0)}))";
+					if (NeedsExactMultiply(b.Op, b.Type))
+						return $"cast_{Spelling.Emitted(b.Type)}(Math.imul({Px(b.Left)}, {Px(b.Right)}))";
 
-					string s = $"{Print(b.Left, lp)} {JsOp(b.Op, b.Type)} {Print(b.Right, rp)}";
-					if (ExprPrinter.NeedsMask(b.Op, b.Type) || ExprPrinter.NeedsNarrow(b.Op, b.Type) || ExprPrinter.NeedsUnsignedBitMask(b.Op, b.Type) || ExprPrinter.NeedsBoolCoerce(b.Op, b.Type))
+					//A signed `>>` would carry an unsigned value's top bit down.
+					string op = b.Op == BinaryTacOp.ShiftRight && IsUnsigned(b.Type) ? ">>>" : Spelling.Binary[b.Op];
+					string s = $"{Px(b.Left, lp)} {op} {Px(b.Right, rp)}";
+					if (ExprPrinter.NeedsMask(b.Op, b.Type) || ExprPrinter.NeedsNarrow(b.Op, b.Type) || NeedsBitwiseCast(b.Op, b.Type))
 						return $"cast_{Spelling.Emitted(b.Type)}({s})";
 					return p < minPrec ? $"({s})" : s;
 				}
 				case StUn u:
 				{
-					string operand = Print(u.Operand, ExprPrinter.UnaryPrec);
+					string operand = Px(u.Operand, ExprPrinter.UnaryPrec);
 					string s = u.Op switch
 					{
 						UnaryTacOp.BitNot => $"~{operand}",
 						UnaryTacOp.Negate => $"-{operand}",
-						_ => $"{operand} {UnaryOps[u.Op].Trim()}",
+						_ => $"{operand} {Spelling.Unary[u.Op]}",
 					};
 					return ExprPrinter.NeedsMask(u.Op, u.Type) || ExprPrinter.NeedsNarrow(u.Op, u.Type) ? $"cast_{Spelling.Emitted(u.Type)}({s})" : s;
 				}
-				case StCast { Target: EnumTypeSymbol } c: return Print(c.Value, minPrec);
-				case StCast c: return $"cast_{Spelling.Emitted(c.Target)}({Print(c.Value, 0)})";
+				case StCast { Target: EnumTypeSymbol } c: return Px(c.Value, minPrec);
+				case StCast c: return $"cast_{Spelling.Emitted(c.Target)}({Px(c.Value)})";
 				//A wired block reads its ports off the state, so its call carries exactly that.
 				case StCall c when Netlist.Wired(c.Function): return $"{Language.Mangled(c.Function.EmitName)}({Solver.StateName})";
-				case StCall c: return $"{Language.Mangled(c.Function.EmitName)}({string.Join(", ", c.Args.Select((a, i) => ExprPrinter.CopyArgument(c.Function, i, Print(a, 0))))})";
-				default: throw new NotImplementedException($"JavaScript Print: {e.GetType().Name}");
+				case StCall c: return $"{Language.Mangled(c.Function.EmitName)}({string.Join(", ", c.Args.Select((a, i) => ExprPrinter.CopyArgument(c.Function, i, Px(a))))})";
+				default: throw new NotImplementedException($"JavaScript Px: {e.GetType().Name}");
 			}
 		}
 
@@ -179,7 +175,7 @@ namespace Orion.Backend.JavaScript
 					switch (lit.Type)
 					{
 						case PrimitiveTypeSymbol p when p.Code == TypeCode.str:
-							return Quote(lit.Value as string);
+							return Spelling.Quote(lit.Value as string, Spelling.Controls.Hex);
 
 						case PrimitiveTypeSymbol p when p.Code == TypeCode.@bool:
 							return (bool)lit.Value ? "true" : "false";
@@ -236,7 +232,7 @@ namespace Orion.Backend.JavaScript
 					return $"span_slice({slice.Global.Name}, {slice.Offset}, {slice.Length})";
 
 				case RefSymbol reference:
-					return $"{reference.Global.Name}";
+					return reference.Global.Name;
 
 				case NullSymbol:
 					return "null";
@@ -268,10 +264,7 @@ namespace Orion.Backend.JavaScript
 				BuiltinTypeSymbol builtin => type.Name,
 				FunctionTypeSymbol t => "Function",
 				TypeSymbol t => t.Name,
-				_ => throw new NotImplementedException()
 			};
 		}
-
-		private static string Quote(string value) => Spelling.Quote(value, octalControls: false);
 	}
 }

@@ -3,10 +3,8 @@ using System.Collections.Generic;
 
 namespace Orion.BuildTime.Builtins
 {
-
 	public class BuildList<T>
 	{
-
 		internal readonly System.Collections.Generic.List<T> Items = new System.Collections.Generic.List<T>();
 
 		public int Length => Items.Count;

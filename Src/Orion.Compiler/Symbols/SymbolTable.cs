@@ -72,19 +72,19 @@ namespace Orion.Symbols
 			return child;
 		}
 
-		public void Add<T>(T symbol) where T : Symbol
+		public void Add(Symbol symbol)
 		{
 			Trace.Assert(_present.Add(symbol));
 			_symbols.Add(symbol);
 			Index(symbol);
 		}
 
-		public void Remove<T>(T symbol) where T : Symbol
+		public void Remove(Symbol symbol)
 		{
 			Trace.Assert(TryRemove(symbol));
 		}
 
-		public bool TryRemove<T>(T symbol) where T : Symbol
+		public bool TryRemove(Symbol symbol)
 		{
 			if (!_symbols.Remove(symbol))
 				return false;
@@ -102,7 +102,7 @@ namespace Orion.Symbols
 			return true;
 		}
 
-		private void Index<T>(T symbol) where T : Symbol
+		private void Index(Symbol symbol)
 		{
 			if (symbol is INamedSymbol named)
 			{

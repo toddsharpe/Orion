@@ -3,16 +3,13 @@ using System;
 
 namespace Orion.BuildTime.Builtins
 {
-	//`Define::` -- the compile's -D defines, read as values rather than only chosen with:
+	//`Define::` -- the compile's -D defines, read as values rather than only chosen with; build-only, since a runtime must not depend on a flag the program cannot see:
 	//
 	//   const str path = $"Configs/{Define::Get("CONFIG_DIR", "Talon")}/geometry.src";
-	//
-	//An `#if` folds before anything binds, so a define is not a symbol and cannot be named in an expression.
-	//Build-only: what a program does at runtime must not depend on a flag the program cannot see.
 	[BuildOnly]
 	public static class DefineBuiltins
 	{
-		//The define's value as text, or `fallback` when this compile did not define it.
+		//The define's value as text, or `fallback` when this compile did not define it; an `#if` folds before anything binds, so a define is not a symbol an expression could name instead.
 		public static string Get(string name, string fallback)
 		{
 			return Frontend.Conditionals.Defines().TryGetValue(name, out Ast.Literal literal)

@@ -1,4 +1,5 @@
 using Orion.Ast;
+using Orion.Frontend.Binder;
 using Orion.Diagnostics;
 using Orion.IR;
 using Orion.Symbols;

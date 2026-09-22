@@ -12,7 +12,7 @@ namespace Orion.Frontend
 		public static void Run(TranslationUnit tu, List<Message> messages)
 		{
 			//Before the rewrite, so a hoisted block picks up its void ResultType like a written one.
-			LowerFileTests(tu, messages);
+			LowerFileTests(tu);
 			HoistFileRuns(tu, messages);
 			LowerRunConsts(tu, messages);
 			tu.Rewrite(i => Process(i, messages));
@@ -20,7 +20,7 @@ namespace Orion.Frontend
 		}
 
 		//A `#test` becomes a file-scope `#run` on a test run; otherwise it is dropped here, before binding.
-		private static void LowerFileTests(TranslationUnit tu, List<Message> messages)
+		private static void LowerFileTests(TranslationUnit tu)
 		{
 			List<FileTest> tests = tu.Blocks.OfType<FileTest>().ToList();
 			foreach (FileTest test in tests)
@@ -51,8 +51,7 @@ namespace Orion.Frontend
 			}
 		}
 
-		//A file-scope `const T Name = #run { }` is the program's, and its value exists only once the build ran, after constants are interned: so it lowers to the local form that already folds, the same `const` at the top of every runtime function that names it, and a `#build` function cannot name it, since a `#run` has no place in build code.
-		//An initializer that calls a function is the same thing written as an expression, since the constant folder never runs a call: a runtime function gets it as `#run { return <expr>; }`, and a `#build` function gets it as a plain local, since it can make the call itself.
+		//A file-scope `#run` or calling constant becomes a local at the top of every function naming it; see Docs/BuildTime.md.
 		private static void LowerRunConsts(TranslationUnit tu, List<Message> messages)
 		{
 			List<Const> consts = tu.Blocks.OfType<Const>().Where(i => i.Initializer is RunExpr || Calls(i.Initializer)).ToList();
@@ -149,6 +148,13 @@ namespace Orion.Frontend
 				}));
 		}
 
+		//`"text"` as an expression: the shape every lowering below writes a string literal in.
+		private static Value Str(string text, InputRegion region) => new Value
+		{
+			Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = text },
+			Region = region
+		};
+
 		//The name `to_str` lowers to for an enum, by the `<Name>_str` convention the primitives use.
 		internal static string StrFunction(string @enum) => $"{@enum}_str";
 
@@ -181,10 +187,7 @@ namespace Orion.Frontend
 		//`return "<text>";`
 		private static Statement Text(string text) => new Return
 		{
-			Ret = new ReturnExpr
-			{
-				Value = new Value { Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = text } },
-			},
+			Ret = new ReturnExpr { Value = Str(text, null) },
 		};
 
 		internal static void Run(Function fn, List<Message> messages)
@@ -204,43 +207,38 @@ namespace Orion.Frontend
 		//Tree.Rewrite handles the descent, bottom-up, so a node's children are processed before it is.
 		private static Node Process(Node node, List<Message> messages)
 		{
-			Node processed = Rewritten(node, messages);
+			//A `#run { }` is only stamped with the type it produces; BuildRegions lifts it after #param folding.
+			switch (node)
+			{
+				case Assignment { Init: Construct { Value: RunExpr r } init }: r.ResultType = init.TypeName; break;
+				case ConstDef { Value: RunExpr r } x: r.ResultType = x.TypeName; break;
+				case Exec { Expression: RunExpr r }: r.ResultType = Void; break;
+			}
+
+			Node processed = node switch
+			{
+				Interpolation x => ProcessInterpolation(x),
+				MapLiteral x => ProcessMap(x),
+				SrcExpr x => ProcessSrc(x),
+				Template x => ProcessTemplate(x),
+				CodeExpr x => ProcessCode(x),
+				InsertCode x => ProcessInsertCode(x),
+				Assert x => ProcessAssert(x),
+				Call x when x.IsCreate => ProcessCreate(x, messages),
+				//A fixed-array literal keeps its ArrayExpr; only a List<T> literal is rewritten.
+				ArrayExpr x when x.TypeName is { GenericType: "List", Generics.Count: 1 } => ProcessList(x),
+				//A comprehension is consumed by its declaration, expanding into a Group of two statements.
+				Assignment x when x.Init is Construct { Value: Comprehension c } init => ProcessComprehension(x, init, c, messages),
+				ConstDef x when x.Value is Comprehension c => ProcessComprehension(x, c, messages),
+				_ => node
+			};
 			if (!ReferenceEquals(processed, node))
 				messages.Add(new Message($"Desugar: {node.GetType().Name} -> {processed.GetType().Name}", node.Region, MessageType.Trace));
 
 			return processed;
 		}
 
-		private static Node Rewritten(Node node, List<Message> messages) => node switch
-		{
-			Interpolation x => ProcessInterpolation(x),
-			MapLiteral x => ProcessMap(x),
-			SrcExpr x => ProcessSrc(x),
-			Template x => ProcessTemplate(x),
-			CodeExpr x => ProcessCode(x),
-			InsertCode x => ProcessInsertCode(x),
-			Assert x => ProcessAssert(x),
-			Call x when x.IsCreate => ProcessCreate(x, messages),
-			//A fixed-array literal keeps its ArrayExpr; only a List<T> literal is rewritten.
-			ArrayExpr x when x.TypeName is { GenericType: "List", Generics.Count: 1 } => ProcessList(x),
-			//A comprehension is consumed by its declaration, expanding into a Group of two statements.
-			Assignment x when x.Init is Construct { Value: Comprehension c } init => ProcessComprehension(x, init, c, messages),
-			ConstDef x when x.Value is Comprehension c => ProcessComprehension(x, c, messages),
-			//A `#run { }` is only stamped with the type it produces; BuildRegions lifts it after #param folding.
-			Assignment x when x.Init is Construct { Value: RunExpr r } init => Typed(x, r, init.TypeName),
-			ConstDef x when x.Value is RunExpr r => Typed(x, r, x.TypeName),
-			Exec x when x.Expression is RunExpr r => Typed(x, r, Void),
-			_ => node
-		};
-
 		private static readonly TypeName Void = new TypeName { Name = "void" };
-
-		//Returns the statement unchanged, so ReportStrayRuns can spot the `#run { }`s no arm claimed.
-		private static Statement Typed(Statement statement, RunExpr run, TypeName result)
-		{
-			run.ResultType = result;
-			return statement;
-		}
 
 		//Whatever the rewrite did not consume.
 		private static void ReportStrays(IEnumerable<Node> nodes, List<Message> messages)
@@ -279,7 +277,7 @@ namespace Orion.Frontend
 				map.TypeName.Generics, entries, map.Region);
 		}
 
-		//`List<T>[a, b]` becomes List::With(List::With(List::New<T>(), a), b), so the literal stays one expression.
+		//A list or map literal becomes With over With over New (`List::With(List::With(List::New<T>(), a), b)`), one entry per With, so it stays one expression.
 		private static Expression Collection(string make, string with, List<TypeName> typeArgs, IEnumerable<List<Expression>> entries, InputRegion region)
 		{
 			Expression acc = new Call
@@ -320,11 +318,7 @@ namespace Orion.Frontend
 				index++;
 			}
 
-			Value entry = new Value
-			{
-				Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = src.Entry },
-				Region = src.Region
-			};
+			Value entry = Str(src.Entry, src.Region);
 
 			return new SrcCall
 			{
@@ -360,11 +354,7 @@ namespace Orion.Frontend
 			//A written bag picks the other entry, so an unscheduled `#create` lowers exactly as it always did.
 			List<Expression> arguments =
 			[
-				new Value
-				{
-					Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = call.Function },
-					Region = call.Region
-				},
+				Str(call.Function, call.Region),
 				new ArgsExpr { Fields = fields, Region = call.Region },
 			];
 
@@ -400,15 +390,11 @@ namespace Orion.Frontend
 						Region = part.Hole.Region
 					});
 				else
-					pieces.Add(new Value
-					{
-						Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = part.Text },
-						Region = InputRegion.None
-					});
+					pieces.Add(Str(part.Text, InputRegion.None));
 			}
 
 			if (pieces.Count == 0)
-				return new Value { Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = "" }, Region = InputRegion.None };
+				return Str(string.Empty, InputRegion.None);
 
 			Expression acc = pieces[0];
 			for (int i = 1; i < pieces.Count; i++)
@@ -511,11 +497,7 @@ namespace Orion.Frontend
 					[
 						new BinaryOp
 						{
-							Operand1 = new Value
-							{
-								Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = direction },
-								Region = node.Region
-							},
+							Operand1 = Str(direction, node.Region),
 							Op = AstOp.Add,
 							Operand2 = node.Code,
 							Region = node.Region
@@ -531,18 +513,7 @@ namespace Orion.Frontend
 		//#assert(cond[, message]) -> if (cond == false) { Build::Error(message); }; no message reports the line.
 		private static Statement ProcessAssert(Assert a)
 		{
-			Expression message = a.Message ?? new Value
-			{
-				Literal = new StringLiteral
-				{
-					TypeName = new TypeName
-					{
-						Name = "str"
-					},
-					Value = $"assertion failed on line {a.Line}"
-				},
-				Region = InputRegion.None
-			};
+			Expression message = a.Message ?? Str($"assertion failed on line {a.Line}", InputRegion.None);
 
 			return new If
 			{
@@ -552,14 +523,7 @@ namespace Orion.Frontend
 					Op = AstOp.Equals,
 					Operand2 = new Value
 					{
-						Literal = new BoolLiteral
-						{
-							TypeName = new TypeName
-							{
-								Name = "bool"
-							},
-							Value = false
-						},
+						Literal = new BoolLiteral { TypeName = new TypeName { Name = "bool" }, Value = false },
 						Region = InputRegion.None
 					},
 					Region = a.Region
@@ -587,7 +551,12 @@ namespace Orion.Frontend
 		private static Statement ProcessComprehension(Assignment statement, Construct construct, Comprehension c, List<Message> messages)
 		{
 			construct.Value = EmptyList(c, messages);
-			return Grouped(statement, c, construct.SymbolName, messages);
+			//The declaration, then the loop that fills it, so one declaration still stands in one statement slot.
+			return new Group
+			{
+				Statements = [statement, FillLoop(c, construct.SymbolName, messages)],
+				Region = c.Region
+			};
 		}
 
 		//`const List<U> v = [...]` -- a write-once local is its own node.
@@ -615,14 +584,6 @@ namespace Orion.Frontend
 			};
 		}
 
-		//The declaration, then the loop that fills it, so one declaration still stands in one statement slot.
-		private static Group Grouped(Statement declaration, Comprehension c, string target, List<Message> messages) =>
-			new Group
-			{
-				Statements = [declaration, FillLoop(c, target, messages)],
-				Region = c.Region
-			};
-
 		//The declaration's new initializer: an empty List<U>.
 		private static Expression EmptyList(Comprehension c, List<Message> messages)
 		{
@@ -646,7 +607,7 @@ namespace Orion.Frontend
 		}
 
 		//{ T[] arr = src; for (i32 i = 0; i < arr.Length; i++) { T x = arr[i]; if (cond) target.Add(body); } }
-		private static Statement FillLoop(Comprehension c, string target, List<Message> messages_)
+		private static Statement FillLoop(Comprehension c, string target, List<Message> messages)
 		{
 			//Unique per source position, matching pforeach's convention, so nested comprehensions differ.
 			string suffix = $"{c.Region.Start.Line}_{c.Region.Start.Column}";
@@ -712,7 +673,7 @@ namespace Orion.Frontend
 			if (c.IndexName != null)
 			{
 				if (c.IndexName == c.ElementName)
-					messages_.Add(new Message($"A comprehension's index `{c.IndexName}` cannot share the element's name.", c.Region, MessageType.Error));
+					messages.Add(new Message($"A comprehension's index `{c.IndexName}` cannot share the element's name.", c.Region, MessageType.Error));
 
 				body.Insert(0, new ConstDef
 				{

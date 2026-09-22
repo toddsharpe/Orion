@@ -1,5 +1,4 @@
 using System.IO;
-using System;
 
 namespace Orion.Tests.Frontend
 {
@@ -10,23 +9,15 @@ namespace Orion.Tests.Frontend
 		[TestMethod]
 		public void MissingEntryIsADiagnostic()
 		{
-			string dir = Path.Combine(Path.GetTempPath(), "orion_missing_" + Guid.NewGuid().ToString("N"));
-			Directory.CreateDirectory(dir);
-			try
+			using TempDir dir = new TempDir("orion_missing_");
+			CompilerResult result = Compiler.Run(new CompilerOptions
 			{
-				CompilerResult result = Compiler.Run(new CompilerOptions
-				{
-					Input = Path.Combine(dir, "absent.src"),
-					WorkingDirectory = dir,
-					Lang = BackendLanguage.Cpp,
-				});
+				Input = Path.Combine(dir.Path, "absent.src"),
+				WorkingDirectory = dir.Path,
+				Lang = BackendLanguage.Cpp,
+			});
 
-				result.AssertError("Source file not found");
-			}
-			finally
-			{
-				Directory.Delete(dir, true);
-			}
+			result.AssertError("Source file not found");
 		}
 
 		[TestMethod]

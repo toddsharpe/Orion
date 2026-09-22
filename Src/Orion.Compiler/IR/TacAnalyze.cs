@@ -27,34 +27,29 @@ namespace Orion.IR
 			PortAccess.Check(func, messages);
 		}
 
+		//Where a function is, for a diagnostic with no tac of its own to point at: its first located tac, or nowhere.
+		internal static InputRegion Located(this SourceFunctionSymbol func) =>
+			func.Tacs.FirstOrDefault(i => i.Region != null)?.Region ?? InputRegion.None;
+
 		private static void AddReturns(SourceFunctionSymbol func, List<Message> messages)
 		{
 			ControlFlowGraph cfg = ControlFlowGraph.Create(func.Tacs);
 
-			TypeSymbol type = func.ReturnType;
-			bool isVoid = type is PrimitiveTypeSymbol prim && prim.Code == TypeCode.@void;
+			bool isVoid = Language.IsVoid(func.ReturnType);
+			bool empty = !cfg.Nodes.Any();
 
-			if (!cfg.Nodes.Any())
-			{
-				func.Tacs.Clear();
-				func.Tacs.AddFirst(new FunctionMarkTac(MarkOp.Start));
-				if (isVoid)
-					func.Tacs.AddLast(new ReturnVoidTac());
-				else
-					messages.Add(new Message($"{func.Name}: Not all codepaths return a value: the body is empty.", InputRegion.None, MessageType.Error));
-				func.Tacs.AddLast(new FunctionMarkTac(MarkOp.End));
-				return;
-			}
+			//An empty body has no exit block to hold its return, so the one it needs goes in after the rebuild.
+			if (empty && !isVoid)
+				messages.Add(new Message($"{func.Name}: Not all codepaths return a value: the body is empty.", InputRegion.None, MessageType.Error));
 
-			HashSet<ControlFlowGraph.Block> reachable = [.. cfg.Nodes.First().BreadthFirstNodes().Select(i => i.Value)];
+			HashSet<ControlFlowGraph.Block> reachable = empty ? [] : [.. cfg.Nodes.First().BreadthFirstNodes().Select(i => i.Value)];
 
 			foreach (ControlFlowGraph.Block exit in cfg.Exits())
 			{
 				if (!reachable.Contains(exit))
 					continue;
 
-				bool hasReturn = exit.Tacs.Last.Value is ReturnTac;
-				if (hasReturn)
+				if (exit.Tacs.Last.Value is ReturnTac)
 					continue;
 
 				if (isVoid)
@@ -73,6 +68,8 @@ namespace Orion.IR
 			foreach (ControlFlowGraph.Node block in cfg.Nodes)
 				foreach (Tac tac in block.Value.Tacs)
 					func.Tacs.AddLast(tac);
+			if (empty && isVoid)
+				func.Tacs.AddLast(new ReturnVoidTac());
 			func.Tacs.AddLast(new FunctionMarkTac(MarkOp.End));
 		}
 	}

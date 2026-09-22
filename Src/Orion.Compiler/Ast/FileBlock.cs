@@ -62,6 +62,7 @@ namespace Orion.Ast
 					Source = block,
 					TypeName = TypeName.Create(c.Item1.Value),
 					Name = c.Item2.Value,
+					//Two separate trees on purpose: the monomorphizer rewrites Value and Initializer independently, so they cannot share nodes.
 					Value = Literal.FromExpression(Expression.Create(c.Item3.Value)),
 					Initializer = Expression.Create(c.Item3.Value),
 					Region = InputRegion.Create(

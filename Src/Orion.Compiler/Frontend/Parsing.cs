@@ -11,9 +11,6 @@ namespace Orion.Frontend
 	//The parse driver: the entry file and every `#using`-reachable source, parsed depth-first into one file list.
 	public static class Parsing
 	{
-		private static bool Escapes(string path) =>
-			Path.IsPathRooted(path) || path.Split('/', '\\').Any(i => i == "..");
-
 		private static int NestingDepth(string text)
 		{
 			int depth = 0, max = 0;
@@ -29,7 +26,6 @@ namespace Orion.Frontend
 
 		public static List<CompilerFile> GatherAsts(string entry, List<Message> messages, Func<string, string> read = null)
 		{
-			string Contents(string file) => read?.Invoke(file) ?? System.IO.File.ReadAllText(file);
 			bool Exists(string file) => read?.Invoke(file) != null || System.IO.File.Exists(file);
 
 			List<CompilerFile> units = new List<CompilerFile>();
@@ -45,7 +41,7 @@ namespace Orion.Frontend
 				string contents;
 				try
 				{
-					contents = Exists(file) ? Contents(file) : null;
+					contents = read?.Invoke(file) ?? (System.IO.File.Exists(file) ? System.IO.File.ReadAllText(file) : null);
 				}
 				catch (Exception e) when (e is IOException or UnauthorizedAccessException)
 				{
@@ -66,8 +62,6 @@ namespace Orion.Frontend
 					return;
 				}
 
-				string dir = Path.GetDirectoryName(file);
-
 				ParserResult parseResult = Lang.Parse.ParseNamed(file, contents);
 				if (!parseResult.IsSuccess)
 				{
@@ -85,7 +79,7 @@ namespace Orion.Frontend
 
 				foreach (Using @using in unit.Blocks.OfType<Using>())
 				{
-					if (Escapes(@using.Path))
+					if (Path.IsPathRooted(@using.Path) || @using.Path.Split('/', '\\').Any(i => i == ".."))
 					{
 						messages.Add(new Message(
 							$"#using \"{@using.Path}\" climbs out of the source tree. A path is named from the root " +
@@ -113,9 +107,6 @@ namespace Orion.Frontend
 						messages.Add(new Message($"#using file not found: {@using.Path} (tried {string.Join("; ", tried)})", @using.Region, MessageType.Error));
 						continue;
 					}
-
-					if (visited.Contains(full))
-						continue;
 
 					Gather(full);
 				}

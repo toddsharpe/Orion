@@ -4,6 +4,7 @@ using Orion.Diagnostics;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
+using static Orion.BuildTime.AstBuild;
 
 namespace Orion.BuildTime
 {
@@ -24,56 +25,37 @@ namespace Orion.BuildTime
 		//The one net the platform drives, not a block: the shared cycle timestamp, written into this cell by `solver_cycle` on entry and read as an ordinary `#input`.
 		public const string CycleTimeName = "cycle_time";
 
-		private readonly List<SourceFunctionSymbol> _functions;
+		//The wired blocks, exposed so a host (the web visualizer) can draw the netlist; each #input/#output ParamDataSymbol carries the net it connects to.
+		private readonly List<SourceFunctionSymbol> _blocks;
+
+		//Read-only to a host and to Orion, which reaches a solver handle through `Solver::New`.
+		public IReadOnlyList<SourceFunctionSymbol> Blocks => _blocks;
 		private readonly SymbolTable _root;
 
-		//`#output S s @ "Gps"` publishes `Gps.Temp` too: a field net, whose cell is a path into its root.
-		private void Fan(List<Message> messages, SourceFunctionSymbol func, string label, string cell,
-			TypeSymbol type, List<Device> fanned, HashSet<TypeSymbol> visited = null)
-		{
-			if (type is not StructTypeSymbol @struct)
-				return;
+		//The wired nets, so ViewState shows the signals without a block's private memory.
+		private HashSet<string> _nets = new HashSet<string>();
 
-			visited ??= new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
-			if (!visited.Add(type))
-			{
-				Error(messages, $"Solver: block '{func.Name}' publishes net '{label}', whose type '{type.Name}' " +
-					$"contains itself, so its fields have no end. Break the cycle to publish it field by field.");
-				return;
-			}
+		//One `state.<cell> = <literal>;` per #state port that declared an initializer.
+		private readonly List<string> _inits = new List<string>();
 
-			foreach (Field field in @struct.Fields)
-			{
-				Device leaf = new Device
-				{
-					Name = $"{label}.{field.Name}",
-					Cell = $"{cell}.{field.Name}",
-					Type = field.Type,
-					Producer = func,
-				};
+		//Read-only to a host and to Orion, as Blocks is.
+		public IReadOnlyList<string> Inits => _inits;
 
-				fanned.Add(leaf);
-				Fan(messages, func, leaf.Name, leaf.Cell, field.Type, fanned, visited);
-			}
+		//Set by SolveExported before Solve, because wiring differs: an exported netlist has a cell no block drives.
+		private bool _exported;
 
-			visited.Remove(type);
-		}
+		//Null means nothing asked for the cycle time, so `solver_cycle` takes none.
+		private TypeSymbol _stamp;
 
-		private class Device
-		{
-			//The net as written, including dots.
-			public string Name { get; set; }
+		//The rate `Solver::Export` gave, so a schedule holds to whole cycles of it. Zero when hosted.
+		private long _dt;
 
-			//The same net as an identifier.
-			public string Cell { get; set; }
-			public TypeSymbol Type { get; set; }
-			public SourceFunctionSymbol Producer { get; set; }
-			public List<SourceFunctionSymbol> Consumers { get; set; } = new List<SourceFunctionSymbol>();
-		}
+		//The stamp net's own type, which the folded period and phase are written at. See Nanos.
+		private TypeSymbol _slot;
 
 		public Solver(List<SourceFunctionSymbol> functions, SymbolTable root)
 		{
-			_functions = functions;
+			_blocks = functions;
 			_root = root;
 		}
 
@@ -88,14 +70,14 @@ namespace Orion.BuildTime
 
 			//One Device per #output net; two drivers is a wiring error, caught before it becomes a field.
 			List<Device> state = new List<Device>();
-			foreach (SourceFunctionSymbol func in _functions)
+			foreach (SourceFunctionSymbol func in _blocks)
 			{
 				foreach (ParamDataSymbol output in func.Parameters.Where(j => j.Direction == ParamDirection.Out))
 				{
 					//A net may be dotted -- `Baro.Pressure` is one signal in a hierarchy.
 					if (!IsNetName(output.Net))
 					{
-						Error(messages, $"Solver: block '{func.Name}' output '{output.Name}' names net '{output.Net}', " +
+						Env.Report(messages, $"Solver: block '{func.Name}' output '{output.Name}' names net '{output.Net}', " +
 							$"which is not a name a target can declare. A net becomes a field of `{StructName}`, so it " +
 							$"must hold only letters, digits and '_', in parts separated by '.'.");
 						continue;
@@ -107,16 +89,16 @@ namespace Orion.BuildTime
 
 					if (existing != null)
 					{
-						Error(messages, $"Solver: net '{output.Net}' is driven by two blocks ('{existing.Producer.Name}' and '{func.Name}'); each net needs a single source.");
+						Env.Report(messages, $"Solver: net '{output.Net}' is driven by two blocks ('{existing.Producer.Name}' and '{func.Name}'); each net needs a single source.");
 						continue;
 					}
 
 					//Two nets whose dots fall out the same way are one field, which would silently merge them.
-					string cell = Mangle(output.Net);
+					string cell = output.Net.Replace('.', '_');
 					Device same = state.FirstOrDefault(d => d.Cell == cell);
 					if (same != null)
 					{
-						Error(messages, $"Solver: nets '{same.Name}' and '{output.Net}' both become field '{cell}' of " +
+						Env.Report(messages, $"Solver: nets '{same.Name}' and '{output.Net}' both become field '{cell}' of " +
 							$"`{StructName}`; a '.' in a net is written '_' there, so the two would be one cell.");
 						continue;
 					}
@@ -137,7 +119,7 @@ namespace Orion.BuildTime
 
 			//Hoist each #state port into a private field: storage but no Device, so nothing can wire to it.
 			List<Device> hoisted = new List<Device>();
-			foreach (SourceFunctionSymbol func in _functions)
+			foreach (SourceFunctionSymbol func in _blocks)
 			{
 				foreach (ParamDataSymbol port in func.Parameters.Where(j => j.Direction == ParamDirection.State))
 				{
@@ -147,18 +129,18 @@ namespace Orion.BuildTime
 					//A cell is a field too, and the instance half of its name is the author's `#param str name`, so it needs the same check the nets get.
 					if (!IsNetName(named))
 					{
-						Error(messages, $"Solver: block '{func.Name}' cell '{named}' is not a name a target can " +
+						Env.Report(messages, $"Solver: block '{func.Name}' cell '{named}' is not a name a target can " +
 							$"declare. A `#state` cell is named `{{instance}}_{{port}}` and becomes a field of " +
 							$"`{StructName}`, so the instance name must hold only letters, digits and '_'.");
 						continue;
 					}
-					port.Net = Mangle(named);
+					port.Net = named.Replace('.', '_');
 
 					//Cells and nets share one namespace.
 					Device clash = hoisted.FirstOrDefault(d => d.Cell == port.Net) ?? state.FirstOrDefault(d => d.Cell == port.Net);
 					if (clash != null)
 					{
-						Error(messages, clash.Producer == func
+						Env.Report(messages, clash.Producer == func
 							? $"Solver: block '{func.Name}' already drives a net named '{clash.Name}', so `#state {port.Name}` collides with it; rename one."
 							: $"Solver: '{named}' names a cell of block '{func.Name}' and a net of '{clash.Producer.Name}' ('{clash.Name}'); give them different instances.");
 						continue;
@@ -180,7 +162,7 @@ namespace Orion.BuildTime
 			//The platform's cycle stamp, if any block asked: a cell like any other, so the input check finds it -- but with no producer, because no Orion code writes it.
 			if (_exported)
 			{
-				ParamDataSymbol stamp = _functions
+				ParamDataSymbol stamp = _blocks
 					.SelectMany(f => f.Parameters)
 					.FirstOrDefault(p => p.Direction == ParamDirection.In && p.Net == CycleTimeName);
 
@@ -189,7 +171,7 @@ namespace Orion.BuildTime
 					Device driven = state.FirstOrDefault(d => d.Name == CycleTimeName);
 					if (driven != null)
 					{
-						Error(messages, $"Solver: block '{driven.Producer.Name}' drives net '{CycleTimeName}', " +
+						Env.Report(messages, $"Solver: block '{driven.Producer.Name}' drives net '{CycleTimeName}', " +
 							$"which the platform drives on an exported solver. Rename that output, or hand this " +
 							$"netlist to `Solver::Solve` instead.");
 					}
@@ -206,11 +188,11 @@ namespace Orion.BuildTime
 
 			//Where each block sits in the cycle, which is what decides WHICH cycle a read gets.
 			Dictionary<SourceFunctionSymbol, int> order = new Dictionary<SourceFunctionSymbol, int>(ReferenceEqualityComparer.Instance);
-			for (int i = 0; i < _functions.Count; i++)
-				order[_functions[i]] = i;
+			for (int i = 0; i < _blocks.Count; i++)
+				order[_blocks[i]] = i;
 
 			//Check inputs against state: every #input must read a net some block drives.
-			foreach (SourceFunctionSymbol func in _functions)
+			foreach (SourceFunctionSymbol func in _blocks)
 			{
 				foreach (ParamDataSymbol input in func.Parameters.Where(j => j.Direction == ParamDirection.In))
 				{
@@ -221,13 +203,11 @@ namespace Orion.BuildTime
 					if (device == null)
 					{
 						List<string> available = [.. state.Concat(fanned).Select(d => d.Name)];
-						Error(messages,
+						Env.Report(messages,
 							$"Solver: block '{func.Name}' input '{input.Name}' reads net '{input.Net}', which no block drives." +
 							(available.Count == 0 ? string.Empty : $" Available nets: {string.Join(", ", available)}."));
 						continue;
 					}
-					device.Consumers.Add(func);
-
 					CheckDelay(messages, func, input, device, order);
 
 					//Wired: the port names the field from here, exactly as its driver's output does.
@@ -235,6 +215,7 @@ namespace Orion.BuildTime
 				}
 			}
 
+			_slot = state.FirstOrDefault(i => i.Name == CycleTimeName)?.Type;
 			CheckSchedules(messages, state, order);
 
 			//A netlist with a wiring error has no meaningful state struct; the errors already stand.
@@ -244,7 +225,7 @@ namespace Orion.BuildTime
 			//One netlist per program: the struct and its two functions are named, not numbered, so a second Solve would define each twice.
 			if (_root.TryGet(StructName, out TypeSymbol _))
 			{
-				Error(messages, $"Solver: this program already solved a netlist. `Solver::Solve` defines " +
+				Env.Report(messages, $"Solver: this program already solved a netlist. `Solver::Solve` defines " +
 					$"`{StructName}`, `{InitName}` and `{CycleName}`, so it runs once; hand every block to one solver.");
 				return;
 			}
@@ -253,30 +234,52 @@ namespace Orion.BuildTime
 			_nets = [.. state.Select(i => i.Cell)];
 			StructTypeSymbol solverStruct = new StructTypeSymbol(StructName,
 				[.. state.Concat(hoisted).Select(i => new Field(i.Cell, i.Type) { Label = i.Name })]);
-			solverStruct.Hosted = BuildAssembly.Create(solverStruct);
+			BuildAssembly.Begin(solverStruct);
+			solverStruct.Hosted = BuildAssembly.Complete(solverStruct);
 			_root.Add(solverStruct);
 		}
 
-		//The wired nets, so ViewState shows the signals without a block's private memory.
-		private HashSet<string> _nets = new HashSet<string>();
-
-		//One `state.<cell> = <literal>;` per #state port that declared an initializer.
-		private readonly List<string> _inits = new List<string>();
-
-		//Set by Solver::Export before Solve, because wiring differs: an exported netlist has a cell no block drives.
-		internal bool _exported;
-		//Null means nothing asked for the cycle time, so `solver_cycle` takes none.
-		private TypeSymbol _stamp;
-
-		//The rate `Solver::Export` gave, so a schedule holds to whole cycles of it. Zero when hosted.
-		internal long _dt;
-
-		//The stamp net's own type, which the folded period and phase are written at. See Nanos.
-		private TypeSymbol _slot;
-
-		private static void Error(List<Message> messages, string text)
+		//The exported netlist in one step: the rate is what makes it exported, and a zero rate stays the hosted reading CheckSchedules keys off.
+		internal void SolveExported(long dtNs, List<Message> messages)
 		{
-			messages.Add(new Message(text, Env.Region, MessageType.Error));
+			_exported = true;
+			_dt = dtNs;
+			Solve(messages);
+
+			if (!messages.HasError())
+				Export();
+		}
+
+		//`#output S s @ "Gps"` publishes `Gps.Temp` too: a field net, whose cell is a path into its root.
+		private void Fan(List<Message> messages, SourceFunctionSymbol func, string label, string cell,
+			TypeSymbol type, List<Device> fanned, HashSet<TypeSymbol> visited = null)
+		{
+			if (type is not StructTypeSymbol @struct)
+				return;
+
+			visited ??= new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
+			if (!visited.Add(type))
+			{
+				Env.Report(messages, $"Solver: block '{func.Name}' publishes net '{label}', whose type '{type.Name}' " +
+					$"contains itself, so its fields have no end. Break the cycle to publish it field by field.");
+				return;
+			}
+
+			foreach (Field field in @struct.Fields)
+			{
+				Device leaf = new Device
+				{
+					Name = $"{label}.{field.Name}",
+					Cell = $"{cell}.{field.Name}",
+					Type = field.Type,
+					Producer = func,
+				};
+
+				fanned.Add(leaf);
+				Fan(messages, func, leaf.Name, leaf.Cell, field.Type, fanned, visited);
+			}
+
+			visited.Remove(type);
 		}
 
 		//A cell named for a type emits `Baro Baro;`, which is ill-formed C++ that MSVC takes and g++ rejects.
@@ -291,7 +294,7 @@ namespace Orion.BuildTime
 				if (!_root.TryGet(field.Cell, out TypeSymbol clash) || clash is not StructTypeSymbol)
 					continue;
 
-				Error(messages, $"Solver: net '{field.Name}' becomes field '{field.Cell}' of `{StructName}`, and " +
+				Env.Report(messages, $"Solver: net '{field.Name}' becomes field '{field.Cell}' of `{StructName}`, and " +
 					$"'{field.Cell}' is also a struct. A field may not be named for its own type, so rename the " +
 					$"struct -- `{field.Cell}Reading` for a sensor's -- and leave the net as it is.");
 			}
@@ -300,45 +303,43 @@ namespace Orion.BuildTime
 		//A schedule tests the stamp, so the netlist carries one and the block runs after whatever writes it.
 		private void CheckSchedules(List<Message> messages, List<Device> state, Dictionary<SourceFunctionSymbol, int> order)
 		{
-			List<SourceFunctionSymbol> rated = [.. _functions.Where(i => i.Period != 0 || i.Phase != 0)];
+			List<SourceFunctionSymbol> rated = [.. _blocks.Where(i => i.Period != 0 || i.Phase != 0)];
 			if (rated.Count == 0)
 				return;
 
 			Device stamp = state.FirstOrDefault(i => i.Name == CycleTimeName);
-			_slot = stamp?.Type;
-
 			foreach (SourceFunctionSymbol func in rated)
 			{
 				if (stamp == null)
 				{
-					Error(messages, $"Solver: block '{func.Instance}' declares a schedule, which is tested against " +
+					Env.Report(messages, $"Solver: block '{func.Instance}' declares a schedule, which is tested against " +
 						$"net '{CycleTimeName}'. Nothing drives it here, so there is no stamp to test: hand this " +
 						$"netlist to `Solver::Export`, which the platform stamps, or drive '{CycleTimeName}' from a block.");
 					continue;
 				}
 
 				if (func.Period <= 0)
-					Error(messages, $"Solver: block '{func.Instance}' declares `{SolverBuiltins.PhaseKey}` with no `{SolverBuiltins.PeriodKey}`; " +
+					Env.Report(messages, $"Solver: block '{func.Instance}' declares `{SolverBuiltins.PhaseKey}` with no `{SolverBuiltins.PeriodKey}`; " +
 						$"a phase is an offset into a period, so it needs one to be an offset into.");
 				else if (func.Phase < 0 || func.Phase >= func.Period)
-					Error(messages, $"Solver: block '{func.Instance}' has `{SolverBuiltins.PhaseKey}` {func.Phase} and " +
+					Env.Report(messages, $"Solver: block '{func.Instance}' has `{SolverBuiltins.PhaseKey}` {func.Phase} and " +
 						$"`{SolverBuiltins.PeriodKey}` {func.Period}. A phase is where in the period the slot falls, so it must " +
 						$"be less than the period; otherwise the slot never comes round.");
 
 				//Whole cycles, or the test never holds: the stamp only ever takes multiples of the rate.
 				if (_dt > 0 && func.Period % _dt != 0)
-					Error(messages, $"Solver: block '{func.Instance}' has `{SolverBuiltins.PeriodKey}` {func.Period}, which is not " +
+					Env.Report(messages, $"Solver: block '{func.Instance}' has `{SolverBuiltins.PeriodKey}` {func.Period}, which is not " +
 						$"a whole number of {_dt}ns cycles. The stamp advances a cycle at a time, so a period " +
 						$"between two of them is a slot that never arrives.");
 
 				if (_dt > 0 && func.Phase % _dt != 0)
-					Error(messages, $"Solver: block '{func.Instance}' has `{SolverBuiltins.PhaseKey}` {func.Phase}, which is not " +
+					Env.Report(messages, $"Solver: block '{func.Instance}' has `{SolverBuiltins.PhaseKey}` {func.Phase}, which is not " +
 						$"a whole number of {_dt}ns cycles. The stamp advances a cycle at a time, so a phase " +
 						$"between two of them is a slot that never arrives.");
 
 				//Hosted, a block drives the stamp; before it, the guard tests what last cycle left behind.
 				if (stamp.Producer != null && order[stamp.Producer] >= order[func])
-					Error(messages, $"Solver: block '{func.Instance}' declares a schedule but is listed before " +
+					Env.Report(messages, $"Solver: block '{func.Instance}' declares a schedule but is listed before " +
 						$"'{stamp.Producer.Instance}', which drives '{CycleTimeName}', so it would test the " +
 						$"previous cycle's stamp. List it after '{stamp.Producer.Instance}'.");
 			}
@@ -352,7 +353,7 @@ namespace Orion.BuildTime
 			if (device.Producer == null)
 			{
 				if (input.Delayed)
-					Error(messages, $"Solver: block '{func.Name}' reads net '{device.Name}' as `#prev`, but no block " +
+					Env.Report(messages, $"Solver: block '{func.Name}' reads net '{device.Name}' as `#prev`, but no block " +
 						$"drives it -- the platform writes it before each cycle, so it is never a cycle behind. Use `#input`.");
 				return;
 			}
@@ -362,10 +363,10 @@ namespace Orion.BuildTime
 				return;
 
 			string when = device.Producer == func
-				? $"which it drives itself"
+				? "which it drives itself"
 				: $"which '{device.Producer.Name}' drives later in the cycle";
 
-			Error(messages, late
+			Env.Report(messages, late
 				? $"Solver: block '{func.Name}' input '{input.Name}' reads net '{device.Name}', {when}, so it sees " +
 					$"the PREVIOUS cycle's value. Write `#prev` instead of `#input` if that is meant, or move '{func.Name}' " +
 					$"after '{device.Producer.Name}' in the block list."
@@ -379,8 +380,7 @@ namespace Orion.BuildTime
 			if (string.IsNullOrEmpty(name))
 				return false;
 
-			string[] parts = name.Split('.');
-			return parts.All(IsFieldName);
+			return name.Split('.').All(IsFieldName);
 		}
 
 		//What every backend can spell as a struct field: the intersection of C++, Python and JavaScript identifiers with a CLR field name.
@@ -392,9 +392,6 @@ namespace Orion.BuildTime
 			return name.All(c => char.IsLetterOrDigit(c) || c == '_');
 		}
 
-		//Net Label to field name.
-		private static string Mangle(string net) => net.Replace('.', '_');
-
 		//The netlist as two real functions bound into the root table; generated, not spliced per callsite, so a cycle is one call however many places run one.
 		internal void Generate()
 		{
@@ -403,14 +400,14 @@ namespace Orion.BuildTime
 		}
 
 		//The state as the program's own global, the same two functions taking nothing, and the rate: what a platform links against; see Solver::Export.
-		internal void Export(long dtNs)
+		private void Export()
 		{
 			//Declared before the entries are emitted, so `_state.<net>` inside them binds to this.
 			StructTypeSymbol state = _root.Get<TypeSymbol>(StructName) as StructTypeSymbol;
 			_root.Add(new GlobalDataSymbol(StateName, state));
 
 			//Wired: each block and its #init render over the state global, ports as entry bindings; MSIL keeps the port face.
-			foreach (SourceFunctionSymbol func in _functions)
+			foreach (SourceFunctionSymbol func in _blocks)
 			{
 				func.Wired = true;
 				if (func.Init != null)
@@ -424,7 +421,7 @@ namespace Orion.BuildTime
 			Exported(BuildBuiltins.Emit(Entry(CycleName, "void", GenerateCycle(hosted: false), hosted: false,
 				stamp: _stamp ?? _root.Get<TypeSymbol>("i64")), bake: false));
 
-			Exported(BuildBuiltins.Emit(Period(dtNs), bake: false));
+			Exported(BuildBuiltins.Emit(Period(_dt), bake: false));
 		}
 
 		private static void Exported(OrionFunction emitted)
@@ -439,69 +436,27 @@ namespace Orion.BuildTime
 			List<Ast.Parameter> parameters = [];
 
 			if (hosted)
-			{
-				parameters.Add(new Ast.Parameter
-				{
-					Directive = Ast.ParamDirective.State,
-					TypeName = new Ast.TypeName { Name = StructName },
-					Name = Base,
-					Region = Env.Region,
-				});
-			}
+				parameters.Add(Param(Type(StructName), Base, Ast.ParamDirective.State));
 			else if (stamp != null)
-			{
 				//Typed as the net is, not as i64: an alias is not assignable from its representation without a cast, so the write below needs none.
-				parameters.Add(new Ast.Parameter
-				{
-					Directive = Ast.ParamDirective.None,
-					TypeName = new Ast.TypeName { Name = stamp.Name },
-					Name = CycleTimeName,
-					Region = Env.Region,
-				});
-			}
+				parameters.Add(Param(Type(stamp.Name), CycleTimeName));
 
-			return new Ast.Function
-			{
-				Name = name,
-				ReturnType = new Ast.TypeName { Name = returns },
-				TypeParameters = new List<string>(),
-				IsBlock = true,
-				Parameters = parameters,
-				Body = body,
-				Region = Env.Region,
-			};
+			foreach (Ast.Parameter parameter in parameters)
+				parameter.Region = Env.Region;
+
+			Ast.Function entry = Function(returns, name, parameters, body);
+			entry.IsBlock = true;
+			entry.Region = Env.Region;
+			return entry;
 		}
 
 		//`i64 solver_period()`, folded to the declared constant; a function rather than a global so every target spells it the same way.
 		private static Ast.Function Period(long dtNs)
 		{
-			return new Ast.Function
-			{
-				Name = PeriodName,
-				ReturnType = new Ast.TypeName { Name = "i64" },
-				TypeParameters = new List<string>(),
-				IsBlock = true,
-				Parameters = [],
-				Body =
-				[
-					new Ast.Return
-					{
-						Ret = new Ast.ReturnExpr
-						{
-							Value = new Ast.Value
-							{
-								Literal = new Ast.TypedIntLiteral
-								{
-									TypeName = new Ast.TypeName { Name = "i64" },
-									Value = dtNs,
-									Code = "i64",
-								}
-							}
-						}
-					}
-				],
-				Region = Env.Region,
-			};
+			Ast.Function period = Function("i64", PeriodName, [], [Return(Typed("i64", dtNs))]);
+			period.IsBlock = true;
+			period.Region = Env.Region;
+			return period;
 		}
 
 		//Run every block's #init once before the first cycle and hand back whether all of them started.
@@ -514,23 +469,16 @@ namespace Orion.BuildTime
 				foreach (string init in _inits)
 					statements.AddRange(CodeBuiltins.FromText(init));
 
-			statements.Add(Declare("bool", "init_ok", True()));
+			statements.Add(Declare("bool", "init_ok", Bool(true)));
 
 			//`&` evaluates both sides, so a block that reports failure does not stop the ones after it.
-			foreach (SourceFunctionSymbol func in _functions.Where(f => f.Init != null))
+			foreach (SourceFunctionSymbol func in _blocks.Where(f => f.Init != null))
 			{
-				Ast.Expression call = Invoke(func.Init.Name, func.Init.Parameters);
-				statements.Add(new Ast.Assignment
-				{
-					Init = new Ast.Assign
-					{
-						Target = Name("init_ok"),
-						Value = new Ast.BinaryOp { Operand1 = Name("init_ok"), Op = Ast.AstOp.BitAnd, Operand2 = call },
-					}
-				});
+				Ast.Expression call = Call(func.Init.Name, [.. func.Init.Parameters.Select(i => Cell(i.Net))]);
+				statements.Add(Set(Var("init_ok"), Binary(Var("init_ok"), Ast.AstOp.BitAnd, call)));
 			}
 
-			statements.Add(new Ast.Return { Ret = new Ast.ReturnExpr { Value = Name("init_ok") } });
+			statements.Add(Return(Var("init_ok")));
 			return statements;
 		}
 
@@ -539,13 +487,10 @@ namespace Orion.BuildTime
 		{
 			return [Declare(StructName, "state", new Ast.StructExpr
 			{
-				TypeName = new Ast.TypeName { Name = StructName },
+				TypeName = Type(StructName),
 				Fields = new Dictionary<string, Ast.Expression>(),
 			})];
 		}
-
-		//SolverState{} zeroes every cell, so only a #state port with an initializer adds a line.
-		public IReadOnlyList<string> Inits => _inits;
 
 		//One call per block, in the order they were handed to Solver::New.
 		private List<Ast.Statement> GenerateCycle(bool hosted)
@@ -554,16 +499,11 @@ namespace Orion.BuildTime
 
 			//The platform's stamp into its cell before any block runs, so every block reads one timestamp -- as a net, like everything else it consumes.
 			if (!hosted && _stamp != null)
-			{
-				statements.Add(new Ast.Assignment
-				{
-					Init = new Ast.Assign { Target = Cell(CycleTimeName), Value = Name(CycleTimeName) }
-				});
-			}
+				statements.Add(Set(Cell(CycleTimeName), Var(CycleTimeName)));
 
-			foreach (SourceFunctionSymbol func in _functions)
+			foreach (SourceFunctionSymbol func in _blocks)
 			{
-				Ast.Statement call = new Ast.Exec { Expression = Invoke(func.Name, func.Parameters) };
+				Ast.Statement call = Exec(Call(func.Name, [.. func.Parameters.Select(i => Cell(i.Net))]));
 				statements.Add(func.Period == 0 ? call : Slot(func, call));
 			}
 
@@ -573,35 +513,18 @@ namespace Orion.BuildTime
 		//`if (cycle_time % period == phase) { block(...); }`, both operands folded from the schedule bag.
 		private Ast.Statement Slot(SourceFunctionSymbol func, Ast.Statement call)
 		{
-			return new Ast.If
-			{
-				Clause = new Ast.BinaryOp
-				{
-					Operand1 = new Ast.BinaryOp { Operand1 = Cell(CycleTimeName), Op = Ast.AstOp.Mod, Operand2 = Nanos(func.Period) },
-					Op = Ast.AstOp.Equals,
-					Operand2 = Nanos(func.Phase),
-				},
-				Body = [call],
-			};
+			return If(
+				Binary(Binary(Cell(CycleTimeName), Ast.AstOp.Mod, Nanos(func.Period)), Ast.AstOp.Equals, Nanos(func.Phase)),
+				[call]);
 		}
 
 		//Typed as the stamp is, so the comparison needs no cast: `time` is an alias over i64.
 		private Ast.Expression Nanos(long value)
 		{
-			return new Ast.Value
-			{
-				Literal = new Ast.TypedIntLiteral
-				{
-					TypeName = new Ast.TypeName { Name = _slot?.Name ?? "i64" },
-					Value = value,
-					Code = "i64",
-				},
-				Region = Env.Region,
-			};
+			Ast.Expression literal = Typed(_slot?.Name ?? "i64", value, "i64");
+			literal.Region = Env.Region;
+			return literal;
 		}
-
-		//The wired blocks, exposed so a host (the web visualizer) can draw the netlist; each #input/#output ParamDataSymbol carries the net it connects to.
-		public IReadOnlyList<SourceFunctionSymbol> Blocks => _functions;
 
 		public List<Ast.Statement> ViewState()
 		{
@@ -609,76 +532,30 @@ namespace Orion.BuildTime
 			List<Ast.Statement> statements = new List<Ast.Statement>();
 			foreach (Field field in @struct.Fields.Where(i => _nets.Contains(i.Name)))
 			{
-				//`__str` is what to_str lowers to; binding picks the concrete one from the cell's type.
-				Ast.Expression text = new Ast.BinaryOp
-				{
-					//Labelled, not declared: a view of the signals names them the way the author wired them.
-					Operand1 = Text($"{field.Label} ({field.Type.Name}): "),
-					Op = Ast.AstOp.Add,
-					Operand2 = new Ast.Call
-					{
-						Function = "__str",
-						GenericArgs = new List<Ast.TypeName>(),
-						Arguments = [Cell(field.Name)],
-						ArgumentNames = [null],
-					},
-				};
-
-				statements.Add(new Ast.Exec
-				{
-					Expression = new Ast.Call
-					{
-						Function = "WriteLine",
-						GenericArgs = new List<Ast.TypeName>(),
-						Arguments = [text],
-						ArgumentNames = [null],
-					}
-				});
+				//`__str` is what to_str lowers to; binding picks the concrete one from the cell's type. Labelled, not declared: a view of the signals names them the way the author wired them.
+				Ast.Expression text = Binary(Text($"{field.Label} ({field.Type.Name}): "), Ast.AstOp.Add, Call("__str", [Cell(field.Name)]));
+				statements.Add(Exec(Call("WriteLine", [text])));
 			}
 
 			return statements;
-		}
-
-		//`f(state.a, state.b)` -- every port of a block, wired to the cell it names.
-		private Ast.Expression Invoke(string name, IEnumerable<ParamDataSymbol> ports)
-		{
-			List<Ast.Expression> args = [.. ports.Select(i => Cell(i.Net))];
-			return new Ast.Call
-			{
-				Function = name,
-				GenericArgs = new List<Ast.TypeName>(),
-				Arguments = args,
-				ArgumentNames = [.. args.Select(_ => (string)null)],
-			};
 		}
 
 		//`state.<net>`, the shape every wired reference takes: hosted over the `state` local, exported over the global whose underscore no block's net can shadow.
 		private string Base => _exported ? StateName : "state";
 
 		//A dot is a field of a struct net, and the only place a cell has one: every other net mangled its away.
-		private Ast.Expression Cell(string net) =>
-			net.Split('.').Aggregate(Name(Base), (instance, field) => new Ast.MemberAccess { Instance = instance, Field = field });
+		private Ast.Expression Cell(string net) => net.Split('.').Aggregate(Var(Base), Member);
 
-		private static Ast.Expression Name(string name) =>
-			new Ast.Variable { SymbolName = name };
+		//One net or cell of the state struct: what it is called, the field it becomes, and who reads and writes it.
+		private class Device
+		{
+			//The net as written, including dots.
+			public string Name { get; set; }
 
-		private static Ast.Expression Text(string value) =>
-			new Ast.Value { Literal = new Ast.StringLiteral { TypeName = new Ast.TypeName { Name = "str" }, Value = value } };
-
-		private static Ast.Expression True() =>
-			new Ast.Value { Literal = new Ast.BoolLiteral { TypeName = new Ast.TypeName { Name = "bool" }, Value = true } };
-
-		private static Ast.Statement Declare(string type, string name, Ast.Expression value) =>
-			new Ast.Assignment
-			{
-				Init = new Ast.Construct
-				{
-					Directive = Ast.LocalDirective.None,
-					TypeName = new Ast.TypeName { Name = type },
-					SymbolName = name,
-					Value = value,
-				}
-			};
-
+			//The same net as an identifier.
+			public string Cell { get; set; }
+			public TypeSymbol Type { get; set; }
+			public SourceFunctionSymbol Producer { get; set; }
+		}
 	}
 }

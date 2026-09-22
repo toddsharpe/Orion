@@ -10,12 +10,10 @@ namespace Orion.Symbols
 		{
 			SymbolTable global = new SymbolTable("Root");
 
-			foreach (KeyValuePair<TypeCode, PrimitiveTypeSymbol> pair in Language.Primitives)
-				global.Add(pair.Value);
-
-			//Add the view types; a sized array is named on demand, so there is no finite set to pre-register.
+			//Each primitive with its two views; a sized array is named on demand, so there is no finite set to pre-register.
 			foreach (KeyValuePair<TypeCode, PrimitiveTypeSymbol> pair in Language.Primitives)
 			{
+				global.Add(pair.Value);
 				global.Add(new SpanTypeSymbol(pair.Value));
 				global.Add(new SpanTypeSymbol(pair.Value, true));
 			}

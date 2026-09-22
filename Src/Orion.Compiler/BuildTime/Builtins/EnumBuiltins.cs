@@ -2,12 +2,9 @@
 
 namespace Orion.BuildTime.Builtins
 {
-
 	[BuildOnly]
 	public static class EnumBuiltins
 	{
-
-		[BuildOnly]
 		public static OrionEnum Value(string type, string member)
 		{
 			if (!Env.Context.Function.Table.GetRoot().TryGet(type, out Symbols.EnumTypeSymbol symbol))
@@ -25,7 +22,6 @@ namespace Orion.BuildTime.Builtins
 			return new OrionEnum { Type = type, Member = member };
 		}
 
-		[BuildOnly]
 		public static BuildList<string> Members(OrionType type)
 		{
 			BuildList<string> members = new BuildList<string>();

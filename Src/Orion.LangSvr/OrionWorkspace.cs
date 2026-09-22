@@ -1,6 +1,6 @@
 using Diag = OmniSharp.Extensions.LanguageServer.Protocol.Models.Diagnostic;
+using Orion.Frontend.Binder;
 using DiagSeverity = OmniSharp.Extensions.LanguageServer.Protocol.Models.DiagnosticSeverity;
-using FParse = FParsec.CharParsers.ParserResult<Orion.Lang.Syntax.TranslationUnit, Microsoft.FSharp.Core.Unit>;
 using LspPosition = OmniSharp.Extensions.LanguageServer.Protocol.Models.Position;
 using LspRange = OmniSharp.Extensions.LanguageServer.Protocol.Models.Range;
 using Orion.Ast;
@@ -33,14 +33,20 @@ namespace Orion.LangSvr
 	// Runs the frontend on open documents for diagnostics + a bound AST, stopping before #run; one ambient session, so serialized under a lock and cached per (uri, text).
 	public sealed class OrionWorkspace
 	{
+		//The language every handler registers for, and the id the VS Code client gives .src documents.
+		internal const string LanguageId = "orion";
+
 		private readonly ConcurrentDictionary<string, string> _docs = new ConcurrentDictionary<string, string>();
 		private readonly ConcurrentDictionary<string, (string Text, Analysis Result)> _cache = new ConcurrentDictionary<string, (string, Analysis)>();
 		private readonly object _lock = new object();
 
 		public void Set(string uri, string text)
 		{
-			_docs[uri] = text;
+			//Unchanged text keeps every cached analysis: the web host re-sets all its tabs before each question; AnalyzeCurrent compares the cached Text too, since a handler can be answering while another Set replaces the document.
+			if (_docs.TryGetValue(uri, out string current) && current == text)
+				return;
 
+			_docs[uri] = text;
 			_cache.Clear();
 		}
 
@@ -53,7 +59,7 @@ namespace Orion.LangSvr
 		public Analysis AnalyzeCurrent(string uri)
 		{
 			if (!_docs.TryGetValue(uri, out string text))
-				return new Analysis { Diagnostics = Array.Empty<Diag>(), Ast = null };
+				return new Analysis { Diagnostics = Array.Empty<Diag>() };
 			if (_cache.TryGetValue(uri, out (string Text, Analysis Result) cached) && cached.Text == text)
 				return cached.Result;
 			Analysis result = Analyze(text, LocalPath(uri), OpenBuffer);
@@ -80,8 +86,6 @@ namespace Orion.LangSvr
 			catch { return path; }
 		}
 
-		public Analysis Analyze(string text) => Analyze(text, null, null);
-
 		public Analysis Analyze(string text, string path, Func<string, string> read)
 		{
 			lock (_lock)
@@ -89,20 +93,18 @@ namespace Orion.LangSvr
 				List<Diag> diags = new List<Diag>();
 				try
 				{
-					Compiler.StartSession(Compiler.SetRoot(path, null, out List<Message> rootMessages, read));
-					Report(diags, rootMessages);
+					Compiler.StartSession(Compiler.SetRoot(path, null, read));
 
 					ParserResult parse = Lang.Parse.Parse(text);
 					if (parse.IsFailure)
 					{
-						FParse.Failure failure = (FParse.Failure)parse;
+						ParserResult.Failure failure = (ParserResult.Failure)parse;
 						FParsec.Position pos = failure.Item2.Position;
 						diags.Add(Point((int)pos.Line, (int)pos.Column, SyntaxText(failure.Item1)));
-						return new Analysis { Diagnostics = diags, Ast = null };
+						return new Analysis { Diagnostics = diags };
 					}
 
-					ParserResult.Success parseSuccess = parse as ParserResult.Success;
-					TranslationUnit tu = TranslationUnit.Create(parseSuccess.Item1);
+					TranslationUnit tu = TranslationUnit.Create(((ParserResult.Success)parse).Item1);
 
 					List<Message> messages = new List<Message>();
 					tu.Blocks = Conditionals.FoldBlocks(tu.Blocks, messages);
@@ -123,14 +125,14 @@ namespace Orion.LangSvr
 					foreach (Phase row in Pipeline.PrePasses)
 						row.Run(ctx, messages);
 
-					HashSet<FileBlock> own = new HashSet<FileBlock>(tu.Blocks, ReferenceEqualityComparer.Instance as IEqualityComparer<FileBlock>);
+					HashSet<FileBlock> own = new HashSet<FileBlock>(tu.Blocks, (IEqualityComparer<FileBlock>)ReferenceEqualityComparer.Instance);
 					List<FileBlock> importedBlocks = combined.Blocks.Where(b => !own.Contains(b)).ToList();
 					if (importedBlocks.Count > 0)
 						Binding.BindAst(new TranslationUnit { Blocks = importedBlocks }, root, new List<Message>());
 
 					tu.Blocks = combined.Blocks.Where(own.Contains).ToList();
 					Binding.BindAst(tu, root, messages);
-					Report(diags, messages);
+					diags.AddRange(messages.Errors().Select(FromMessage));
 					List<Function> templates = Orion.Frontend.Specializer.Templates.Values.ToList();
 					return new Analysis { Diagnostics = diags, Ast = tu, Text = text, Templates = templates, Path = path, Documents = documents };
 				}
@@ -144,7 +146,7 @@ namespace Orion.LangSvr
 						Source = "orion",
 						Message = "Orion internal error: " + ex.Message
 					});
-					return new Analysis { Diagnostics = diags, Ast = null };
+					return new Analysis { Diagnostics = diags };
 				}
 			}
 		}
@@ -189,30 +191,16 @@ namespace Orion.LangSvr
 			}
 		}
 
-		private static void Report(List<Diag> diags, IEnumerable<Message> messages)
-		{
-			diags.AddRange(messages.Errors().Select(FromMessage));
-		}
-
 		private static Diag FromMessage(Message m)
 		{
 			(int sl, int sc, int el, int ec) = m.Region?.ZeroBased() ?? (0, 0, 0, 1);
 			return new Diag
 			{
 				Range = new LspRange(new LspPosition(sl, sc), new LspPosition(el, ec)),
-				Severity = Sev(m.Type),
+				Severity = m.Type == MessageType.Error ? DiagSeverity.Error : DiagSeverity.Information,
 				Source = "orion",
 				Message = m.Text
 			};
-		}
-
-		private static DiagSeverity Sev(MessageType t)
-		{
-			switch (t)
-			{
-				case MessageType.Error: return DiagSeverity.Error;
-				default: return DiagSeverity.Information;
-			}
 		}
 
 		private static string SyntaxText(string fparsec)

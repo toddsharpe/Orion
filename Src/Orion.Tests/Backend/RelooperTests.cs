@@ -3,7 +3,7 @@ using Orion.Backend.StIr;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
-using TypeCode = Orion.Symbols.TypeCode;
+using static Orion.Tests.Opt.Tacs;
 
 namespace Orion.Tests.Backend
 {
@@ -11,12 +11,6 @@ namespace Orion.Tests.Backend
 	[TestClass]
 	public class RelooperTests
 	{
-		private static readonly TypeSymbol I32 = new PrimitiveTypeSymbol(TypeCode.i32);
-		private static readonly TypeSymbol Bool = new PrimitiveTypeSymbol(TypeCode.@bool);
-
-		private static LocalDataSymbol Local(string name, TypeSymbol type = null) => new LocalDataSymbol(name, type ?? I32, LocalStorage.Stack);
-		private static TempDataSymbol Temp(string name, TypeSymbol type = null) => new TempDataSymbol(name, type ?? I32);
-		private static LiteralSymbol Lit(object value, TypeSymbol type = null) => new LiteralSymbol(value, type ?? I32);
 		private static LabelTac Label(string name) => new LabelTac(new LabelSymbol(name));
 
 		private static StCtrl Reloop(IEnumerable<Tac> tacs) => Relooper.Structure(new LinkedList<Tac>(tacs));

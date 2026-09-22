@@ -61,6 +61,19 @@ namespace Orion.Backend.StIr
 					yield return descendant;
 		}
 
+		//The node rebuilt with f over each control child, itself untouched; a leaf comes back as it is.
+		internal static StCtrl RewriteChildren(this StCtrl c, Func<StCtrl, StCtrl> f) => c switch
+		{
+			StSeq x => new StSeq([.. x.Items.Select(f)]),
+			StIf x => new StIf(x.Cond, x.Negate, f(x.Then), x.Else == null ? null : f(x.Else)),
+			StLoop x => new StLoop(f(x.Body)),
+			StWhile x => new StWhile(x.Cond, f(x.Body)),
+			StDoWhile x => new StDoWhile(x.Cond, f(x.Body)),
+			StFor x => new StFor(x.Init, x.Cond, x.Step, f(x.Body)),
+			StSwitch x => new StSwitch(x.Clause, [.. x.Cases.Select(i => new StCase(i.Value, f(i.Body)))], x.Default == null ? null : f(x.Default)),
+			_ => c
+		};
+
 		//The statements this control node holds itself. A StFor's init/step run in its parent's scope.
 		internal static IEnumerable<StStmt> OwnStatements(this StCtrl c) => c switch
 		{
@@ -79,6 +92,14 @@ namespace Orion.Backend.StIr
 			StSwitch x => Present(x.Clause).Concat((x.Cases ?? []).Select(i => i.Value)),
 			StReturn x when x.Value != null => [x.Value],
 			_ => Enumerable.Empty<StExpr>()
+		};
+
+		//Whether control always leaves this node: a jump, or a sequence whose last item is one.
+		internal static bool Exits(this StCtrl c) => c switch
+		{
+			StReturn or StBreak or StContinue => true,
+			StSeq s => s.Items.Count > 0 && s.Items[^1].Exits(),
+			_ => false,
 		};
 
 		private static IEnumerable<T> Present<T>(params T[] items) where T : class => items.Where(i => i != null);

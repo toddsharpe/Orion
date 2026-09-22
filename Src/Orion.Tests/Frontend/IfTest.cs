@@ -4,12 +4,7 @@ namespace Orion.Tests.Frontend
 	[TestClass]
 	public class IfTest
 	{
-		private static string Cpp(string program)
-		{
-			CompilerResult result = Harness.Compile(program);
-			result.AssertNoErrors();
-			return result.CodeOutput;
-		}
+		private static string Cpp(string program) => Harness.Emit(BackendLanguage.Cpp, program);
 
 		//A function per arm, so the optimizer cannot fold the chain away into something else.
 		private static string Chain(string tail) => Cpp(@"

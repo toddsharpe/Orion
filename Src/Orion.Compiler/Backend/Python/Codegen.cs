@@ -1,3 +1,4 @@
+using Orion.Backend.Render;
 using Orion.Backend.StIr;
 using Orion.BuildTime;
 using Orion.Graphs;
@@ -12,13 +13,15 @@ using TypeCode = Orion.Symbols.TypeCode;
 namespace Orion.Backend.Python
 {
 	//Renders the program as Python.
-	internal class Codegen : ScriptBackend
+	internal class Codegen : ModuleBackend
 	{
 		//The three spellings Python disagrees on; integer divide is `//`, with `/` chosen per-type below.
-		private static readonly Dictionary<BinaryTacOp, string> BinaryOps = Spelling.With(
-			(BinaryTacOp.And, "and"), (BinaryTacOp.Or, "or"), (BinaryTacOp.Divide, "//"));
-
-		private static readonly Dictionary<UnaryTacOp, string> UnaryOps = Spelling.Unary;
+		private static readonly Dictionary<BinaryTacOp, string> BinaryOps = new Dictionary<BinaryTacOp, string>(Spelling.Binary)
+		{
+			[BinaryTacOp.And] = "and",
+			[BinaryTacOp.Or] = "or",
+			[BinaryTacOp.Divide] = "//",
+		};
 
 		private static readonly Dictionary<TypeCode, string> TypeHints = new Dictionary<TypeCode, string>
 		{
@@ -92,12 +95,8 @@ namespace Orion.Backend.Python
 				List<Code> body = new List<Code> { globals };
 				body.AddRange(rendered);
 
-				Dictionary<string, List<Declaration>> locals = new Dictionary<string, List<Declaration>>();
-				if (i.Wired)
-					foreach (string section in Netlist.Sections)
-						locals[section] = [.. Netlist.Ports(i, section).Select(p => new Declaration(Python(p.Type), p.Name, Netlist.Cell(p)))];
-				locals["Locals"] = i.Table.Traverse().SelectMany(i => i.GetAll<LocalDataSymbol>()).Where(i => i.Storage != LocalStorage.Static).Distinct().Select(Declare).Where(d => !string.IsNullOrEmpty(d.Initializer)).ToList();
-				locals["Temps"] = CodeText.Referenced(i.Table.Traverse().SelectMany(i => i.GetAll<TempDataSymbol>()).Distinct().Select(Declare).Where(d => !string.IsNullOrEmpty(d.Initializer)).ToList(), body);
+				//A local with nothing to initialize it is not declared: Python has no bare declaration, and the first assignment binds it.
+				Dictionary<string, List<Declaration>> locals = Frame(i, p => new Declaration(Python(p.Type), p.Name, Netlist.Cell(p)), Declare, body, d => !string.IsNullOrEmpty(d.Initializer));
 
 				List<string> args = i.Wired ? [$"{Solver.ParamName}: {Solver.StructName}"] : i.Parameters.Select(p => $"{p.Name}: {Python(p.Type)}").ToList();
 				return new Function(Python(i.ReturnType), Python(i.Name), args, locals, body);
@@ -118,6 +117,9 @@ namespace Orion.Backend.Python
 
 		private static readonly Lowering Lowered = new Lowering();
 
+		//`not` binds looser than a comparison and tighter than `and`, unlike C's `!`.
+		private const int NotPrec = 3;
+
 		private static string Px(StExpr e) => Px(e, 0);
 
 		private static string Px(StExpr e, int minPrec)
@@ -134,13 +136,15 @@ namespace Orion.Backend.Python
 				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner:
 				{
 					string s = $"not {Px(inner, ExprPrinter.UnaryPrec)}";
-					return ExprPrinter.NotPrec < minPrec ? $"({s})" : s;
+					return NotPrec < minPrec ? $"({s})" : s;
 				}
 				case StBin b:
 				{
 					int p = ExprPrinter.Prec(b.Op);
 					(int lp, int rp) = ExprPrinter.OperandPrec(b.Op);
-					string s = $"{Px(b.Left, lp)} {Op(b.Op, b.Type)} {Px(b.Right, rp)}";
+					//Float division is true division; everything else reads the table.
+					string op = b.Op == BinaryTacOp.Divide && b.Type is PrimitiveTypeSymbol { Code: TypeCode.f32 or TypeCode.f64 } ? "/" : BinaryOps[b.Op];
+					string s = $"{Px(b.Left, lp)} {op} {Px(b.Right, rp)}";
 					//The cast wrapper brings its own parentheses, so the precedence guard is not needed on top.
 					if (ExprPrinter.NeedsMask(b.Op, b.Type) || ExprPrinter.NeedsNarrow(b.Op, b.Type))
 						return Cast(b.Type, s);
@@ -153,7 +157,7 @@ namespace Orion.Backend.Python
 					{
 						UnaryTacOp.BitNot => $"~{operand}",
 						UnaryTacOp.Negate => $"-{operand}",
-						_ => $"{operand} {UnaryOps[u.Op].Trim()}",
+						_ => $"{operand} {Spelling.Unary[u.Op]}",
 					};
 					return ExprPrinter.NeedsMask(u.Op, u.Type) || ExprPrinter.NeedsNarrow(u.Op, u.Type) ? Cast(u.Type, s) : s;
 				}
@@ -164,10 +168,6 @@ namespace Orion.Backend.Python
 				default: throw new NotImplementedException($"Python Px: {e.GetType().Name}");
 			}
 		}
-
-		//Float division is true division; everything else reads the table.
-		private static string Op(BinaryTacOp op, TypeSymbol type) =>
-			op == BinaryTacOp.Divide && type is PrimitiveTypeSymbol { Code: TypeCode.f32 or TypeCode.f64 } ? "/" : BinaryOps[op];
 
 		//A cast to an enum constructs it; every other conversion is the runtime's cast_<type>.
 		private static string Cast(TypeSymbol type, string operand) =>
@@ -219,7 +219,7 @@ namespace Orion.Backend.Python
 					switch (lit.Type)
 					{
 						case PrimitiveTypeSymbol p when p.Code == TypeCode.str:
-							return Quote(lit.Value as string);
+							return Spelling.Quote(lit.Value as string, Spelling.Controls.Hex);
 
 						case PrimitiveTypeSymbol p when p.Code == TypeCode.f32 || p.Code == TypeCode.f64:
 							return Spelling.Float(Convert.ToDouble(lit.Value));
@@ -256,9 +256,7 @@ namespace Orion.Backend.Python
 						}
 
 						case EnumTypeSymbol e:
-						{
 							return $"{e.Name}.{Python(lit.Value.ToString())}";
-						}
 
 						default:
 							throw new NotImplementedException();
@@ -274,27 +272,19 @@ namespace Orion.Backend.Python
 				}
 
 				case SliceSymbol slice:
-				{
 					return $"span_slice({slice.Global.Name}, {slice.Offset}, {slice.Length})";
-				}
 
 				case RefSymbol reference:
-				{
-					return $"{reference.Global.Name}";
-				}
+					return reference.Global.Name;
 
 				case NullSymbol:
-				{
 					return "None";
-				}
 
 				case ArrayElementSymbol arr when arr.Array.Type is PrimitiveTypeSymbol { Code: TypeCode.str }:
 					return $"str_at({Python(arr.Array)}, {Python(arr.Operand)})";
 
 				case ArrayElementSymbol arr:
-				{
 					return $"{Python(arr.Array)}[{Python(arr.Operand)}]";
-				}
 
 				case FieldDataSymbol field:
 				{
@@ -303,9 +293,7 @@ namespace Orion.Backend.Python
 				}
 
 				case NamedDataSymbol data:
-				{
 					return Python(data.Name);
-				}
 
 				default:
 					throw new NotImplementedException();
@@ -322,7 +310,6 @@ namespace Orion.Backend.Python
 				BuiltinTypeSymbol builtin => type.Name,
 				FunctionTypeSymbol t => "Callable",
 				TypeSymbol t => t.Name,
-				_ => throw new NotImplementedException()
 			};
 		}
 
@@ -335,7 +322,5 @@ namespace Orion.Backend.Python
 		];
 
 		private static string Python(string s) => Spelling.Escape(Language.Mangled(s), Reserved);
-
-		private static string Quote(string value) => Spelling.Quote(value, octalControls: false);
 	}
 }

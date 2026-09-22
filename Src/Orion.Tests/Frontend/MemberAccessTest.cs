@@ -1,7 +1,7 @@
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using Orion.Ast;
 using Orion.Symbols;
 using System.Linq;
-using ParserResult = FParsec.CharParsers.ParserResult<Orion.Lang.Syntax.TranslationUnit, Microsoft.FSharp.Core.Unit>;
 
 namespace Orion.Tests.Frontend
 {
@@ -9,17 +9,10 @@ namespace Orion.Tests.Frontend
 	[TestClass]
 	public class MemberAccessTest
 	{
-		private static TranslationUnit Parse(string src)
-		{
-			ParserResult result = Lang.Parse.Parse(src);
-			Assert.IsTrue(result.IsSuccess, $"could not parse test source: {src}");
-			return TranslationUnit.Create((result as ParserResult.Success).Item1);
-		}
-
 		//The single expression a one-line body evaluates, so a test reads as the source it is about.
 		private static Expression Only(string body)
 		{
-			TranslationUnit tu = Parse("struct P { i32 x; }\nstruct B { P lo; }\nvoid f()\n{\n" + body + "\n}\n");
+			TranslationUnit tu = Parsed.Parse("struct P { i32 x; }\nstruct B { P lo; }\nvoid f()\n{\n" + body + "\n}\n");
 			return tu.DescendantsAndSelf().OfType<Exec>().Single().Expression;
 		}
 

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using Orion.Backend.Render;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Orion.Backend.JavaScript
@@ -8,38 +9,13 @@ namespace Orion.Backend.JavaScript
 	{
 		internal void Write(File file)
 		{
-			//Enums
-			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Enum @enum in kvp.Value)
-					Write(@enum);
-			}
+			WriteSections(file.Enums, WriteBlockComment, Write);
 			AppendLine();
 
-			//Structs
-			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Struct s in kvp.Value)
-					Write(s);
-			}
+			WriteSections(file.Structs, WriteBlockComment, Write);
 			AppendLine();
 
-			//Globals (skip empty sections so no bare comment block is emitted)
-			foreach (KeyValuePair<string, List<Declaration>> kvp in file.Globals)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Declaration global in kvp.Value)
-					Write(global);
-				AppendLine();
-			}
+			WriteSections(file.Globals, WriteBlockComment, Write, blankAfter: true);
 
 			//A global that names itself: the name is in the temporal dead zone, so the field is assigned after.
 			if (file.Fixups?.Count > 0)
@@ -51,13 +27,11 @@ namespace Orion.Backend.JavaScript
 			}
 
 			//Functions, one blank line between them
-			bool firstFunction = true;
-			foreach (Function function in file.Functions)
+			for (int i = 0; i < file.Functions.Count; i++)
 			{
-				if (!firstFunction)
+				if (i > 0)
 					AppendLine();
-				firstFunction = false;
-				Write(function);
+				Write(file.Functions[i]);
 			}
 
 			//A library has no runtime entry -- its `main` was `#build` and already ran -- so calling one would name a function this file does not define.
@@ -96,9 +70,7 @@ namespace Orion.Backend.JavaScript
 			AppendLine("copy()");
 			BraceCode.Open(this);
 			//A Ref field passes straight through: a copy keeps naming the same storage, as C++ does.
-			string copied = string.Join(", ", s.Fields.Keys.Select(i =>
-				s.Aliased?.Contains(i) == true ? $"this.{i}" : $"copy_value(this.{i})"));
-			AppendLine($"return new {s.Name}({copied});");
+			AppendLine($"return new {s.Name}({ModuleBackend.Copied(s, "this")});");
 			BraceCode.Close(this);
 			BraceCode.Close(this);
 		}
@@ -113,20 +85,11 @@ namespace Orion.Backend.JavaScript
 
 		private void Write(Function function)
 		{
-			string args = function.Args.Count > 0 ? string.Join(", ", function.Args) : string.Empty;
+			string args = string.Join(", ", function.Args);
 			AppendLine($"function {function.Name}({args})");
 			BraceCode.Open(this);
 
-			//Locals (skip an empty section so no bare comment block appears)
-			foreach (KeyValuePair<string, List<Declaration>> kvp in function.Locals)
-			{
-				if (kvp.Value.Count == 0)
-					continue;
-				WriteBlockComment(kvp.Key);
-				foreach (Declaration local in kvp.Value)
-					Write(local);
-				AppendLine();
-			}
+			WriteSections(function.Locals, WriteBlockComment, Write, blankAfter: true);
 
 			foreach (Code code in function.Code)
 				BraceCode.Write(this, code);
@@ -134,11 +97,6 @@ namespace Orion.Backend.JavaScript
 			BraceCode.Close(this);
 		}
 
-		private void WriteBlockComment(string comment)
-		{
-			AppendLine("//");
-			AppendLine($"// {comment}");
-			AppendLine("//");
-		}
+		private void WriteBlockComment(string comment) => WriteBanner("//", "// ", comment);
 	}
 }

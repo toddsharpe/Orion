@@ -9,7 +9,6 @@ namespace Orion.LangSvr
 	// Serves binder-driven semantic tokens for .src documents, reusing the workspace's cached bound AST.
 	internal sealed class OrionSemanticTokensHandler : SemanticTokensHandlerBase
 	{
-		private const string LanguageId = "orion";
 		private readonly OrionWorkspace _workspace;
 
 		public OrionSemanticTokensHandler(OrionWorkspace workspace)
@@ -20,7 +19,7 @@ namespace Orion.LangSvr
 		protected override SemanticTokensRegistrationOptions CreateRegistrationOptions(SemanticTokensCapability capability, ClientCapabilities clientCapabilities) =>
 			new SemanticTokensRegistrationOptions
 			{
-				DocumentSelector = TextDocumentSelector.ForLanguage(LanguageId),
+				DocumentSelector = TextDocumentSelector.ForLanguage(OrionWorkspace.LanguageId),
 				Legend = new SemanticTokensLegend
 				{
 					TokenTypes = capability.TokenTypes,

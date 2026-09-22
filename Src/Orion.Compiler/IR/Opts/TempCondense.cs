@@ -1,7 +1,6 @@
 using Orion.Diagnostics;
 using Orion.Graphs;
 using Orion.Symbols;
-using Orion.Util;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -13,11 +12,11 @@ namespace Orion.IR.Opts
 	{
 		public static void Run(SourceFunctionSymbol function, List<Message> messages)
 		{
-			messages.Add(new Message("## Temp condense ##", InputRegion.None, MessageType.Trace));
+			messages.Trace("## Temp condense ##");
 
 			DataGraph graph = DataGraph.Create(function);
 
-			foreach (TempDataSymbol temp in graph.Node1s.OfType<TempDataSymbol>())
+			foreach (TempDataSymbol temp in graph.Symbols.OfType<TempDataSymbol>())
 			{
 				DataGraph.Node node = graph[temp];
 				if (node.Outgoing.Count != 1 || node.Incoming.Count != 1)
@@ -26,12 +25,12 @@ namespace Orion.IR.Opts
 				DataGraph.Edge incoming = node.Incoming.Single().Value;
 				DataGraph.Edge outgoing = node.Outgoing.Single().Value;
 
-				LinkedListNode<Tac> writer = incoming.Start.Node2;
-				LinkedListNode<Tac> reader = outgoing.End.Node2;
+				LinkedListNode<Tac> writer = incoming.Start.Tac;
+				LinkedListNode<Tac> reader = outgoing.End.Tac;
 
-				messages.Add(new Message($"Temp: {temp}", InputRegion.None, MessageType.Trace));
-				messages.Add(new Message($" - Writer: {writer.Value}", InputRegion.None, MessageType.Trace));
-				messages.Add(new Message($" - Reader: {reader.Value}", InputRegion.None, MessageType.Trace));
+				messages.Trace($"Temp: {temp}");
+				messages.Trace($" - Writer: {writer.Value}");
+				messages.Trace($" - Reader: {reader.Value}");
 
 				switch (writer.Value, reader.Value)
 				{
@@ -44,20 +43,9 @@ namespace Orion.IR.Opts
 
 						if (newResult is AssignTac merged && assign.Declare)
 							newResult = merged with { Declare = true };
-						messages.Add(new Message($" - Reader: {newResult}", InputRegion.None, MessageType.Trace));
+						messages.Trace($" - Reader: {newResult}");
 
-						LinkedListNode<Tac> added = function.Tacs.AddAfter(reader, newResult);
-						function.Tacs.Remove(writer);
-						function.Tacs.Remove(reader);
-
-						Trace.Assert(graph.Remove(writer));
-						Trace.Assert(graph.Remove(reader));
-						graph.Add(added);
-						graph.Link(added);
-
-						Trace.Assert(!graph[temp].IsReachable);
-						foreach (SymbolTable table in function.Table.Traverse())
-							table.TryRemove(temp);
+						Splice(function, graph, temp, writer, reader, newResult);
 					}
 					break;
 
@@ -66,25 +54,31 @@ namespace Orion.IR.Opts
 						if (!call.Arguments.Contains(assign.Result))
 							continue;
 
-						CallTac newCall = call with { Arguments = call.Arguments.Replace(assign.Result, assign.Operand1).ToList() };
-						messages.Add(new Message($"\tResult: {newCall}", InputRegion.None, MessageType.Trace));
+						CallTac newCall = call with { Arguments = call.Arguments.Select(a => a == assign.Result ? assign.Operand1 : a).ToList() };
+						messages.Trace($"\tResult: {newCall}");
 
-						LinkedListNode<Tac> added = function.Tacs.AddAfter(reader, newCall);
-						function.Tacs.Remove(writer);
-						function.Tacs.Remove(reader);
-
-						Trace.Assert(graph.Remove(writer));
-						Trace.Assert(graph.Remove(reader));
-						graph.Add(added);
-						graph.Link(added);
-
-						Trace.Assert(!graph[temp].IsReachable);
-						foreach (SymbolTable table in function.Table.Traverse())
-							table.TryRemove(temp);
+						Splice(function, graph, temp, writer, reader, newCall);
 					}
 					break;
 				}
 			}
+		}
+
+		//The merged tac takes the reader's place, the pair it replaces leaves the stream and the graph, and the temp leaves the tables.
+		private static void Splice(SourceFunctionSymbol function, DataGraph graph, TempDataSymbol temp, LinkedListNode<Tac> writer, LinkedListNode<Tac> reader, Tac merged)
+		{
+			LinkedListNode<Tac> added = function.Tacs.AddAfter(reader, merged);
+			function.Tacs.Remove(writer);
+			function.Tacs.Remove(reader);
+
+			Trace.Assert(graph.Remove(writer));
+			Trace.Assert(graph.Remove(reader));
+			graph.Add(added);
+			graph.Link(added);
+
+			Trace.Assert(!graph[temp].IsReachable);
+			foreach (SymbolTable table in function.Table.Traverse())
+				table.TryRemove(temp);
 		}
 	}
 }

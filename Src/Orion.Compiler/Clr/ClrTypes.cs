@@ -62,10 +62,6 @@ namespace Orion.Clr
 
 		public static readonly Dictionary<TypeCode, Type> LangToClr = ClrToLang.ToDictionary(i => i.Value, i => i.Key);
 
-		//The one C# shape that means "an array the callee may only read" and still takes a T[] argument.
-		internal static bool IsReadOnlyBuffer(Type clr) =>
-			clr.IsGenericType && clr.GetGenericTypeDefinition() == typeof(IReadOnlyList<>);
-
 		//Strip the CLR arity suffix: "List`1" -> "List".
 		private static string BareName(Type type)
 		{
@@ -82,11 +78,12 @@ namespace Orion.Clr
 			if (ClrToLang.TryGetValue(clr, out TypeCode code))
 				return Language.Primitives[code];
 
-			//`IReadOnlyList<T>` is how a builtin spells `ConstSpan<T>`; the const-ness rides in the type.
-			if (clr.IsArray || IsReadOnlyBuffer(clr))
+			//`IReadOnlyList<T>` is how a builtin spells `ConstSpan<T>`, the one C# shape that means "read only" and still takes a T[]; the const-ness rides in the type.
+			bool readOnly = clr.IsGenericType && clr.GetGenericTypeDefinition() == typeof(IReadOnlyList<>);
+			if (clr.IsArray || readOnly)
 			{
 				TypeSymbol element = FromClrType(root, clr.IsArray ? clr.GetElementType() : clr.GetGenericArguments()[0]);
-				SpanTypeSymbol span = new SpanTypeSymbol(element, IsReadOnlyBuffer(clr));
+				SpanTypeSymbol span = new SpanTypeSymbol(element, readOnly);
 				if (!root.TryGet(span.Name, out TypeSymbol existing))
 				{
 					root.Add(span);

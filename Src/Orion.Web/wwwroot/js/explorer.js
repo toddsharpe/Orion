@@ -1,30 +1,4 @@
-﻿/*
- * explorer.js — Compiler-Explorer-style playground for the Orion language.
- *
- * Runs inside a Blazor WebAssembly page. Everything is loaded from CDN via the
- * classic Monaco AMD loader (no bundler / no build step). TextMate grammar
- * highlighting is wired up with onigasm + monaco-textmate + monaco-editor-textmate.
- *
- * Layout:
- *   Left  — tabbed Orion documents (+ button adds one). The SELECTED document is
- *           what gets compiled and analyzed.
- *   Right — one code tab whose label + language track the compile target
- *           (C++ or Python), plus an Output tab (build stdout + pipeline trace).
- *
- * Pinned CDN versions (see README-explorer.md for details):
- *   monaco-editor          0.52.2
- *   onigasm                2.2.5
- *   monaco-textmate        3.0.1
- *   monaco-editor-textmate 4.0.0
- *   @viz-js/viz            3.30.0
- *
- * .NET interop: three static [JSInvokable] methods in assembly "Orion.Web",
- * invoked via DotNet.invokeMethodAsync('Orion.Web', '<Method>', ...args).
- * NO DotNetObjectReference is used (the methods are static).
- *
- * All interop positions are 0-based (LSP style). Monaco is 1-based, so we
- * convert with +1 / -1 at the boundaries.
- */
+﻿// explorer.js: the Compiler-Explorer-style playground front end, Monaco plus the [JSInvokable] interop; see README-explorer.md.
 
 (function () {
 	'use strict';
@@ -77,14 +51,7 @@
 		''
 	].join('\n');
 
-	// Minimal fallback source used if fetching samples/demo_solver.src fails.
-	const FALLBACK_SOURCE = NEW_DOC_TEMPLATE;
-
-	// Documents pre-opened in the left pane, `name` doubling as the MEMFS path under /proj and `url` the fetch location; every sample is seeded, so a #using or #src target resolves without being open.
-
-	// That path is load-bearing: this is the Demo tree with its orion.json at the top, so `Apps/rocket.src` saying `#using "Lib/Report.src"` means /proj/Lib exactly as it means Demo/Lib on disk.
-
-	// The first is the one that opens: rocket.src, the demo the playground exists to show.
+	// Documents pre-opened in the left pane, the first active: `name` is the MEMFS path under /proj (the Demo tree, so a #using resolves as on disk) and `url` the fetch location.
 	const INITIAL_TABS = [
 		{ name: 'Apps/rocket.src', url: 'samples/Apps/rocket.src' },
 		{ name: 'Apps/tour.src', url: 'samples/Apps/tour.src' }
@@ -376,6 +343,18 @@
 		return DOC_LANGUAGES[ext] || 'plaintext';
 	}
 
+	// The code tab's Monaco language and label per compile target; the dropdown's values are these keys.
+	const TARGETS = {
+		Cpp: ['cpp', 'C++'],
+		Python: ['python', 'Python'],
+		JavaScript: ['javascript', 'JavaScript'],
+		CSharp: ['csharp', 'C#']
+	};
+
+	function isTarget(name) {
+		return Object.prototype.hasOwnProperty.call(TARGETS, name);
+	}
+
 	// Only Orion documents compile or analyze; everything else in the tree is there to be read.
 	function isOrionDoc(doc) {
 		return !!doc && languageForPath(doc.name) === LANGUAGE_ID;
@@ -422,27 +401,16 @@
 			: monaco.MarkerSeverity.Info;
 	}
 
-	function messagesToMarkers(messages) {
+	// A compile's messages and a live analysis's diagnostics are the same MessageDto, so one mapper serves both.
+	function toMarkers(messages) {
 		if (!Array.isArray(messages)) return [];
 		return messages.map((m) => ({
 			severity: severityToMonaco(m.severity),
-			message: m.text,
+			message: m.message,
 			startLineNumber: m.startLine + 1,
 			startColumn: m.startCol + 1,
 			endLineNumber: m.endLine + 1,
 			endColumn: m.endCol + 1
-		}));
-	}
-
-	function diagnosticsToMarkers(diagnostics) {
-		if (!Array.isArray(diagnostics)) return [];
-		return diagnostics.map((d) => ({
-			severity: severityToMonaco(d.severity),
-			message: d.message,
-			startLineNumber: d.startLine + 1,
-			startColumn: d.startCol + 1,
-			endLineNumber: d.endLine + 1,
-			endColumn: d.endCol + 1
 		}));
 	}
 
@@ -491,8 +459,7 @@
 			}
 
 			// Single code pane: switch its language + label to the target, show the code.
-			const monLang = lang === 'Python' ? 'python' : lang === 'JavaScript' ? 'javascript' : lang === 'CSharp' ? 'csharp' : 'cpp';
-			const label = lang === 'Python' ? 'Python' : lang === 'JavaScript' ? 'JavaScript' : 'C++';
+			const [monLang, label] = isTarget(lang) ? TARGETS[lang] : TARGETS.Cpp;
 			if (codeEditor) {
 				monaco.editor.setModelLanguage(codeEditor.getModel(), monLang);
 				codeEditor.setValue(result.code || '');
@@ -522,7 +489,7 @@
 			const analysisTab = document.querySelector('.tab[data-tab="analysis"]');
 			if (analysisTab && analysisTab.classList.contains('active')) renderAnalysis();
 
-			setMarkers(messagesToMarkers(result.messages));
+			setMarkers(toMarkers(result.messages));
 
 			// Only JavaScript runs in-browser, so the Run tab stays visible for discoverability but is enabled only after a successful JS compile.
 			const runTab = document.querySelector('.tab[data-tab="run"]');
@@ -562,13 +529,12 @@
 		}
 
 		const model = mainModel;              // capture: the active model may change mid-await
-		const text = model.getValue();
 		try {
 			const result = await invokeAnalyze();
 			if (!result) return;
 			// Only apply if this is still the active model.
 			if (model === mainModel) {
-				setMarkers(diagnosticsToMarkers(result.diagnostics));
+				setMarkers(toMarkers(result.diagnostics));
 			}
 		} catch (err) {
 			console.error('Analyze failed', err);
@@ -741,7 +707,7 @@
 						value: {
 							signatures: [{
 								label: sig.label,
-								parameters: (sig.parameters || []).map((p) => ({ label: p.label }))
+								parameters: (sig.parameters || []).map((p) => ({ label: p }))
 							}],
 							activeSignature: 0,
 							activeParameter: sig.activeParameter || 0
@@ -954,9 +920,7 @@
 		return vizLib;
 	}
 
-	/** Mount a zoomable, pannable Graphviz canvas into `host`, its state per-instance so each diagram keeps its own zoom. */
-
-	/** Returns { toolbar, show, zoom }: `toolbar` takes a caller's own controls, `show(dot)` renders, `zoom()` reads the current factor back. */
+	/** Mount a zoomable, pannable Graphviz canvas into `host`, returning { toolbar, show, zoom }: `toolbar` takes a caller's own controls, `show(dot)` renders, `zoom()` reads the factor back. */
 	function createGraphView(host, options) {
 		const MIN_ZOOM = 0.2, MAX_ZOOM = 6;
 		let factor = (options && options.zoom) || 1;
@@ -1146,27 +1110,36 @@
 		});
 	}
 
-	function analysisRow(node, path, depth, hasChildren, open) {
+	// One row of either tree, caret then label, indented by depth; the caller adds its classes and click policy.
+	function fileRow(label, depth, caret, title) {
 		const row = document.createElement('div');
-		row.className = 'file-row' + (path === analysisSelected ? ' selected' : '');
+		row.className = 'file-row';
 		row.setAttribute('role', 'treeitem');
 		row.style.paddingLeft = (6 + depth * 12) + 'px';
-		row.title = node.label;
+		row.title = title;
 
-		const caret = document.createElement('span');
-		caret.className = 'file-caret';
-		caret.textContent = hasChildren ? (open ? '▾' : '▸') : '';
+		const caretEl = document.createElement('span');
+		caretEl.className = 'file-caret';
+		caretEl.textContent = caret;
+		row.appendChild(caretEl);
+
+		const labelEl = document.createElement('span');
+		labelEl.className = 'file-label';
+		labelEl.textContent = label;
+		row.appendChild(labelEl);
+
+		return row;
+	}
+
+	function analysisRow(node, path, depth, hasChildren, open) {
+		const row = fileRow(node.label, depth, hasChildren ? (open ? '▾' : '▸') : '', node.label);
+		if (path === analysisSelected) row.classList.add('selected');
+
 		// The caret alone toggles; clicking the row selects it, as the WPF tree did.
-		caret.addEventListener('click', (e) => {
+		row.firstChild.addEventListener('click', (e) => {
 			e.stopPropagation();
 			toggleAnalysis(path, node);
 		});
-		row.appendChild(caret);
-
-		const label = document.createElement('span');
-		label.className = 'file-label';
-		label.textContent = node.label;
-		row.appendChild(label);
 
 		row.addEventListener('click', () => {
 			analysisSelected = path;
@@ -1303,59 +1276,11 @@
 		window.addEventListener('resize', () => layoutAll());
 	}
 
-	// Drag the gutter between the code area and the build-output pane to resize.
-	function wireVerticalSplitter() {
-		const gutter = document.getElementById('v-gutter');
-		const build = document.querySelector('.right-build');
-		const pane = document.querySelector('.pane-right');
-		if (!gutter || !build || !pane) return;
+	// The one drag machine both gutters share: mousedown starts, onDrag(e) applies each move with the editors re-laid out a frame later, mouseup ends and saves the split.
+	function wireSplitter(gutterId, bodyClass, onDrag) {
+		const gutter = document.getElementById(gutterId);
+		if (!gutter) return;
 
-		const MIN_BUILD = 60;   // never collapse the build pane past a usable height
-		const MIN_CODE = 80;    // ...nor the code area above it
-		let dragging = false;
-		let raf = null;
-
-		function scheduleLayout() {
-			if (raf) return;
-			raf = requestAnimationFrame(() => { raf = null; if (codeEditor) codeEditor.layout(); });
-		}
-
-		function onMove(e) {
-			if (!dragging) return;
-			const rect = pane.getBoundingClientRect();
-			let h = rect.bottom - e.clientY;                       // build height = cursor -> pane bottom
-			h = Math.max(MIN_BUILD, Math.min(h, rect.height - MIN_CODE));
-			build.style.flex = '0 0 ' + Math.round(h) + 'px';
-			buildHeightChosen = true;
-			scheduleLayout();
-		}
-
-		function onUp() {
-			if (!dragging) return;
-			dragging = false;
-			document.body.classList.remove('resizing-v');
-			window.removeEventListener('mousemove', onMove);
-			window.removeEventListener('mouseup', onUp);
-			if (codeEditor) codeEditor.layout();
-			saveSession();     // remember the new split
-		}
-
-		gutter.addEventListener('mousedown', (e) => {
-			e.preventDefault();
-			dragging = true;
-			document.body.classList.add('resizing-v');
-			window.addEventListener('mousemove', onMove);
-			window.addEventListener('mouseup', onUp);
-		});
-	}
-
-	// Drag the divider between the editor and the right pane to rebalance the two columns.
-	function wireHorizontalSplitter() {
-		const gutter = document.getElementById('h-gutter');
-		const panes = document.querySelector('.panes');
-		if (!gutter || !panes) return;
-
-		const MIN = 160;
 		let dragging = false;
 		let raf = null;
 
@@ -1366,31 +1291,61 @@
 
 		function onMove(e) {
 			if (!dragging) return;
-			const rect = panes.getBoundingClientRect();
-			const sidebar = document.querySelector('.sidebar');
-			const sbW = sidebar ? sidebar.getBoundingClientRect().width : 0;
-			let w = e.clientX - rect.left - sbW;                    // width of the editor column
-			w = Math.max(MIN, Math.min(w, rect.width - sbW - MIN - 6));
-			panes.style.setProperty('--main-left', Math.round(w) + 'px');
+			onDrag(e);
 			scheduleLayout();
 		}
 
 		function onUp() {
 			if (!dragging) return;
 			dragging = false;
-			document.body.classList.remove('resizing-h');
+			document.body.classList.remove(bodyClass);
 			window.removeEventListener('mousemove', onMove);
 			window.removeEventListener('mouseup', onUp);
 			layoutAll();
-			saveSession();
+			saveSession();     // remember the new split
 		}
 
 		gutter.addEventListener('mousedown', (e) => {
 			e.preventDefault();
 			dragging = true;
-			document.body.classList.add('resizing-h');
+			document.body.classList.add(bodyClass);
 			window.addEventListener('mousemove', onMove);
 			window.addEventListener('mouseup', onUp);
+		});
+	}
+
+	// Drag the gutter between the code area and the build-output pane to resize.
+	function wireVerticalSplitter() {
+		const build = document.querySelector('.right-build');
+		const pane = document.querySelector('.pane-right');
+		if (!build || !pane) return;
+
+		const MIN_BUILD = 60;   // never collapse the build pane past a usable height
+		const MIN_CODE = 80;    // ...nor the code area above it
+
+		wireSplitter('v-gutter', 'resizing-v', (e) => {
+			const rect = pane.getBoundingClientRect();
+			let h = rect.bottom - e.clientY;                       // build height = cursor -> pane bottom
+			h = Math.max(MIN_BUILD, Math.min(h, rect.height - MIN_CODE));
+			build.style.flex = '0 0 ' + Math.round(h) + 'px';
+			buildHeightChosen = true;
+		});
+	}
+
+	// Drag the divider between the editor and the right pane to rebalance the two columns.
+	function wireHorizontalSplitter() {
+		const panes = document.querySelector('.panes');
+		if (!panes) return;
+
+		const MIN = 160;
+
+		wireSplitter('h-gutter', 'resizing-h', (e) => {
+			const rect = panes.getBoundingClientRect();
+			const sidebar = document.querySelector('.sidebar');
+			const sbW = sidebar ? sidebar.getBoundingClientRect().width : 0;
+			let w = e.clientX - rect.left - sbW;                    // width of the editor column
+			w = Math.max(MIN, Math.min(w, rect.width - sbW - MIN - 6));
+			panes.style.setProperty('--main-left', Math.round(w) + 'px');
 		});
 	}
 
@@ -1591,26 +1546,14 @@
 	}
 
 	function treeRow(opts) {
-		const row = document.createElement('div');
-		row.className = 'file-row' + (opts.isDir ? ' dir' : '');
-		row.setAttribute('role', 'treeitem');
-		row.style.paddingLeft = (6 + opts.depth * 12) + 'px';
-		row.title = opts.path || opts.label;
+		const row = fileRow(opts.label, opts.depth, opts.isDir ? (opts.open ? '▾' : '▸') : '', opts.path || opts.label);
 
-		if (!opts.isDir) {
+		if (opts.isDir) {
+			row.classList.add('dir');
+		} else {
 			if (opts.path === selectedSample) row.classList.add('selected');
 			if (docs.some((d) => d.name === opts.path)) row.classList.add('open');
 		}
-
-		const caret = document.createElement('span');
-		caret.className = 'file-caret';
-		caret.textContent = opts.isDir ? (opts.open ? '▾' : '▸') : '';
-		row.appendChild(caret);
-
-		const label = document.createElement('span');
-		label.className = 'file-label';
-		label.textContent = opts.label;
-		row.appendChild(label);
 
 		// A folder toggles on single click as VS Code does, while a file needs a double click, leaving a single click to select it.
 		if (opts.isDir) {
@@ -1899,8 +1842,8 @@
 	/** Apply the non-document parts of a restored session (target, active doc, split). */
 	function applySessionUi(session) {
 		const langSelect = document.getElementById('lang-select');
-		//Whitelisted rather than assigned blind, so a hand-edited session cannot select a target the dropdown lacks; JavaScript belongs here too, and omitting it reset the one runnable target on every reload.
-		if (langSelect && (session.target === 'Cpp' || session.target === 'Python' || session.target === 'JavaScript' || session.target === 'CSharp')) {
+		//Whitelisted against TARGETS rather than assigned blind, so a hand-edited session cannot select a target the dropdown lacks.
+		if (langSelect && isTarget(session.target)) {
 			langSelect.value = session.target;
 		}
 		//Not on a phone: an inline px height beats every media query, so a desktop pane swallows the screen.
@@ -1937,9 +1880,7 @@
 		}
 	}
 
-	/** Write every sample into MEMFS once, mirroring the samples/ tree at the project root, so any document's #using or #config resolves whichever one is open. */
-
-	/** A curated list cannot do it -- a #config path may be computed at build time -- and samples never change, so this is one startup pass rather than work per keystroke. */
+	/** Write every sample into MEMFS once at startup, so any document's #using or #config resolves whichever one is open; a curated list cannot, since a #config path may be computed at build time. */
 	async function seedSamples(paths) {
 		const files = [];
 		const missing = [];
@@ -1973,7 +1914,7 @@
 			INITIAL_TABS.map(async (t) => ({
 				name: t.name,
 				content: await fetchText(t.url, t.name === INITIAL_TABS[0].name
-					? FALLBACK_SOURCE
+					? NEW_DOC_TEMPLATE
 					: '// could not load ' + t.name + '\n')
 			}))
 		);

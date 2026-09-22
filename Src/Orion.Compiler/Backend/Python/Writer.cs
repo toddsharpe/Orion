@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Enum = Orion.Backend.Render.Enum;
+using Orion.Backend.Render;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,7 +15,6 @@ namespace Orion.Backend.Python
 
 		internal void Write(File file)
 		{
-			//Write references
 			WriteBlockComment("Includes");
 			foreach (Reference reference in file.Includes)
 			{
@@ -22,31 +23,13 @@ namespace Orion.Backend.Python
 			AppendLine();
 
 			//Enums and structs precede the globals: a #state global names its type in the initializer, which Python resolves eagerly at module load.
-			foreach (KeyValuePair<string, List<Enum>> kvp in file.Enums)
-			{
-				WriteBlockComment(kvp.Key);
-				foreach (Enum @enum in kvp.Value)
-					Write(@enum);
-			}
+			WriteSections(file.Enums, WriteBlockComment, Write);
 			AppendLine();
 
-			//Structs
-			foreach (KeyValuePair<string, List<Struct>> kvp in file.Structs)
-			{
-				WriteBlockComment(kvp.Key);
-				foreach (Struct s in kvp.Value)
-					Write(s);
-			}
+			WriteSections(file.Structs, WriteBlockComment, Write);
 			AppendLine();
 
-			//Write globals
-			foreach (KeyValuePair<string, List<Declaration>> kvp in file.Globals)
-			{
-				WriteBlockComment(kvp.Key);
-				foreach (Declaration global in kvp.Value)
-					Write(global);
-				AppendLine();
-			}
+			WriteSections(file.Globals, WriteBlockComment, Write, blankAfter: true);
 
 			//A global that names itself: the name binds once the initializer ends, so the field is assigned after.
 			if (file.Fixups?.Count > 0)
@@ -58,13 +41,11 @@ namespace Orion.Backend.Python
 			}
 
 			//Write functions, one blank line between them
-			bool firstFunction = true;
-			foreach (Function function in file.Functions)
+			for (int i = 0; i < file.Functions.Count; i++)
 			{
-				if (!firstFunction)
+				if (i > 0)
 					AppendLine();
-				firstFunction = false;
-				Write(function);
+				Write(file.Functions[i]);
 			}
 
 			//Write main thunk, unless this is a library: its `main` was `#build` and already ran, so calling one would name a function this file does not define.
@@ -73,7 +54,7 @@ namespace Orion.Backend.Python
 		}
 
 		//IntEnum, not Enum: only IntEnum gives Python the ordinal conversion C++ and JavaScript have.
-		internal void Write(Enum @enum)
+		private void Write(Enum @enum)
 		{
 			AppendLine($"class {@enum.Name}(IntEnum):");
 			PushScope();
@@ -90,15 +71,11 @@ namespace Orion.Backend.Python
 			AppendLine($"class {s.Name}():");
 			PushScope();
 
-			bool any = false;
 			foreach (KeyValuePair<string, string> field in s.Fields)
-			{
 				AppendLine($"{field.Key}: {field.Value}");
-				any = true;
-			}
 
 			//An empty class body is a Python syntax error; a field-less struct needs a `pass`.
-			if (!any)
+			if (s.Fields.Count == 0)
 				AppendLine("pass");
 
 			//Structs are values as in C++: assigning, passing or returning copies, and an array or struct field copies too, so nesting stays a value all the way down.
@@ -106,9 +83,7 @@ namespace Orion.Backend.Python
 			AppendLine("def copy(self):");
 			PushScope();
 			//A Ref field passes straight through: a copy keeps naming the same storage, as C++ does.
-			string copied = string.Join(", ", s.Fields.Keys.Select(i =>
-				s.Aliased?.Contains(i) == true ? $"self.{i}" : $"copy_value(self.{i})"));
-			AppendLine($"return {s.Name}({copied})");
+			AppendLine($"return {s.Name}({ModuleBackend.Copied(s, "self")})");
 			PopScope();
 
 			PopScope();
@@ -117,7 +92,7 @@ namespace Orion.Backend.Python
 		//The initializer is a complete expression, not constructor arguments to wrap as Type(args) -- an array one came out Array(Array(...)) and failed at import.
 		private void Write(Declaration decl)
 		{
-			if (decl.Initializer == string.Empty)
+			if (string.IsNullOrEmpty(decl.Initializer))
 				AppendLine($"{decl.Name}: {decl.Type}");
 			else
 				AppendLine($"{decl.Name}: {decl.Type} = {decl.Initializer}");
@@ -125,20 +100,11 @@ namespace Orion.Backend.Python
 
 		private void Write(Function function)
 		{
-			string args = function.Args.Count > 0 ? string.Join(", ", function.Args) : string.Empty;
+			string args = string.Join(", ", function.Args);
 			AppendLine($"def {function.Name}({args}) -> {function.ReturnType}:");
 			PushScope();
 
-			//Locals; a section with nothing to declare is skipped whole, comment included.
-			foreach (KeyValuePair<string, List<Declaration>> item in function.Locals)
-			{
-				if (item.Value.Count == 0)
-					continue;
-				WriteBlockComment(item.Key);
-				foreach (Declaration local in item.Value)
-					Write(local);
-				AppendLine();
-			}
+			WriteSections(function.Locals, WriteBlockComment, Write, blankAfter: true);
 
 			foreach (Code code in function.Code)
 				Write(code);
@@ -146,7 +112,7 @@ namespace Orion.Backend.Python
 			PopScope();
 		}
 
-		internal void Write(CodeBlock c)
+		private void Write(CodeBlock c)
 		{
 			if (c.Lines.Count == 0)
 				return;
@@ -155,7 +121,7 @@ namespace Orion.Backend.Python
 				AppendLine(line);
 		}
 
-		internal void Write(LoopCode w)
+		private void Write(LoopCode w)
 		{
 			AppendLine($"while ({w.Condition}):");
 			PushScope();
@@ -163,7 +129,7 @@ namespace Orion.Backend.Python
 			PopScope();
 		}
 
-		internal void Write(IfCode c)
+		private void Write(IfCode c)
 		{
 			AppendLine($"if ({c.Condition}):");
 			PushScope();
@@ -171,7 +137,7 @@ namespace Orion.Backend.Python
 			PopScope();
 		}
 
-		internal void Write(IfElseCode c)
+		private void Write(IfElseCode c)
 		{
 			AppendLine($"if ({c.Condition}):");
 			PushScope();
@@ -206,7 +172,7 @@ namespace Orion.Backend.Python
 			};
 		}
 
-		internal void Write(Code code)
+		private void Write(Code code)
 		{
 			switch (code)
 			{
@@ -236,15 +202,6 @@ namespace Orion.Backend.Python
 			}
 		}
 
-		internal void WriteComment(string comment)
-		{
-			AppendLine($"# {comment}");
-		}
-		internal void WriteBlockComment(string comment)
-		{
-			AppendLine($"# ");
-			AppendLine($"# {comment}");
-			AppendLine($"# ");
-		}
+		private void WriteBlockComment(string comment) => WriteBanner("# ", "# ", comment);
 	}
 }

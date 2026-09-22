@@ -9,7 +9,7 @@ namespace Orion.IR.Checks
 	//Enforces the port rules: an #input may not be written, a #pure may not be read and must be written on every path. Checked over the TACs, where reads and writes are exact.
 	internal static class PortAccess
 	{
-		public static void Check(SourceFunctionSymbol function, List<Message> messages)
+		internal static void Check(SourceFunctionSymbol function, List<Message> messages)
 		{
 			//Nothing to enforce unless the function actually declares ports.
 			if (!function.Parameters.Any(p => p.Direction == ParamDirection.In || p.Pure))
@@ -62,7 +62,7 @@ namespace Orion.IR.Checks
 						at.IntersectWith(written[pred]);
 
 					foreach (Tac tac in node.Value.Tacs)
-						at.UnionWith(tac.GetReadersWriters().Item2.OfType<ParamDataSymbol>().Where(p => p.Pure));
+						at.UnionWith(tac.GetReadersWriters().Writes.OfType<ParamDataSymbol>().Where(p => p.Pure));
 
 					if (!at.SetEquals(written[node]))
 					{
@@ -83,9 +83,7 @@ namespace Orion.IR.Checks
 		//A synthesized TAC has no location, so fall back to the function's first located one.
 		private static void Report(List<Message> messages, Tac tac, SourceFunctionSymbol function, string text)
 		{
-			InputRegion region = tac.Region
-				?? function.Tacs.FirstOrDefault(t => t.Region != null)?.Region
-				?? InputRegion.None;
+			InputRegion region = tac.Region ?? function.Located();
 
 			messages.Add(new Message($"Function {function.Name}: {text}", region, MessageType.Error));
 		}

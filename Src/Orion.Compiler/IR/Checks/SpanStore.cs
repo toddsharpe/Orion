@@ -64,8 +64,8 @@ namespace Orion.IR.Checks
 							return true;
 						break;
 
-					//A slice views its source, so the source is what decides.
-					case CallTac call when call.Result == symbol && Sliced(call):
+					//A slice views its source, so the source is what decides; `span_slice<T>` is instantiated per element type, so the emitted name is what identifies it.
+					case CallTac { Function: BuiltinFunctionSymbol { EmitName: Slice } } call when call.Result == symbol:
 						if (Global(func, call.Arguments.FirstOrDefault(), seen))
 							return true;
 						break;
@@ -74,9 +74,5 @@ namespace Orion.IR.Checks
 
 			return false;
 		}
-
-		//`span_slice<T>` is instantiated per element type, so the emitted name is what identifies it.
-		private static bool Sliced(CallTac call) =>
-			call.Function is BuiltinFunctionSymbol builtin && builtin.EmitName == Slice;
 	}
 }

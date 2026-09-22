@@ -7,23 +7,7 @@ using System.Linq;
 
 namespace Orion.LangSvr
 {
-	public readonly struct SemToken
-	{
-		public readonly int Line;
-		public readonly int Char;
-		public readonly int Length;
-		public readonly SemanticTokenType Type;
-		public readonly SemanticTokenModifier[] Modifiers;
-
-		public SemToken(int line, int ch, int length, SemanticTokenType type, SemanticTokenModifier[] modifiers)
-		{
-			Line = line;
-			Char = ch;
-			Length = length;
-			Type = type;
-			Modifiers = modifiers;
-		}
-	}
+	public readonly record struct SemToken(int Line, int Char, int Length, SemanticTokenType Type, SemanticTokenModifier[] Modifiers);
 
 	//One semantic token per variable usage, classified by its bound symbol; duplicates collapse by position.
 	public static class OrionSemanticTokens
@@ -39,9 +23,21 @@ namespace Orion.LangSvr
 				if (!(n is Variable v) || v.Symbol == null || v.Region == null)
 					continue;
 
-				(SemanticTokenType Type, SemanticTokenModifier[] Modifiers)? classified = Classify(v.Symbol);
-				if (classified == null)
-					continue;
+				SemanticTokenType type;
+				SemanticTokenModifier[] modifiers;
+				switch (v.Symbol)
+				{
+					case ParamDataSymbol:
+						type = SemanticTokenType.Parameter;
+						modifiers = None;
+						break;
+					case LocalDataSymbol local:
+						type = SemanticTokenType.Variable;
+						modifiers = local.IsReadOnly ? ReadOnly : None;
+						break;
+					default:
+						continue;
+				}
 
 				InputRegion r = v.Region;
 				if (r.Start.Line != r.Stop.Line)
@@ -54,23 +50,10 @@ namespace Orion.LangSvr
 				if (line < 0 || col < 0 || length <= 0)
 					continue;
 
-				byPos[(line, col)] = new SemToken(line, col, length, classified.Value.Type, classified.Value.Modifiers);
+				byPos[(line, col)] = new SemToken(line, col, length, type, modifiers);
 			}
 
 			return byPos.Values.OrderBy(t => t.Line).ThenBy(t => t.Char).ToList();
-		}
-
-		private static (SemanticTokenType, SemanticTokenModifier[])? Classify(DataSymbol sym)
-		{
-			switch (sym)
-			{
-				case ParamDataSymbol _:
-					return (SemanticTokenType.Parameter, None);
-				case LocalDataSymbol local:
-					return (SemanticTokenType.Variable, local.IsReadOnly ? ReadOnly : None);
-				default:
-					return null;
-			}
 		}
 	}
 }

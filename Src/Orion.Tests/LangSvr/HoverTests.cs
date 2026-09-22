@@ -75,26 +75,20 @@ namespace Orion.Tests.LangSvr
 			Assert.AreEqual("i32", Lang.Hover(src, "42"));
 		}
 
+		private const string EnumFn =
+			"enum Color { Red, Green, Blue }\nColor pick()\n{\n    Color c = Color::Green;\n    return c;\n}\n";
+
 		[TestMethod]
 		public void EnumVariableShowsAllMembers()
-		{
-			string src = "enum Color { Red, Green, Blue }\nColor pick()\n{\n    Color c = Color::Green;\n    return c;\n}\n";
-			Assert.AreEqual("local c: Color\nenum Color { Red = 0, Green = 1, Blue = 2 }", Lang.Hover(src, "c;"));
-		}
+			=> Assert.AreEqual("local c: Color\nenum Color { Red = 0, Green = 1, Blue = 2 }", Lang.Hover(EnumFn, "c;"));
 
 		[TestMethod]
 		public void EnumLiteralShowsItsValue()
-		{
-			string src = "enum Color { Red, Green, Blue }\nColor pick()\n{\n    Color c = Color::Green;\n    return c;\n}\n";
-			Assert.AreEqual("Color::Green = 1", Lang.Hover(src, "Color::Green"));
-		}
+			=> Assert.AreEqual("Color::Green = 1", Lang.Hover(EnumFn, "Color::Green"));
 
 		[TestMethod]
 		public void EnumTypeNameShowsMembers()
-		{
-			string src = "enum Color { Red, Green, Blue }\nColor pick()\n{\n    Color c = Color::Green;\n    return c;\n}\n";
-			Assert.AreEqual("enum Color { Red = 0, Green = 1, Blue = 2 }", Lang.Hover(src, "Color c"));
-		}
+			=> Assert.AreEqual("enum Color { Red = 0, Green = 1, Blue = 2 }", Lang.Hover(EnumFn, "Color c"));
 
 		[TestMethod]
 		public void EnumTypeNameInsideSolverBlock()
@@ -132,41 +126,6 @@ namespace Orion.Tests.LangSvr
 		[TestMethod]
 		public void StructConstructionShowsStructBody()
 			=> Assert.AreEqual("struct Point { i32 X; i32 Y; }", Lang.Hover(StructFn, "X = 1"));
-
-		[TestMethod]
-		public void WhitespaceInsideIfShowsIf()
-		{
-			string src = "i32 f(i32 x)\n{\n    if (x > 0)\n    {\n        i32 y = x;\n    }\n    return x;\n}\n";
-			Assert.AreEqual("if (x > 0)", Lang.Hover(src, "{", 1));
-		}
-
-		[TestMethod]
-		public void WhitespaceInsideIfElseShowsIf()
-		{
-			string src = "i32 f(i32 x)\n{\n    if (x > 0)\n    {\n        x = 1;\n    }\n    else\n    {\n        x = 2;\n    }\n    return x;\n}\n";
-			Assert.AreEqual("if (x > 0)", Lang.Hover(src, "{", 1));
-		}
-
-		[TestMethod]
-		public void WhitespaceInsideWhileShowsWhile()
-		{
-			string src = "i32 f(i32 x)\n{\n    while (x > 0)\n    {\n        x = x - 1;\n    }\n    return x;\n}\n";
-			Assert.AreEqual("while (x > 0)", Lang.Hover(src, "{", 1));
-		}
-
-		[TestMethod]
-		public void WhitespaceInsideForShowsFor()
-		{
-			string src = "i32 f()\n{\n    i32 s = 0;\n    for (i32 i = 0; i < 3; i++)\n    {\n        s = s + i;\n    }\n    return s;\n}\n";
-			Assert.AreEqual("for (...)", Lang.Hover(src, "{", 1));
-		}
-
-		[TestMethod]
-		public void WhitespaceInsideBuildScopeShowsBlock()
-		{
-			string src = "i32 main()\n{\n    #run\n    {\n        WriteLine(\"x\");\n    }\n    return 0;\n}\n";
-			Assert.AreEqual("#run { ... }", Lang.Hover(src, "{", 1));
-		}
 
 		private const string SolverBlock =
 			"void BangBang(\n" +

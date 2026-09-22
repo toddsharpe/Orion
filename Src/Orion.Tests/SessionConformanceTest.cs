@@ -20,21 +20,23 @@ namespace Orion.Tests
 			//The phase pipeline, declared once.
 			"Orion.Compiler.Table",
 
-			//The language's fixed tables: operators, keywords, primitives, casts, and the CLR maps.
+			//The language's fixed tables: operators, keywords, primitives, and the CLR maps.
 			"Orion.Ast.Expression.AstOps",
 			"Orion.Ast.Expression.NamedOps",
-			"Orion.Language.CastCodes",
 			"Orion.Language.Primitives",
 			"Orion.Clr.ClrTypes.ClrToLang",
 			"Orion.Clr.ClrTypes.LangToClr",
 			"Orion.Clr.ClrTypes.Names",
 			"Orion.Clr.ClrTypes.Pointers",
 			"Orion.Symbols.BufferTypeSymbol.BufferFields",
-			"Orion.Frontend.BindingAstVisitor.LocalStorage",
 			"Orion.Frontend.Pipeline.PrePasses",
 			"Orion.IR.Opts.CommonSubexpr.PureBuiltins",
 			"Orion.IR.TacBuilder.BinaryOps",
 			"Orion.IR.TacBuilder.UnaryOps",
+
+			//Build-time framing and element opcodes per primitive: fixed by the type, the same in every compile.
+			"Orion.BuildTime.Builtins.PackBuiltins.Packers",
+			"Orion.Clr.Emitter.ElementOps",
 
 			//The reflected builtin surface, built once at startup.
 			"Orion.BuildTime.Surface.Bare",
@@ -47,23 +49,16 @@ namespace Orion.Tests
 			"Orion.BuildTime.Surface.Namespaced",
 			"Orion.BuildTime.Surface.Namespaces",
 			"Orion.BuildTime.Surface.OperatorMethods",
+			"Orion.BuildTime.Surface.PerType",
 			"Orion.BuildTime.Surface.StrBuiltins",
 
 			//The backends' spelling tables and section names.
-			"Orion.Backend.Spelling.Binary",
-			"Orion.Backend.Spelling.Unary",
-			"Orion.Backend.Netlist.Sections",
-			"Orion.Backend.Cpp.Codegen.BinaryOps",
-			"Orion.Backend.Cpp.Codegen.UnaryOps",
+			"Orion.Backend.Render.Spelling.Binary",
+			"Orion.Backend.Render.Spelling.Unary",
 			"Orion.Backend.Cpp.Codegen.Reserved",
 			"Orion.Backend.Python.Codegen.BinaryOps",
-			"Orion.Backend.Python.Codegen.UnaryOps",
 			"Orion.Backend.Python.Codegen.TypeHints",
 			"Orion.Backend.Python.Codegen.Reserved",
-			"Orion.Backend.JavaScript.Codegen.BinaryOps",
-			"Orion.Backend.JavaScript.Codegen.UnaryOps",
-			"Orion.Backend.CSharp.Codegen.BinaryOps",
-			"Orion.Backend.CSharp.Codegen.UnaryOps",
 			"Orion.Backend.CSharp.Codegen.Keywords",
 			"Orion.Backend.CSharp.Codegen.Primitives",
 			"Orion.Backend.CSharp.Codegen.Suffixes",
@@ -80,22 +75,36 @@ namespace Orion.Tests
 		[TestMethod]
 		public void NoStaticOutsideTheSessionHoldsPerCompileState()
 		{
-			BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
-
-			List<string> found = [.. typeof(Compiler).Assembly.GetTypes()
-				//A lambda's display class is not state anyone declared; a property's backing field is, under its own name below.
-				.Where(t => !t.Name.StartsWith('<'))
-				.SelectMany(t => t.GetFields(flags).Select(f => (Type: t, Field: f)))
-				.Where(i => !i.Field.IsLiteral)
-				//Reassignable, or a collection something can be added to: either could carry a compile over.
-				.Where(i => !i.Field.IsInitOnly || typeof(IEnumerable).IsAssignableFrom(i.Field.FieldType))
-				.Select(i => $"{Name(i.Type)}.{Name(i.Field)}")
-				.Where(i => !Constants.Contains(i))
-				.OrderBy(i => i)];
+			List<string> found = [.. Statics().Where(i => !Constants.Contains(i)).OrderBy(i => i)];
 
 			Assert.AreEqual(0, found.Count,
 				"static state outside CompileSession. Put it on the session if it is per-compile; add it to " +
 				"Constants (with why) if it is written once and read as a constant:\n" + string.Join("\n", found));
+		}
+
+		//The whitelist only ever grew: an entry whose static was moved or deleted kept vouching for nothing.
+		[TestMethod]
+		public void EveryWhitelistedConstantStillExists()
+		{
+			HashSet<string> statics = [.. Statics()];
+			List<string> stale = [.. Constants.Where(i => !statics.Contains(i)).OrderBy(i => i)];
+
+			Assert.AreEqual(0, stale.Count,
+				"these entries name nothing the check would report; remove them:\n" + string.Join("\n", stale));
+		}
+
+		//Every static in the compiler that could carry a compile over: reassignable, or a collection something can add to.
+		private static IEnumerable<string> Statics()
+		{
+			BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+			return typeof(Compiler).Assembly.GetTypes()
+				//A lambda's display class is not state anyone declared; a property's backing field is, under its own name below.
+				.Where(t => !t.Name.StartsWith('<'))
+				.SelectMany(t => t.GetFields(flags).Select(f => (Type: t, Field: f)))
+				.Where(i => !i.Field.IsLiteral)
+				.Where(i => !i.Field.IsInitOnly || typeof(IEnumerable).IsAssignableFrom(i.Field.FieldType))
+				.Select(i => $"{Name(i.Type)}.{Name(i.Field)}");
 		}
 
 		//A nested type reads as `Outer+Inner`; the declaration site spells it with a dot.

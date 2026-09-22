@@ -8,54 +8,30 @@ namespace Orion.Frontend
 	//Hoists a `#build` declaration into one build-time cell that every later `#run` of its function reads. See Docs/Language.md.
 	public static class BuildLocals
 	{
-		//One cell per declaring function, so two functions may each declare their own `d`.
-		private static string Mangle(string owner, string name) => $"{owner}__{name}";
-
 		public static void Run(TranslationUnit tu, List<Message> messages)
 		{
 			foreach (Function function in tu.Blocks.OfType<Function>())
 				Hoist(function, function.Name, messages);
 		}
 
-		//A specialized solver block, which Specializer.Instantiate re-creates and so never saw the pass above; hoisted under the TEMPLATE's name, so every instance reaches the one cell.
-		internal static void Run(Function clone, string template, List<Message> messages)
-		{
-			Hoist(clone, template, messages);
-		}
-
 		//A `#build` declaration written as `const` (a ConstDef) or as a mutable local (a Construct).
-		private static bool Declaration(Statement statement, out string name, out TypeName type, out Expression value)
+		private static (string Name, TypeName Type, Expression Value)? Declaration(Statement statement) => statement switch
 		{
-			switch (statement)
-			{
-				case ConstDef c when c.Directive == LocalDirective.Build:
-					name = c.Name;
-					type = c.TypeName;
-					value = c.Value;
-					return true;
+			ConstDef c when c.Directive == LocalDirective.Build => (c.Name, c.TypeName, c.Value),
+			Assignment { Init: Construct { Directive: LocalDirective.Build } init } => (init.SymbolName, init.TypeName, init.Value),
+			_ => null,
+		};
 
-				case Assignment { Init: Construct { Directive: LocalDirective.Build } init }:
-					name = init.SymbolName;
-					type = init.TypeName;
-					value = init.Value;
-					return true;
-
-				default:
-					name = null;
-					type = null;
-					value = null;
-					return false;
-			}
-		}
-
-		private static void Hoist(Function function, string owner, List<Message> messages)
+		//Also the entry for a specialized solver block, which Specializer.Instantiate re-creates; hoisted under the TEMPLATE's name, so every instance reaches the one cell.
+		internal static void Hoist(Function function, string owner, List<Message> messages)
 		{
 			//Everything in a #build function is already build time, so there is nothing for a cell to outlive; reported here before the rewrite puts a `#run { }` in a build context.
 			if (function.IsBuild)
 			{
 				foreach (Statement statement in function.Body)
 				{
-					if (!Declaration(statement, out string redundant, out _, out _))
+					string redundant = Declaration(statement)?.Name;
+					if (redundant == null)
 						continue;
 
 					messages.Add(new Message(
@@ -70,7 +46,8 @@ namespace Orion.Frontend
 			//A cell lives as long as the function runs, so declaring one under an `if` or a loop promises a lifetime the nesting does not have; reported before the top-level pass.
 			foreach (Statement nested in function.Body.SelectMany(s => s.DescendantsAndSelf()).OfType<Statement>())
 			{
-				if (function.Body.Contains(nested) || !Declaration(nested, out string bad, out _, out _))
+				string bad = Declaration(nested)?.Name;
+				if (bad == null || function.Body.Contains(nested))
 					continue;
 
 				messages.Add(new Message(
@@ -84,10 +61,13 @@ namespace Orion.Frontend
 
 			for (int i = 0; i < function.Body.Count; i++)
 			{
-				if (!Declaration(function.Body[i], out string name, out TypeName type, out Expression value))
+				(string Name, TypeName Type, Expression Value)? declaration = Declaration(function.Body[i]);
+				if (declaration == null)
 					continue;
 
-				string mangled = Mangle(owner, name);
+				(string name, TypeName type, Expression value) = declaration.Value;
+				//One cell per declaring function, so two functions may each declare their own `d`.
+				string mangled = $"{owner}__{name}";
 				if (declared.ContainsKey(name))
 				{
 					messages.Add(new Message(

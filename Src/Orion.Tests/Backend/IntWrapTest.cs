@@ -4,12 +4,7 @@
 	[TestClass]
 	public class IntWrapTest
 	{
-		private static string Emit(BackendLanguage lang, string body)
-		{
-			CompilerResult result = Harness.CompileTo(lang, "i32 main()\n{\n" + body + "\n\treturn 0;\n}\n");
-			result.AssertNoErrors();
-			return result.CodeOutput;
-		}
+		private static string Emit(BackendLanguage lang, string body) => Harness.EmitMain(lang, body);
 
 		[TestMethod]
 		public void PythonMasksUnsignedAdd()

@@ -15,9 +15,9 @@ namespace Orion.IR
 			set => Compiler.Session?.TacRegions.AddOrUpdate(this, value);
 		}
 
-		internal (List<DataSymbol>, List<DataSymbol>) GetReadersWriters()
+		internal (List<DataSymbol> Reads, List<DataSymbol> Writes) GetReadersWriters()
 		{
-			Func<CallTac, (List<DataSymbol>, List<DataSymbol>)> handleCall = (call) =>
+			static (List<DataSymbol>, List<DataSymbol>) HandleCall(CallTac call)
 			{
 				List<(ParamDataSymbol First, DataSymbol Second)> binds = call.Function.Parameters.Zip(call.Arguments).ToList();
 
@@ -31,22 +31,22 @@ namespace Orion.IR
 				}
 
 				return (reads, writes);
-			};
+			}
 
-			Func<IndirectCallTac, (List<DataSymbol>, List<DataSymbol>)> handleCalli = (call) =>
+			static (List<DataSymbol>, List<DataSymbol>) HandleCalli(IndirectCallTac call)
 			{
 				List<DataSymbol> reads = [call.Target, .. call.Arguments.SelectMany(i => i.GetSymbols())];
 				List<DataSymbol> writes = call.Result?.GetSymbols();
 
 				return (reads, writes ?? []);
-			};
+			}
 
-			Func<MultiCallTac, (List<DataSymbol>, List<DataSymbol>)> handleMultiCall = (call) =>
+			static (List<DataSymbol>, List<DataSymbol>) HandleMultiCall(MultiCallTac call)
 			{
-				(List<DataSymbol> reads, List<DataSymbol> writes) = handleCall(call);
+				(List<DataSymbol> reads, List<DataSymbol> writes) = HandleCall(call);
 				writes.AddRange(call.SideEffects.SelectMany(i => i.GetSymbols()));
 				return (reads, writes);
-			};
+			}
 
 			static (List<DataSymbol> Reads, List<DataSymbol> Writes) Target(DataSymbol result)
 			{
@@ -57,19 +57,26 @@ namespace Orion.IR
 				return (partial ? [.. indices, .. writes] : indices, writes);
 			}
 
+			//An operation reads its operands and whatever its result's shape reads, and writes what the result names.
+			static (List<DataSymbol> Reads, List<DataSymbol> Writes) Op(NamedDataSymbol result, params DataSymbol[] operands)
+			{
+				(List<DataSymbol> reads, List<DataSymbol> writes) = Target(result);
+				return ([.. operands.SelectMany(i => i.GetSymbols()), .. reads], writes);
+			}
+
 			return this switch
 			{
-				AssignTac tac => ([.. tac.Operand1.GetSymbols(), .. Target(tac.Result).Reads], Target(tac.Result).Writes),
-				MultiCallTac tac => handleMultiCall(tac),
-				CallTac tac => handleCall(tac),
-				IndirectCallTac tac => handleCalli(tac),
-				UnaryTac tac => ([.. tac.Operand1.GetSymbols(), .. Target(tac.Result).Reads], Target(tac.Result).Writes),
-				CastTac tac => ([.. tac.Operand1.GetSymbols(), .. Target(tac.Result).Reads], Target(tac.Result).Writes),
-				BinaryTac tac => ([.. tac.Operand1.GetSymbols(), .. tac.Operand2.GetSymbols(), .. Target(tac.Result).Reads], Target(tac.Result).Writes),
+				AssignTac tac => Op(tac.Result, tac.Operand1),
+				MultiCallTac tac => HandleMultiCall(tac),
+				CallTac tac => HandleCall(tac),
+				IndirectCallTac tac => HandleCalli(tac),
+				UnaryTac tac => Op(tac.Result, tac.Operand1),
+				CastTac tac => Op(tac.Result, tac.Operand1),
+				BinaryTac tac => Op(tac.Result, tac.Operand1, tac.Operand2),
 				ConditionalTac tac => (tac.Condition.GetSymbols(), []),
 				ReturnSymTac tac => (tac.Symbol.GetSymbols(), []),
 				MultiReturnTac tac => (tac.Symbols.SelectMany(i => i.GetSymbols()).ToList(), []),
-				ReturnVoidTac tac => ([], []),
+				ReturnVoidTac => ([], []),
 
 				NewTac tac => ([], [tac.Symbol]),
 
@@ -254,8 +261,7 @@ namespace Orion.IR
 		public override string ToString()
 		{
 			string tag = IsBuild ? "Build " : string.Empty;
-			List<string> args = Arguments.Select(i => i.ToString()).ToList();
-			string argString = args.Count != 0 ? string.Join(", ", args) : string.Empty;
+			string argString = string.Join(", ", Arguments);
 			return $"CallTac: {(Result != null ? Result : "Void")} = {tag}{Function.Name}({argString})";
 		}
 	}
@@ -266,8 +272,7 @@ namespace Orion.IR
 		public override string ToString()
 		{
 			string tag = IsBuild ? "Build " : string.Empty;
-			List<string> args = Arguments.Select(i => i.ToString()).ToList();
-			string argString = args.Count != 0 ? string.Join(", ", args) : string.Empty;
+			string argString = string.Join(", ", Arguments);
 			return $"IndirectCallTac: {(Result != null ? Result : "Void")} = {tag}{Target.Name}({argString})";
 		}
 	}
@@ -277,8 +282,7 @@ namespace Orion.IR
 	{
 		public override string ToString()
 		{
-			List<string> args = Arguments.Select(i => i.ToString()).ToList();
-			string argString = args.Count != 0 ? string.Join(", ", args) : string.Empty;
+			string argString = string.Join(", ", Arguments);
 			string sideEffects = string.Join(", ", SideEffects);
 			return $"MultiCallTac: {(Result != null ? Result : "Void")}, {sideEffects} = {Function.Name}({argString})";
 		}

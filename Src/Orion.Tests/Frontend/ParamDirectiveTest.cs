@@ -1,6 +1,6 @@
+using Assert = Microsoft.VisualStudio.TestTools.UnitTesting.Assert;
 using Orion.Ast;
 using System.Linq;
-using ParserResult = FParsec.CharParsers.ParserResult<Orion.Lang.Syntax.TranslationUnit, Microsoft.FSharp.Core.Unit>;
 
 namespace Orion.Tests.Frontend
 {
@@ -8,14 +8,8 @@ namespace Orion.Tests.Frontend
 	[TestClass]
 	public class ParamDirectiveTest
 	{
-		private static Function Parse(string src, string name)
-		{
-			ParserResult parseResult = Lang.Parse.Parse(src);
-			ParserResult.Success parseSuccess = parseResult as ParserResult.Success;
-			TranslationUnit tu = TranslationUnit.Create(parseSuccess.Item1);
-
-			return tu.Blocks.OfType<Function>().Single(f => f.Name == name);
-		}
+		private static Function Parse(string src, string name) =>
+			Parsed.Parse(src).Blocks.OfType<Function>().Single(f => f.Name == name);
 
 		[TestMethod]
 		public void ParamPortsDefaultsAndNetBindings()

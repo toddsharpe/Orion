@@ -16,15 +16,13 @@ namespace Orion.Web.Interop
 		public string Code { get; set; }         // generated C++, Python, JavaScript or C#
 		public string BuildOutput { get; set; }  // build-time program stdout (Env.Output)
 		public string Log { get; set; }          // OnRecord pipeline trace
-		public List<CompileMessage> Messages { get; set; }
+		public List<MessageDto> Messages { get; set; }
 		public List<PhaseTiming> Phases { get; set; }  // per-phase wall-clock, for the timing bar
 		public List<GraphDto> Graphs { get; set; }     // diagrams as Graphviz DOT, e.g. the call graph
 		public List<AnalysisNode> Analysis { get; set; }  // Analysis tab tree: one root per phase
 	}
 
-	// One row of the Analysis tree, labels only: what a node shows is fetched by Id on selection, since a compile's tables and ASTs are far too large to serialize, and a grouping row has a null Id.
-
-	// HasChildren with null Children means "expandable, ask when opened": every phase from Binding on hands back the same root table, so building all 14 up front cost a quarter of the compile.
+	//One row of the Analysis tree, labels only (a grouping row has a null Id); HasChildren with null Children means "ask when opened", since building every phase's table up front cost a quarter of the compile.
 	public sealed class AnalysisNode
 	{
 		public string Id { get; set; }
@@ -63,10 +61,11 @@ namespace Orion.Web.Interop
 		public double Ms { get; set; }
 	}
 
-	public sealed class CompileMessage
+	//One diagnostic for Monaco's markers, from a compile or a live analysis alike.
+	public sealed class MessageDto
 	{
-		public string Severity { get; set; }     // "Error" | "Info"
-		public string Text { get; set; }
+		public string Severity { get; set; }     // "Error" | "Info"; explorer.js reads anything but "Error" as Info
+		public string Message { get; set; }
 		public int StartLine { get; set; }        // 0-based (LSP style); JS adds 1 for Monaco
 		public int StartCol { get; set; }
 		public int EndLine { get; set; }
@@ -75,18 +74,8 @@ namespace Orion.Web.Interop
 
 	public sealed class AnalyzeResult
 	{
-		public List<AnalyzeDiagnostic> Diagnostics { get; set; }
+		public List<MessageDto> Diagnostics { get; set; }
 		public TokensDto Tokens { get; set; }
-	}
-
-	public sealed class AnalyzeDiagnostic
-	{
-		public string Severity { get; set; }     // "Error" | "Info"
-		public string Message { get; set; }
-		public int StartLine { get; set; }        // 0-based
-		public int StartCol { get; set; }
-		public int EndLine { get; set; }
-		public int EndCol { get; set; }
 	}
 
 	public sealed class TokensDto
@@ -119,12 +108,7 @@ namespace Orion.Web.Interop
 	public sealed class SignatureHelpDto
 	{
 		public string Label { get; set; }
-		public List<SignatureParamDto> Parameters { get; set; }
+		public IReadOnlyList<string> Parameters { get; set; }  // one label per parameter, as the signature spells it
 		public int ActiveParameter { get; set; }
-	}
-
-	public sealed class SignatureParamDto
-	{
-		public string Label { get; set; }
 	}
 }

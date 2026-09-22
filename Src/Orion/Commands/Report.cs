@@ -4,7 +4,7 @@ using System;
 
 namespace Orion.Commands
 {
-	//What both commands print the same way: where a message is, and the header a verbose phase gets.
+	//What both commands print the same way: where a message is.
 	internal static class Report
 	{
 		//`file(line,col): ` for a message that has a place, empty for one that does not; `name` spells the file.
@@ -22,14 +22,6 @@ namespace Orion.Commands
 		{
 			string root = Environment.CurrentDirectory + Path.DirectorySeparatorChar;
 			return file.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? file.Substring(root.Length) : file;
-		}
-
-		//The phase banner and its messages; `compile -v` follows this with the phase's state.
-		public static void Phase(PhaseResult phase)
-		{
-			Console.WriteLine($"=== {phase} ({phase.Elapsed.TotalMilliseconds:F1}ms) ===");
-			foreach (Message message in phase.Messages)
-				Console.WriteLine($"{message.Type}: {message.Text}");
 		}
 	}
 }

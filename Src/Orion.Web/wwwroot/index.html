@@ -5,10 +5,7 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<title>Orion.Web — Compiler Explorer</title>
-	<!--
-	  base href is "/" for local `dotnet run`. The GitHub Pages workflow rewrites it to the
-	  repo subpath (e.g. "/Orion/"). All app URLs below are RELATIVE so both work.
-	-->
+	<!-- "/" for local `dotnet run`; the GitHub Pages workflow rewrites it to the repo subpath, so every app URL below is relative. -->
 	<base href="/" />
 	<link rel="stylesheet" href="css/app.css" />
 </head>
@@ -29,9 +26,7 @@
 			<span class="brand">Orion<span class="accent">.Web</span></span>
 			<span class="subtitle">Compiler Explorer</span>
 			<span class="spacer"></span>
-			<!-- Grouped so the dropdown itself says which targets can execute here: only the
-				 JavaScript backend runs in-browser (Run tab), the others are transpile-only.
-				 C++ is marked selected to keep it the default despite the runnable group coming first. -->
+			<!-- Grouped so the dropdown says which targets run here (only JavaScript); C++ stays the default despite the runnable group coming first. -->
 			<label class="lang-label">Target
 				<select id="lang-select">
 					<optgroup label="Runs in browser">
@@ -86,8 +81,7 @@
 						<button class="tab" data-tab="graph" role="tab">Graph</button>
 						<!-- The pipeline explorer: every phase's state, tree on the left, detail on the right. -->
 						<button class="tab" data-tab="analysis" role="tab">Analysis</button>
-						<!-- Always rendered, disabled until a JavaScript compile succeeds: a visibly
-							 locked tab advertises that programs can be run here, where hiding it did not. -->
+						<!-- Always rendered, disabled until a JavaScript compile succeeds: a visibly locked tab advertises that programs can be run here. -->
 						<button class="tab" data-tab="run" role="tab" disabled>Run ▶</button>
 					</nav>
 					<div class="tabbody">

@@ -1,4 +1,4 @@
-using Orion.Diagnostics;
+﻿using Orion.Diagnostics;
 using Orion.IR;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,13 +17,10 @@ namespace Orion.Symbols
 		string Name { get; }
 	}
 
-	//The base of every type.
+	//The base of every type; every record below overrides ToString, else the generated printer spells the fields, and `=> base.ToString()` keeps this one's Name.
 	public abstract record TypeSymbol(string Name, bool IsBuild = false) : Symbol(), INamedSymbol
 	{
-		public override string ToString()
-		{
-			return Name;
-		}
+		public override string ToString() => Name;
 	}
 
 	//Every primitive a program can name.
@@ -60,10 +57,7 @@ namespace Orion.Symbols
 	//A primitive type: one TypeCode.
 	public record PrimitiveTypeSymbol(TypeCode Code) : TypeSymbol(Code.ToString(), false)
 	{
-		public override string ToString()
-		{
-			return Name;
-		}
+		public override string ToString() => base.ToString();
 	}
 
 	//`typedef i64 time;` -- a primitive to every code path, a different type to every check.
@@ -74,79 +68,12 @@ namespace Orion.Symbols
 			Name = name;
 		}
 
-		public override string ToString()
-		{
-			return Name;
-		}
+		public override string ToString() => base.ToString();
 	}
 	//`#measure m;` - the declaration itself, so a measure a type names must have been declared.
 	public record MeasureSymbol(string Name) : Symbol(), INamedSymbol
 	{
 		public override string ToString() => Name;
-	}
-
-	//A measure as exponents over base names: `m/s^2` is m^1 and s^-2, in the one spelling both sides use.
-	public static class Measures
-	{
-		public const string None = "1";
-
-		public static string Spell(IEnumerable<(string Base, int Power)> powers)
-		{
-			List<KeyValuePair<string, int>> combined = [.. powers
-				.GroupBy(i => i.Base)
-				.Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => i.Power)))
-				.Where(i => i.Value != 0)
-				.OrderBy(i => i.Key, StringComparer.Ordinal)];
-
-			static string Part(KeyValuePair<string, int> term) =>
-				Math.Abs(term.Value) == 1 ? term.Key : $"{term.Key}^{Math.Abs(term.Value)}";
-
-			List<KeyValuePair<string, int>> over = [.. combined.Where(i => i.Value > 0)];
-			List<KeyValuePair<string, int>> under = [.. combined.Where(i => i.Value < 0)];
-
-			string head = over.Count == 0 ? None : string.Join("*", over.Select(Part));
-			return under.Count == 0 ? head : $"{head}/{string.Join("/", under.Select(Part))}";
-		}
-
-		public static List<(string Base, int Power)> Parse(string measure)
-		{
-			List<(string Base, int Power)> powers = [];
-			if (string.IsNullOrEmpty(measure))
-				return powers;
-
-			int at = 0;
-			int sign = 1;
-			while (at < measure.Length)
-			{
-				int next = measure.IndexOfAny(['*', '/'], at);
-				string term = next < 0 ? measure[at..] : measure[at..next];
-
-				if (term.Length > 0 && term != None)
-				{
-					int caret = term.IndexOf('^');
-					string name = caret < 0 ? term : term[..caret];
-					int power = caret < 0 ? 1 : int.Parse(term[(caret + 1)..]);
-					powers.Add((name, sign * power));
-				}
-
-				if (next < 0)
-					break;
-
-				sign = measure[next] == '/' ? -1 : 1;
-				at = next + 1;
-			}
-
-			return powers;
-		}
-
-		public static string Multiply(string left, string right) =>
-			Spell([.. Parse(left), .. Parse(right)]);
-
-		public static string Divide(string left, string right) =>
-			Spell([.. Parse(left), .. Parse(right).Select(i => (i.Base, -i.Power))]);
-
-		public static string Of(TypeSymbol type) =>
-			type is MeasuredTypeSymbol measured ? measured.Measure : None;
 	}
 
 	//`f64<m/s^2>`: a primitive carrying a measure, erased before codegen by `Spelling.Emitted`.
@@ -160,17 +87,14 @@ namespace Orion.Symbols
 			Name = $"{code}<{measure}>";
 		}
 
-		public override string ToString() => Name;
+		public override string ToString() => base.ToString();
 	}
 
 	//The type of an `${ ... }` argument bag.
 	public record ArgsTypeSymbol() : TypeSymbol("args", false)
 	{
 		public static readonly Type Underlying = typeof(Dictionary<string, object>);
-		public override string ToString()
-		{
-			return Name;
-		}
+		public override string ToString() => base.ToString();
 	}
 
 	//A member Orion sees on a builtin: a public CLR property, plus the getter to call for it.
@@ -267,10 +191,8 @@ namespace Orion.Symbols
 
 		protected static readonly List<Field> BufferFields = [new Field("Length", Language.Primitives[TypeCode.i32])];
 
-		public override string ToString()
-		{
-			return Name;
-		}
+		//Not the base's: a buffer prints as its name, never its synthesized Length field.
+		public override string ToString() => Name;
 	}
 
 	//`T[N]`: a value of exactly N elements, with the length in its identity so `!=` checks it.
@@ -314,7 +236,7 @@ namespace Orion.Symbols
 		public TypeSymbol Element { get; }
 
 		public RefTypeSymbol(TypeSymbol element)
-			: base(Ast.TypeName.RefName(element.Name))
+			: base($"{Ast.TypeName.RefType}<{element.Name}>")
 		{
 			Element = element;
 		}
@@ -382,18 +304,8 @@ namespace Orion.Symbols
 	{
 		public override string ToString()
 		{
-			return $"\"{GetName(Value)}\":{Type}";
-		}
-
-		private static string GetName(object value)
-		{
-			if (value.GetType().IsArray)
-			{
-				Array a = (Array)value;
-				return "[" + string.Join(",", a.Cast<object>().Select(i => i.ToString())) + "]";
-			}
-			else
-				return value.ToString();
+			string name = Value is Array a ? "[" + string.Join(",", a.Cast<object>()) + "]" : Value.ToString();
+			return $"\"{name}\":{Type}";
 		}
 	}
 
@@ -481,25 +393,6 @@ namespace Orion.Symbols
 		{
 			return $"{Name}:{Type}:{Storage}";
 		}
-	}
-	//How a parameter gets and returns its value.
-	public enum ParamDirection
-	{
-		None,
-		In,
-		Out,
-
-		State
-	}
-
-	//What each direction means for reads and writes.
-	public static class ParamDirections
-	{
-		public static bool IsWritable(this ParamDirection direction) =>
-			direction is ParamDirection.Out or ParamDirection.State;
-
-		public static bool IsReadable(this ParamDirection direction) =>
-			direction is not ParamDirection.Out;
 	}
 	//A parameter, which for a solver block is also a port.
 	public record ParamDataSymbol(string Name, TypeSymbol Type, ParamDirection Direction) : NamedDataSymbol(Name, Type)

@@ -4,7 +4,7 @@ using Orion.IR;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System.Linq;
-using TypeCode = Orion.Symbols.TypeCode;
+using static Orion.Tests.Opt.Tacs;
 
 namespace Orion.Tests.Opt
 {
@@ -12,32 +12,7 @@ namespace Orion.Tests.Opt
 	[TestClass]
 	public class ResultDropTest
 	{
-		private static readonly TypeSymbol I32 = new PrimitiveTypeSymbol(TypeCode.i32);
-
-		private static SourceFunctionSymbol Function(SymbolTable table, params Tac[] body)
-		{
-			LinkedList<Tac> tacs = new LinkedList<Tac>();
-			tacs.AddLast(new FunctionMarkTac(MarkOp.Start));
-			foreach (Tac t in body)
-				tacs.AddLast(t);
-			tacs.AddLast(new FunctionMarkTac(MarkOp.End));
-			return new SourceFunctionSymbol("Test", I32, new List<ParamDataSymbol>(), table, tacs);
-		}
-
-		private static SymbolTable Table(params Symbol[] symbols)
-		{
-			SymbolTable root = new SymbolTable("Root");
-			SymbolTable table = root.CreateChild("Test");
-			foreach (Symbol s in symbols)
-				table.Add(s);
-			return table;
-		}
-
-		private static SourceFunctionSymbol Callee() =>
-			new SourceFunctionSymbol("side", I32, new List<ParamDataSymbol>(),
-				new SymbolTable("Root").CreateChild("side"), new LinkedList<Tac>());
-
-		private static List<Tac> Body(SourceFunctionSymbol func) => func.Tacs.Where(t => t is not FunctionMarkTac).ToList();
+		private static SourceFunctionSymbol Side() => Callee("side", I32);
 
 		[TestMethod]
 		public void DropsUnreadCallResult()
@@ -45,7 +20,7 @@ namespace Orion.Tests.Opt
 			TempDataSymbol t = new TempDataSymbol("_temp_T1", I32);
 
 			SourceFunctionSymbol func = Function(Table(t),
-				new CallTac(t, Callee(), new List<DataSymbol>()));
+				new CallTac(t, Side(), new List<DataSymbol>()));
 
 			ResultDrop.Run(func, new List<Message>());
 
@@ -61,7 +36,7 @@ namespace Orion.Tests.Opt
 			LocalDataSymbol r = new LocalDataSymbol("r", I32, LocalStorage.Stack);
 
 			SourceFunctionSymbol func = Function(Table(t, r),
-				new CallTac(t, Callee(), new List<DataSymbol>()),
+				new CallTac(t, Side(), new List<DataSymbol>()),
 				new AssignTac(r, t));
 
 			ResultDrop.Run(func, new List<Message>());
@@ -77,7 +52,7 @@ namespace Orion.Tests.Opt
 			LocalDataSymbol r = new LocalDataSymbol("r", I32, LocalStorage.Stack);
 
 			SourceFunctionSymbol func = Function(Table(r),
-				new CallTac(r, Callee(), new List<DataSymbol>()));
+				new CallTac(r, Side(), new List<DataSymbol>()));
 
 			ResultDrop.Run(func, new List<Message>());
 
@@ -92,7 +67,7 @@ namespace Orion.Tests.Opt
 			LocalDataSymbol s = new LocalDataSymbol("s", I32, LocalStorage.Stack);
 
 			SourceFunctionSymbol func = Function(Table(t, s),
-				new MultiCallTac(t, new List<NamedDataSymbol> { s }, Callee(), new List<DataSymbol>()));
+				new MultiCallTac(t, new List<NamedDataSymbol> { s }, Side(), new List<DataSymbol>()));
 
 			ResultDrop.Run(func, new List<Message>());
 

@@ -6,7 +6,7 @@ using System;
 
 namespace Orion.BuildTime
 {
-	//The three handles: their public properties are the build-time face of RTTI. See Docs/Compiler.md.
+	//The values a generator holds: the three handles (OrionFunction, OrionType, OrionCode), whose public properties are the build-time face of RTTI, and Port, Instance and Scalar. See Docs/Compiler.md.
 
 	//A function as a build-time value: what `#create` yields.
 	public class OrionFunction
@@ -19,7 +19,7 @@ namespace Orion.BuildTime
 		}
 
 		public string Name => Function?.Name ?? string.Empty;
-		public OrionType Return => new OrionType { Symbol = Function?.ReturnType };
+		public OrionType Return => OrionType.Of(Function?.ReturnType);
 
 		//The block's startup as a handle of its own, empty without one; see Docs/Solver.md.
 		public OrionFunction Init => new OrionFunction(Function?.Init);
@@ -28,15 +28,22 @@ namespace Orion.BuildTime
 		public Port[] Inputs => Params(i => i.Direction is ParamDirection.None or ParamDirection.In);
 		public Port[] Outputs => Params(i => i.Direction == ParamDirection.Out);
 
-		//The #state parameters then the #state locals, the same two-part walk Rtti/Generator does.
+		//The #state parameters then the #state locals, the two-part walk Rtti/Generator shares through StateLocals.
 		public Port[] State => [.. Params(i => i.Direction == ParamDirection.State), .. Statics()];
+
+		//The `#state` locals a block owns; a hoisted `const` shares the storage but is not one (Rewrites.Constants), and the clause is a no-op for RTTI, which walks before hoisting.
+		internal static IEnumerable<LocalDataSymbol> StateLocals(SourceFunctionSymbol function) =>
+			function.Table.Traverse()
+				.SelectMany(i => i.GetAll<LocalDataSymbol>())
+				.Where(i => i.Storage == LocalStorage.Static && !i.Hoisted)
+				.Distinct();
 
 		private Port[] Params(Func<ParamDataSymbol, bool> match)
 		{
 			if (Function == null)
 				return [];
 
-			return [.. Function.Parameters.Where(match).Select(i => Of(i.Name, i.Type, i, i.Direction))];
+			return [.. Function.Parameters.Where(match).Select(i => Of(i.Name, i.Type, i.Direction, i.Delayed))];
 		}
 
 		private Port[] Statics()
@@ -44,22 +51,16 @@ namespace Orion.BuildTime
 			if (Function?.Table == null)
 				return [];
 
-			return [.. Function.Table.Traverse()
-				.SelectMany(i => i.GetAll<LocalDataSymbol>())
-				//A hoisted `const` has the same storage but is not a cell the block owns. See Rewrites.Constants.
-				.Where(i => i.Storage == LocalStorage.Static && !i.Hoisted)
-				.Distinct()
-				.Select(i => Of(i.Name, i.Type, i, ParamDirection.State))];
+			return [.. StateLocals(Function).Select(i => Of(i.Name, i.Type, ParamDirection.State, delayed: false))];
 		}
 
-		private static Port Of(string name, TypeSymbol type, NamedDataSymbol symbol, ParamDirection direction) =>
+		private static Port Of(string name, TypeSymbol type, ParamDirection direction, bool delayed) =>
 			new Port
 			{
-				Named = name,
-				Symbol = symbol,
-				Type = new OrionType { Symbol = type },
+				Name = name,
+				Type = OrionType.Of(type),
 				Direction = direction,
-				Delayed = symbol is ParamDataSymbol { Delayed: true },
+				Delayed = delayed,
 			};
 
 		public override string ToString() => Name;
@@ -69,6 +70,12 @@ namespace Orion.BuildTime
 	public class OrionType
 	{
 		internal TypeSymbol Symbol { get; init; }
+
+		//The empty handle a builtin answers after reporting; shareable because a handle is immutable and equal by its symbol's name.
+		internal static readonly OrionType None = new OrionType { Symbol = null };
+
+		//The handle on a symbol; None for no symbol, so every reader sees one shape.
+		internal static OrionType Of(TypeSymbol symbol) => symbol == null ? None : new OrionType { Symbol = symbol };
 
 		public string Name => Symbol?.Name ?? "void";
 
@@ -99,10 +106,7 @@ namespace Orion.BuildTime
 			}
 		}
 
-		//The declared extent of `T[N]`; a span views storage of a length only its holder knows.
-		public int Length => Symbol is ArrayTypeSymbol a ? a.Length : 0;
-
-		public OrionType Element => Symbol is BufferTypeSymbol b ? new OrionType { Symbol = b.Element } : null;
+		public OrionType Element => Symbol is BufferTypeSymbol b ? Of(b.Element) : None;
 
 		//Two handles on the same type are the same value, so `dev.type == Type::Of<u16>()` works.
 		public static bool operator ==(OrionType a, OrionType b) => Equals(a, b);
@@ -117,7 +121,7 @@ namespace Orion.BuildTime
 	public class OrionCode
 	{
 		//A RECIPE, not materialized AST: which fragments, and what fills their holes. Copied per emission.
-		internal System.Collections.Generic.List<CodePart> Parts { get; init; }
+		internal List<CodePart> Parts { get; init; }
 
 		//Seen in Orion as `a + b`. Neither side is disturbed: the parts are shared, only the list is new.
 		public static OrionCode operator +(OrionCode first, OrionCode second)
@@ -129,9 +133,7 @@ namespace Orion.BuildTime
 	}
 
 	//A fragment (Template + Holes), source (Text), statements (Nodes) or switch arms (Cases) a generator built.
-	internal record CodePart(int Template, System.Collections.Generic.Dictionary<string, object> Holes,
-		string Text = null, System.Collections.Generic.List<Ast.Statement> Nodes = null,
-		System.Collections.Generic.List<Ast.SwitchCase> Cases = null)
+	internal record CodePart(int Template, Dictionary<string, object> Holes, string Text = null, List<Ast.Statement> Nodes = null, List<Ast.SwitchCase> Cases = null)
 	{
 		//An AST part is built once, so a second emission would bind the same nodes twice; there is no deep copy.
 		internal bool Emitted { get; set; }
@@ -165,17 +167,10 @@ namespace Orion.BuildTime
 	//A port: a parameter of a bound function, or a name Port::In/Port::Out wrote into a block being built.
 	public class Port
 	{
-		//Set when the port was declared through Port::In/Port::Out; the block has no symbols yet.
-		internal Ast.Parameter Parameter { get; init; }
-
 		//`Port::Field(p, ".mid.tag")`: what to read INSIDE the port, empty for the port itself.
 		internal IReadOnlyList<PathStep> Path { get; init; } = [];
-		//Set when the port was read back off an already-bound function.
-		internal NamedDataSymbol Symbol { get; init; }
-		//Written by whichever of those built it, so no reader has to know which one that was.
-		internal string Named { get; init; }
 
-		public string Name => Named ?? string.Empty;
+		public string Name { get; init; } = string.Empty;
 		public OrionType Type { get; init; }
 		public ParamDirection Direction { get; init; }
 

@@ -1,10 +1,8 @@
 ﻿namespace Orion.BuildTime.Builtins
 {
-
 	[BuildOnly]
 	public static class ArrayBuiltins
 	{
-
 		public static T[] Zeroed<T>(int length)
 		{
 			if (length < 0)

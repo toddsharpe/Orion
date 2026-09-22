@@ -23,9 +23,8 @@ namespace Orion.Graphs
 			}
 		}
 
-		private ControlFlowGraph() : base()
+		private ControlFlowGraph()
 		{
-
 		}
 
 		public static ControlFlowGraph Create(IEnumerable<Tac> tacs)
@@ -36,8 +35,22 @@ namespace Orion.Graphs
 			Dictionary<Block, Tac> unresolved = new Dictionary<Block, Tac>();
 
 			int i = 0;
-			Block current = new Block($"Block_{i++}", []);
-			graph.Add(current);
+			Block Split()
+			{
+				Block next = new Block($"Block_{i++}", []);
+				graph.Add(next);
+				return next;
+			}
+
+			Block current = Split();
+
+			//The next block, which the current one falls through into.
+			Block Fall()
+			{
+				Block next = Split();
+				graph.AddEdge(current, next, Flags.Unconditional);
+				return next;
+			}
 
 			foreach (Tac tac in tacs)
 			{
@@ -46,106 +59,52 @@ namespace Orion.Graphs
 					case FunctionMarkTac:
 						break;
 
-					case GotoTac g:
-					{
-						//Add tac to current block
+					//A jump ends its block; where it lands is resolved once every label has one.
+					case GotoTac:
 						current.Tacs.AddLast(tac);
-
-						//Mark the edge as being unresolved
 						unresolved.Add(current, tac);
+						current = Split();
+						break;
 
-						//Create new block
-						current = new Block($"Block_{i++}", []);
-						graph.Add(current);
-					}
-					break;
-
-					case ReturnTac r:
-					{
-						//Add tac to current block
+					case ReturnTac:
 						current.Tacs.AddLast(tac);
+						current = Split();
+						break;
 
-						//Create new block
-						current = new Block($"Block_{i++}", []);
-						graph.Add(current);
-					}
-					break;
-
-					case ConditionalTac c:
-					{
-						//Add tac to current block
+					case ConditionalTac:
 						current.Tacs.AddLast(tac);
-
-						//Mark the edge as being unresolved
 						unresolved.Add(current, tac);
+						current = Fall();
+						break;
 
-						//Create new block
-						Block next = new Block($"Block_{i++}", []);
-						graph.Add(next);
-
-						//Connect current to next through fallthrough tac
-						graph.AddEdge(current, next, Flags.Unconditional);
-						current = next;
-					}
-					break;
-
-					//LabelTac inside a block
-					case LabelTac label when current.Tacs.Count > 0:
-					{
-						//Create new block
-						Block next = new Block($"Block_{i++}", []);
-						graph.Add(next);
-
-						//Connect current to next through fallthrough tac
-						graph.AddEdge(current, next, Flags.Unconditional);
-						current = next;
-
-						//Add tac to current block
-						current.Tacs.AddLast(tac);
-
-						//Record label starts block
-						targetBlocks.Add(tac, current);
-					}
-					break;
-
-					//LabelTac that starts a block
+					//A label starts a block; one inside a block ends that block first.
 					case LabelTac:
-					{
-						//Add tac to current block
+						if (current.Tacs.Count > 0)
+							current = Fall();
 						current.Tacs.AddLast(tac);
-
-						//Record label starts block
 						targetBlocks.Add(tac, current);
-					}
-					break;
+						break;
 
 					default:
-						//Add tac to current block
 						current.Tacs.AddLast(tac);
 						break;
 				}
 			}
 
 			//Remove empty blocks
-			List<Node> empty = graph.Nodes.Where(i => i.Value.Tacs.Count == 0).ToList();
+			List<Node> empty = graph.Nodes.Where(n => n.Value.Tacs.Count == 0).ToList();
 			foreach (Node item in empty)
 			{
-				graph.Delete(item.Value);
+				graph.Forget(item.Value);
 			}
 
 			//Add edges where previously unresolved
 			foreach (KeyValuePair<Block, Tac> item in unresolved)
 			{
-				Tac location = item.Value switch
+				(Tac location, Flags flags) = item.Value switch
 				{
-					GotoTac g => g.Location,
-					ConditionalTac c => c.Location,
-					_ => throw new NotImplementedException()
-				};
-				Flags flags = item.Value switch
-				{
-					GotoTac => Flags.Unconditional,
-					ConditionalTac => Flags.Conditional,
+					GotoTac g => (g.Location, Flags.Unconditional),
+					ConditionalTac c => (c.Location, Flags.Conditional),
 					_ => throw new NotImplementedException()
 				};
 
@@ -159,11 +118,6 @@ namespace Orion.Graphs
 			}
 
 			return graph;
-		}
-
-		public Node Get(string name)
-		{
-			return this.Nodes.Single(i => i.Value.Name == name);
 		}
 	}
 }
