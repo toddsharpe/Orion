@@ -82,10 +82,13 @@ namespace Orion.Backend.StIr
 			return then is StBlock b && b.Stmts.Count > 0 ? b.Stmts : null;
 		}
 
-		//For the hoisted statements only: no call, index, divide or mod, since once lifted they run unconditionally.
+		//For the hoisted statements only, which run unconditionally once lifted: no call, no index, and only ops that cannot fault.
 		private static bool Safe(StExpr e) => e.DescendantsAndSelf().All(x => x switch
 		{
-			StBin b => b.Op is not (BinaryTacOp.Divide or BinaryTacOp.Mod),
+			StBin b => b.Op is BinaryTacOp.Add or BinaryTacOp.Subtract or BinaryTacOp.Multiply
+				or BinaryTacOp.LessThan or BinaryTacOp.LessThanEqual or BinaryTacOp.GreaterThan or BinaryTacOp.GreaterThanEqual
+				or BinaryTacOp.Equals or BinaryTacOp.NotEquals or BinaryTacOp.And or BinaryTacOp.Or
+				or BinaryTacOp.BitAnd or BinaryTacOp.BitOr or BinaryTacOp.BitXor or BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight,
 			StLeaf or StUn or StCast or StMember => true,
 			_ => false
 		});

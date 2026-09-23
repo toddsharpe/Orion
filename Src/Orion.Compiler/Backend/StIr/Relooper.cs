@@ -8,7 +8,7 @@ using Node = Orion.Graphs.ControlFlowGraph.Node;
 
 namespace Orion.Backend.StIr
 {
-	//Recovers the unfused StIr from the final CFG: control flow relooped, each TAC lowered to one StStmt/StExpr (Fuse inlines temps later); conditions fold here because while/for headers have nowhere else to carry them.
+	//Recovers the unfused StIr from the final CFG: control flow relooped, each TAC turned into one StStmt/StExpr (Fuse inlines temps later); conditions fold here because while/for headers have nowhere else to carry them.
 	public static class Relooper
 	{
 		//Immutable CFG analysis, passed read-only through the emit recursion.
@@ -53,7 +53,7 @@ namespace Orion.Backend.StIr
 			foreach (Node h in loopHeaders)
 			{
 				//A back-edge from an IfNotZero test is a do/while bottom test, decided at the latch: a body-leading `if` gives the header a conditional edge too, which would otherwise read as a while.
-				Node latch = nodes.FirstOrDefault(n => n.Outgoing.ContainsKey(h) && dom[n].Contains(h) && IsBackTest(n));
+				Node latch = nodes.FirstOrDefault(n => n.Outgoing.ContainsKey(h) && dom[n].Contains(h) && BranchesWhenTrue(n));
 				if (latch != null)
 				{
 					loopLatch[h] = latch;
@@ -74,7 +74,7 @@ namespace Orion.Backend.StIr
 			return new StSeq(Emit(entry, null, new Stack<(Node Header, Node Exit, Node Continue)>(), a));
 		}
 
-		//`entering` skips the continue/break/loop-entry tests once, for the header this call just pushed.
+		//`entering` skips the first node's loop tests: a walk that starts on the header just pushed would read it as a continue.
 		private static List<StCtrl> Emit(Node node, Node follow, Stack<(Node Header, Node Exit, Node Continue)> loops, Analysis a, bool entering = false)
 		{
 			List<StCtrl> result = new List<StCtrl>();
@@ -136,7 +136,7 @@ namespace Orion.Backend.StIr
 					loops.Pop();
 
 					//Prefer for(init; cond; step) with a recognizable counter, then while(cond) when the condition folds, else while(true){ if(!cond) break; ... }.
-					if (TryBuildFor(header, pre, sym, body, result, a) is StFor forLoop)
+					if (TryMoveIntoFor(header, pre, sym, body, result, a) is StFor forLoop)
 					{
 						result.Add(forLoop);
 					}
@@ -151,7 +151,7 @@ namespace Orion.Backend.StIr
 						List<StCtrl> loopBody = new List<StCtrl>();
 						if (lead.Count > 0)
 							loopBody.Add(new StBlock(lead));
-						loopBody.Add(new StIf(cond, true, new StBreak(), null));
+						loopBody.Add(new StIf(cond, Negate: true, new StBreak(), null));
 						loopBody.AddRange(body);
 						result.Add(new StLoop(new StSeq(loopBody)));
 					}
@@ -184,7 +184,7 @@ namespace Orion.Backend.StIr
 					//`if (c) { rest } else break;` says less than `if (!c) break; rest` and nests a level deeper.
 					if (elseC.Count == 1 && elseC[0] is StBreak && thenC.Count > 0)
 					{
-						result.Add(new StIf(cond, true, new StBreak(), null));
+						result.Add(new StIf(cond, Negate: true, new StBreak(), null));
 						result.AddRange(thenC);
 						if (Terminates(thenC))
 							return result;
@@ -194,9 +194,9 @@ namespace Orion.Backend.StIr
 					}
 
 					if (thenC.Count == 0 && elseC.Count > 0)
-						result.Add(new StIf(cond, true, new StSeq(elseC), null));
+						result.Add(new StIf(cond, Negate: true, new StSeq(elseC), null));
 					else
-						result.Add(new StIf(cond, false, new StSeq(thenC), elseC.Count > 0 ? new StSeq(elseC) : null));
+						result.Add(new StIf(cond, Negate: false, new StSeq(thenC), elseC.Count > 0 ? new StSeq(elseC) : null));
 
 					//Both arms jumped away, so nothing after the merge is reachable through here.
 					if (Terminates(thenC) && Terminates(elseC))
@@ -207,7 +207,7 @@ namespace Orion.Backend.StIr
 				}
 
 				//Straight-line block.
-				List<StStmt> lines = LowerBlock(StraightLine(cur));
+				List<StStmt> lines = ToStmts(StraightLine(cur));
 				if (lines.Count > 0)
 					result.Add(new StBlock(lines));
 
@@ -293,7 +293,7 @@ namespace Orion.Backend.StIr
 			StCtrl sw = new StSwitch(new StLeaf(clause), cases, def);
 
 			//Emit the clause-compute (head lead) as a block before the switch.
-			List<StStmt> lead2 = headLead != null ? LowerBlock(headLead) : new List<StStmt>();
+			List<StStmt> lead2 = headLead != null ? ToStmts(headLead) : new List<StStmt>();
 			node = lead2.Count > 0 ? new StSeq(new List<StCtrl> { new StBlock(lead2), sw }) : sw;
 			exit = merge;
 			return true;
@@ -305,8 +305,7 @@ namespace Orion.Backend.StIr
 			return clause?.Type switch
 			{
 				EnumTypeSymbol => true,
-				PrimitiveTypeSymbol p => p.Code is Symbols.TypeCode.i8 or Symbols.TypeCode.i16 or Symbols.TypeCode.i32 or Symbols.TypeCode.i64
-					or Symbols.TypeCode.u8 or Symbols.TypeCode.u16 or Symbols.TypeCode.u32 or Symbols.TypeCode.u64 or Symbols.TypeCode.@bool,
+				PrimitiveTypeSymbol p => Language.IsInteger(p) || p.Code == Symbols.TypeCode.@bool,
 				_ => false,
 			};
 		}
@@ -408,14 +407,14 @@ namespace Orion.Backend.StIr
 			return body;
 		}
 
-		//Recover for(init; cond; step): the step is the unique latch block (a source `continue` jumps THROUGH it, so hoisting is safe), the init the counter assignment just before; any unclean shape answers null.
-		private static StFor TryBuildFor(Node header, List<Tac> pre, DataSymbol sym, List<StCtrl> body, List<StCtrl> result, Analysis a)
+		//Recover for(init; cond; step), moving the step out of `body` and the init out of `result`; a null moves nothing.
+		private static StFor TryMoveIntoFor(Node header, List<Tac> pre, DataSymbol sym, List<StCtrl> body, List<StCtrl> result, Analysis a)
 		{
 			//The condition must be exactly a relational comparison, folding into the for-header with nothing left per iteration.
 			if (pre.Count != 1 || pre[0] is not BinaryTac cmp || cmp.Result != sym || !IsRelational(cmp.Op) || !a.Foldable.Contains(sym))
 				return null;
 
-			//The step lives in the unique latch block (back-edge n->header, header dom n).
+			//The step lives in the unique latch block, which a source `continue` jumps THROUGH, so hoisting it is safe.
 			List<Node> latches = a.Nodes.Where(n => n.Outgoing.ContainsKey(header) && a.Dom[n].Contains(header)).ToList();
 			if (latches.Count != 1)
 				return null;
@@ -424,7 +423,7 @@ namespace Orion.Backend.StIr
 				return null;
 
 			//The step must be exactly the tail of the rendered body (so removing it is safe).
-			List<StStmt> stepStmts = LowerBlock(step);
+			List<StStmt> stepStmts = ToStmts(step);
 			if (body.Count == 0 || body[^1] is not StBlock tail || !tail.Stmts.SequenceEqual(stepStmts))
 				return null;
 
@@ -436,7 +435,7 @@ namespace Orion.Backend.StIr
 			body.RemoveAt(body.Count - 1);
 			List<StStmt> init = PullInit(result, counter);
 			(_, StExpr cond) = FoldCond(pre, sym, a);
-			return new StFor(init, cond, LowerBlock(SimplifyStep(step, counter)), new StSeq(body));
+			return new StFor(init, cond, ToStmts(SimplifyStep(step, counter)), new StSeq(body));
 		}
 
 		private static bool IsRelational(BinaryTacOp op) =>
@@ -486,7 +485,7 @@ namespace Orion.Backend.StIr
 			return step;
 		}
 
-		//--- Trivial per-TAC lowering to StIr (no temp inlining -- that is the Optimizer's job) ---------
+		//--- One TAC to one StIr statement or expression (no temp inlining -- that is Fuse's job) ---------
 
 		//A tac contributing no statement: the hoisted #state static-init assign, emitted as the declaration's initializer instead.
 		private static bool ProducesNothing(Tac tac) => tac switch
@@ -495,28 +494,28 @@ namespace Orion.Backend.StIr
 			_ => false,
 		};
 
-		private static List<StStmt> LowerBlock(List<Tac> tacs) =>
-			tacs.Where(t => !ProducesNothing(t)).Select(LowerStmt).ToList();
+		private static List<StStmt> ToStmts(List<Tac> tacs) =>
+			tacs.Where(t => !ProducesNothing(t)).Select(ToStmt).ToList();
 
-		private static StStmt LowerStmt(Tac tac) => tac switch
+		private static StStmt ToStmt(Tac tac) => tac switch
 		{
-			AssignTac t => new StAssign(t.Result, LowerVal(t.Operand1)),
-			BinaryTac t => new StAssign(t.Result, new StBin(t.Op, LowerVal(t.Operand1), LowerVal(t.Operand2), t.Result.Type)),
-			UnaryTac t => new StAssign(t.Result, new StUn(t.Op, LowerVal(t.Operand1), t.Result.Type)),
-			CastTac t => new StAssign(t.Result, new StCast(LowerVal(t.Operand1), t.Result.Type)),
+			AssignTac t => new StAssign(t.Result, ToExpr(t.Operand1)),
+			BinaryTac t => new StAssign(t.Result, new StBin(t.Op, ToExpr(t.Operand1), ToExpr(t.Operand2), t.Result.Type)),
+			UnaryTac t => new StAssign(t.Result, new StUn(t.Op, ToExpr(t.Operand1), t.Result.Type)),
+			CastTac t => new StAssign(t.Result, new StCast(ToExpr(t.Operand1), t.Result.Type)),
 			CallTac t when t is not MultiCallTac =>
 				t.Result != null
-					? new StAssign(t.Result, new StCall(t.Function, t.Arguments.Select(LowerVal).ToList()))
-					: new StEval(new StCall(t.Function, t.Arguments.Select(LowerVal).ToList())),
-			_ => new StRaw(tac),   //Multi*, indirect call -> rendered by the backend's CreateCode
+					? new StAssign(t.Result, new StCall(t.Function, t.Arguments.Select(ToExpr).ToList()))
+					: new StEval(new StCall(t.Function, t.Arguments.Select(ToExpr).ToList())),
+			_ => new StRaw(tac),   //Multi*, indirect call -> rendered by the backend's Raw
 		};
 
-		private static StExpr LowerVal(DataSymbol sym) => sym switch
+		private static StExpr ToExpr(DataSymbol sym) => sym switch
 		{
-			ArrayElementSymbol a => new StIndex(LowerVal(a.Array), LowerVal(a.Operand), a.Array.Type),
-			FieldDataSymbol f => new StMember(LowerVal(f.Instance), f.Name.Split('.').Last(), f.Instance.Type),
+			ArrayElementSymbol a => new StIndex(ToExpr(a.Array), ToExpr(a.Operand), a.Array.Type),
+			FieldDataSymbol f => new StMember(ToExpr(f.Instance), f.Name.Split('.').Last(), f.Instance.Type),
 			//A property on a builtin handle: without this it fell to StLeaf and printed the symbol's own name.
-			BuiltinMemberSymbol m => new StMember(LowerVal(m.Instance), m.Member, m.Instance.Type),
+			BuiltinMemberSymbol m => new StMember(ToExpr(m.Instance), m.Member, m.Instance.Type),
 			_ => new StLeaf(sym),
 		};
 
@@ -530,11 +529,11 @@ namespace Orion.Backend.StIr
 				if (ProducesNothing(tac))
 					continue;
 				if (tac is BinaryTac b && b.Result == sym && a.Foldable.Contains(sym))
-					cond = new StBin(b.Op, LowerVal(b.Operand1), LowerVal(b.Operand2), b.Result.Type);
+					cond = new StBin(b.Op, ToExpr(b.Operand1), ToExpr(b.Operand2), b.Result.Type);
 				else
-					lead.Add(LowerStmt(tac));
+					lead.Add(ToStmt(tac));
 			}
-			cond ??= LowerVal(sym);   //bool variable (or a symbol defined elsewhere) tested directly
+			cond ??= ToExpr(sym);   //bool variable (or a symbol defined elsewhere) tested directly
 			return (lead, cond);
 		}
 
@@ -594,12 +593,12 @@ namespace Orion.Backend.StIr
 		private static bool IsConditional(Node node) => node.Outgoing.Values.Any(e => e.Value == ControlFlowGraph.Flags.Conditional);
 
 		//A test that branches when the condition HOLDS: a do/while's bottom test, or a `||`'s forward skip.
-		private static bool IsBackTest(Node node) =>
+		private static bool BranchesWhenTrue(Node node) =>
 			node.Value.Tacs.LastOrDefault(t => t is ConditionalTac) is ConditionalTac { Op: ConditionalTacOp.IfNotZero };
 
 		//IfZero and IfNotZero branch on opposite polarities, so which edge is the true one depends on the test.
-		private static Node CondFalse(Node node) => IsBackTest(node) ? Fallthrough(node) : Taken(node);
-		private static Node CondTrue(Node node) => IsBackTest(node) ? Taken(node) : Fallthrough(node);
+		private static Node CondFalse(Node node) => BranchesWhenTrue(node) ? Fallthrough(node) : Taken(node);
+		private static Node CondTrue(Node node) => BranchesWhenTrue(node) ? Taken(node) : Fallthrough(node);
 
 		private static Node Taken(Node node) => node.Outgoing.Single(e => e.Value.Value == ControlFlowGraph.Flags.Conditional).Key;
 		private static Node Fallthrough(Node node) => node.Outgoing.Single(e => e.Value.Value == ControlFlowGraph.Flags.Unconditional).Key;

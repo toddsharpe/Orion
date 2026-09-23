@@ -14,25 +14,25 @@ namespace Orion.Frontend
 		//The whole-unit pre-passes and declarations; the compiler's table and the language server both run these rows.
 		public static readonly IReadOnlyList<Phase> PrePasses =
 		[
-			new("Frontend", "Desugar", (ctx, m) => Desugar.Run(ctx.Unit, m), ctx => new UnitState(ctx.Combined)),
-			new("Frontend", "Conditionals", (ctx, m) => Conditionals.Run(ctx.Unit, m), ctx => new UnitState(ctx.Combined)),
-			new("Frontend", "Monomorphizer", (ctx, m) => Monomorphizer.Expand(ctx.Unit, m), ctx => new UnitState(ctx.Combined)),
+			new("Frontend", "Desugar", (ctx, m) => Desugar.Run(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
+			new("Frontend", "Conditionals", (ctx, m) => Conditionals.Run(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
+			new("Frontend", "Monomorphizer", (ctx, m) => Monomorphizer.Expand(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
 			Rtti.Generator.DeclareRow,
-			new("Frontend", "BuildLocals", (ctx, m) => BuildLocals.Run(ctx.Unit, m), ctx => new UnitState(ctx.Combined)),
-			new("Frontend", "Specializer", (ctx, m) => Specializer.Extract(ctx.Unit, m), ctx => new UnitState(ctx.Combined)),
+			new("Frontend", "BuildLocals", (ctx, m) => BuildLocals.Run(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
+			new("Frontend", "Specializer", (ctx, m) => Specializer.Extract(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
 		];
 
-		//The one door mid-build re-entry goes through: bind into the scope, then lower, analyze and optionally emit.
+		//The one door mid-build re-entry goes through: bind into the scope, then lower, analyze and optionally emit. Its callers (the build, RTTI) hold no compilation, so it binds on the ambient session.
 		internal static bool Lower(TranslationUnit unit, SymbolTable scope, List<Message> messages, bool emit)
 		{
-			Binding.BindAst(unit, scope, messages);
+			Binding.BindAst(unit, scope, Compiler.Session, messages);
 			return !messages.HasError() && Finish(unit.Blocks.OfType<Function>(), messages, emit);
 		}
 
 		//The same door for functions the build made directly, with no unit around them.
 		internal static bool Lower(List<Function> functions, SymbolTable scope, List<Message> messages, bool emit)
 		{
-			Binding.BindAst(functions, scope, messages);
+			Binding.BindAst(functions, scope, Compiler.Session, messages);
 			return !messages.HasError() && Finish(functions, messages, emit);
 		}
 

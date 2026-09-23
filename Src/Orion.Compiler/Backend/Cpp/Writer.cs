@@ -77,7 +77,7 @@ namespace Orion.Backend.Cpp
 			}
 		}
 
-		//The program's surface, for a consumer to include: exported types and function declarations, no globals or bodies.
+		//The header a consumer includes: exported types and function declarations, no globals or bodies.
 		internal void WriteHeader(File file)
 		{
 			WriteTypes(file);
@@ -184,7 +184,7 @@ namespace Orion.Backend.Cpp
 		private void Write(Declaration global)
 		{
 			if (global.Comment != null)
-				WriteComment(global.Comment);
+				AppendLine($"//{global.Comment}");
 
 			string line = $"{global.Type} {global.Name} = {global.Initializer};";
 			int open = global.Initializer.IndexOf("{ { ");
@@ -273,10 +273,6 @@ namespace Orion.Backend.Cpp
 			AppendLine("};");
 		}
 
-		private void WriteComment(string comment)
-		{
-			AppendLine($"//{comment}");
-		}
 		private void WriteBlockComment(string comment)
 		{
 			AppendLine($"/*");

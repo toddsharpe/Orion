@@ -8,10 +8,10 @@ namespace Orion.Frontend
 	//Hoists a `#build` declaration into one build-time cell that every later `#run` of its function reads. See Docs/Language.md.
 	public static class BuildLocals
 	{
-		public static void Run(TranslationUnit tu, List<Message> messages)
+		public static void Run(TranslationUnit tu, CompileSession session, List<Message> messages)
 		{
 			foreach (Function function in tu.Blocks.OfType<Function>())
-				Hoist(function, function.Name, messages);
+				Hoist(function, function.Name, session, messages);
 		}
 
 		//A `#build` declaration written as `const` (a ConstDef) or as a mutable local (a Construct).
@@ -23,7 +23,7 @@ namespace Orion.Frontend
 		};
 
 		//Also the entry for a specialized solver block, which Specializer.Instantiate re-creates; hoisted under the TEMPLATE's name, so every instance reaches the one cell.
-		internal static void Hoist(Function function, string owner, List<Message> messages)
+		internal static void Hoist(Function function, string owner, CompileSession session, List<Message> messages)
 		{
 			//Everything in a #build function is already build time, so there is nothing for a cell to outlive; reported here before the rewrite puts a `#run { }` in a build context.
 			if (function.IsBuild)
@@ -77,8 +77,8 @@ namespace Orion.Frontend
 				}
 
 				declared[name] = mangled;
-				Compiler.Session.BuildCells[mangled] = type;
-				Compiler.Session.BuildCellSources[mangled] = name;
+				session.BuildCells[mangled] = type;
+				session.BuildCellSources[mangled] = name;
 				messages.Trace($"{function.Name}: #build {name} -> cell {mangled}", function.Body[i].Region);
 
 				function.Body[i] = Assign(mangled, value, function.Body[i].Region);

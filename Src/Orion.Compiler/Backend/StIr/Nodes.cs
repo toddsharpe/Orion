@@ -22,9 +22,9 @@ namespace Orion.Backend.StIr
 	public abstract record StStmt;
 	public record StAssign(DataSymbol Target, StExpr Value) : StStmt;                    // target = value
 	public record StEval(StExpr Value) : StStmt;                                         // value;  (void call)
-	public record StRaw(Tac Tac) : StStmt;                                               // a tac not lowered to a StExpr (rendered by the backend's Raw)
+	public record StRaw(Tac Tac) : StStmt;                                               // a tac with no StExpr form (rendered by the backend's Raw)
 
-	//Control flow over lowered statements (mirrors the relooper's Ctrl).
+	//Control flow over those statements, as the relooper recovers it from the CFG.
 	public abstract record StCtrl;
 	public record StSeq(List<StCtrl> Items) : StCtrl;
 	public record StBlock(List<StStmt> Stmts) : StCtrl;

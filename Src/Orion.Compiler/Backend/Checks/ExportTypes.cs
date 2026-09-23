@@ -7,7 +7,7 @@ using System.Linq;
 namespace Orion.Backend.Checks
 {
 	//An `#export` signature may name only exported types -- the header can declare no others, so a consumer could not name them.
-	internal static class ExportSurface
+	internal static class ExportTypes
 	{
 		internal static void Check(SymbolTable root, List<Message> messages)
 		{

@@ -11,11 +11,12 @@ namespace Orion.Tests.Frontend
 	[TestClass]
 	public class MonomorphizerTest
 	{
+		//Expand keeps the unit's templates on the session, so each test starts one.
 		private static TranslationUnit Expand(string src, out List<Message> messages)
 		{
-			TranslationUnit tu = Parsed.Parse(src);
+			TranslationUnit tu = Parsed.ParseInSession(src);
 			messages = new List<Message>();
-			Monomorphizer.Expand(tu, messages);
+			Monomorphizer.Expand(tu, Compiler.Session, messages);
 			return tu;
 		}
 

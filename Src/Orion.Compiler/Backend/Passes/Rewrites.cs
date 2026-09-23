@@ -59,7 +59,6 @@ namespace Orion.Backend.Passes
 		{
 			List<LocalDataSymbol> locals = [.. func.Table.Traverse().SelectMany(t => t.GetAll<LocalDataSymbol>()).Distinct()];
 			HashSet<string> taken = [.. locals.Select(i => i.Name)];
-			bool Shadows(string name) => functions != null && functions.Contains(name);
 
 			void Rename(LocalDataSymbol symbol, string why)
 			{
@@ -83,7 +82,7 @@ namespace Orion.Backend.Passes
 			//A duplicated name keeps its first declaration, unless a function owns the name too and every one goes: the local shadows it today, but the next call written in that scope resolves to the wrong thing.
 			foreach (IGrouping<string, LocalDataSymbol> group in locals.GroupBy(i => i.Name))
 			{
-				bool shadows = Shadows(group.Key);
+				bool shadows = functions != null && functions.Contains(group.Key);
 				if (!shadows && group.Count() == 1)
 					continue;
 

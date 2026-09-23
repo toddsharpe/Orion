@@ -10,16 +10,13 @@ namespace Orion.Frontend
 	//Reusable solver blocks: a #param function is a template, specialized at build time by Solver::Block.
 	public static class Specializer
 	{
-		//Registry of #param block templates (by name), consumed at build time by Solver::Block.
-		public static Dictionary<string, Function> Templates => Compiler.Session.Templates;
-
 		//A `#run { }` statement: the escape Solver::Block emits and runs while walking the specialized body.
 		public static bool IsEscape(Statement s) => s is Exec { Expression: RunExpr };
 
-		//Register every #param template and take it out of the unit; Solver::Block specializes once `#create` supplies values.
-		public static void Extract(TranslationUnit tu, List<Message> messages)
+		//Register every #param template on the session and take it out of the unit; Solver::Block specializes once `#create` supplies values.
+		public static void Extract(TranslationUnit tu, CompileSession session, List<Message> messages)
 		{
-			Templates.Clear();
+			session.Templates.Clear();
 
 			Dictionary<string, Function> templates = tu.Blocks
 				.OfType<Function>()
@@ -38,7 +35,7 @@ namespace Orion.Frontend
 
 			//A #param block can't bind directly: register each template and remove it.
 			foreach (KeyValuePair<string, Function> t in templates)
-				Templates[t.Key] = t.Value;
+				session.Templates[t.Key] = t.Value;
 
 			//Every shape check on each template, in one pass.
 			foreach (Function t in templates.Values)
@@ -161,7 +158,7 @@ namespace Orion.Frontend
 		}
 
 		//Clone the template, drop the #param ports (folded to consts), resolve each #input/#output net.
-		public static Function Instantiate(Function template, string mangled, Dictionary<string, Literal> env)
+		public static Function Instantiate(Function template, string mangled, Dictionary<string, Literal> env, CompileSession session, List<Message> messages)
 		{
 			Function clone = (Function)FileBlock.Create(template.Source);
 			clone.Name = mangled;
@@ -169,22 +166,20 @@ namespace Orion.Frontend
 			//Specialization strips the #param list, so mark the clone or its #state ports become illegal.
 			clone.IsBlock = true;
 
-			//Build execution supplies the messages; a direct call (a unit test) has no ambient context.
-			List<Message> messages = BuildTime.Env.Context?.Messages ?? new List<Message>();
 			messages.Add(new Message($"Expanded {template.Name}({Describe(template, env)}) as {mangled}.", template.Region, MessageType.Trace));
 
 			//Before Desugar, and that is the point: the untaken branch never becomes Build::Port calls, never hoists its #build cells, and never binds -- and only now are the #param values known.
-			Dictionary<string, Literal> values = new Dictionary<string, Literal>(Conditionals.Defines());
+			Dictionary<string, Literal> values = new Dictionary<string, Literal>(Conditionals.Defines(session));
 			foreach (KeyValuePair<string, Literal> param in env)
 				values[param.Key] = param.Value;
-			Conditionals.Fold(clone.Body, new FoldEnv { Values = values, Facts = TypeFacts.Current, UndefinedIsFalse = true }, messages);
+			Conditionals.Fold(clone.Body, new FoldEnv { Values = values, Facts = session.TypeFacts, UndefinedIsFalse = true }, messages);
 
 			//The clone comes straight from the parse tree, so the file-scope `#run` constants its template named go back at its top, then it desugars here; EvalNet expects that.
-			Desugar.LowerRunConsts(clone, template.RunConsts, messages);
+			Desugar.RunConstsToLocals(clone, template.RunConsts, messages);
 			Desugar.Run(clone, messages);
 
 			//...and hoist its `#build` locals under the TEMPLATE's name: the cell the main pass declared.
-			BuildLocals.Hoist(clone, template.Name, messages);
+			BuildLocals.Hoist(clone, template.Name, session, messages);
 
 			//An escape stays in the body below; Solver::Block emits and runs it once the ports are settled.
 			List<Parameter> ports = clone.Parameters.Where(p => p.Directive != ParamDirective.Param).ToList();
@@ -205,7 +200,7 @@ namespace Orion.Frontend
 			FoldBody(clone.Body, env);
 
 			//The clone reparsed from source, so monomorphization's manglings are re-applied whole.
-			Monomorphizer.RewriteClone(clone);
+			Monomorphizer.RewriteClone(clone, session);
 
 			return clone;
 		}

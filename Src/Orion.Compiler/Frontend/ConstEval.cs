@@ -85,16 +85,19 @@ namespace Orion.Frontend
 						return true;
 					}
 
-					//`&&` / `||` on two bools. `!e` parses as `e == false`, so negation needs no case.
+					//The logical and bitwise ops on two bools. `!e` parses as `e == false`, so negation needs no case.
 					if (left is bool lb && right is bool rb)
 					{
 						switch (b.Op)
 						{
-							case AstOp.And:
+							case AstOp.And or AstOp.BitAnd:
 								value = lb && rb;
 								return true;
-							case AstOp.Or:
+							case AstOp.Or or AstOp.BitOr:
 								value = lb || rb;
+								return true;
+							case AstOp.BitXor:
+								value = lb ^ rb;
 								return true;
 							default:
 								return false;
@@ -168,6 +171,12 @@ namespace Orion.Frontend
 					AstOp.Multiply => l * r,
 					AstOp.Divide => r == 0 ? null : decimal.Truncate(l / r),
 					AstOp.Mod => r == 0 ? null : l % r,
+					AstOp.BitAnd => (long)l & (long)r,
+					AstOp.BitOr => (long)l | (long)r,
+					AstOp.BitXor => (long)l ^ (long)r,
+					//A shift is exact arithmetic by a power of two, so a result too wide for its type is refused like any other overflow.
+					AstOp.ShiftLeft => r is < 0 or > 63 ? null : l * (1UL << (int)r),
+					AstOp.ShiftRight => r is < 0 or > 63 ? null : (long)l >> (int)r,
 					_ => null,
 				};
 				if (folded == null)

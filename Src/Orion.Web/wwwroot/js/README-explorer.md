@@ -36,14 +36,16 @@ cannot open those two is reading a program with its ends cut off. `explorer.js` 
 index, so a tree row and a tab are always the same file — the compiler never opens a non-`.src`, but one
 list that cannot drift is worth twenty small fetches.
 
-So a tab is not always Orion. `DOC_LANGUAGES` maps an extension to a Monaco language id, and
+So a tab is not always Orion. `DOC_LANGUAGES` maps an extension to a Monaco language id — `.src` to
+Orion; `.cpp` `.h` `.hpp` `.cc`, `.py`, `.js`, `.json`, `.md`, `.ps1`, `.sh` and `.txt` to their own — and
 `createDoc`/`renameDoc` set it from the document's *name*; everything but `.src` is a stock Monaco
 basic-language, lazily fetched from the same CDN by the AMD loader. Both themes are `inherit: true` over
 `vs-dark`/`vs`, so those languages' standard token names are already coloured. An unlisted extension
 falls back to `plaintext`, never to Orion.
 
-Compile and live Analyze are gated on `isOrionDoc`: handing the frontend a `.cpp` would report the whole
-file as one syntax error. Which files are *open* on load is `INITIAL_TABS`, not the index.
+Compile and live Analyze (debounced 300 ms) are gated on `isOrionDoc`: handing the frontend a `.cpp`
+would report the whole file as one syntax error. Which files are *open* on load is `INITIAL_TABS`,
+`Apps/rocket.src` and `Apps/tour.src`, not the index.
 
 ## Narrow screens
 

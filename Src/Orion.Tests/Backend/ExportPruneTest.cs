@@ -79,7 +79,7 @@ u32 alive(u32 v)
 	return v + 2:u32;
 }
 
-#export u32 surface(u32 v)
+#export u32 entry(u32 v)
 {
 	return alive(v);
 }
@@ -93,16 +93,16 @@ u32 alive(u32 v)
 
 				Assert.IsFalse(Defines(lang, result.CodeOutput, "dead"),
 					$"{lang}: a library kept a function nothing reaches.");
-				Assert.IsTrue(Defines(lang, result.CodeOutput, "surface"),
+				Assert.IsTrue(Defines(lang, result.CodeOutput, "entry"),
 					$"{lang}: a library dropped its own export.");
 				Assert.IsTrue(Defines(lang, result.CodeOutput, "alive"),
 					$"{lang}: a library dropped what its export calls.");
 			}
 		}
 
-		//No solver, nothing exported -- an unstated surface is not an empty one, so prune nothing; roots are never empty, every library gets the channel accessors.
+		//No solver, nothing exported -- unstated exports are not an empty set, so prune nothing; roots are never empty, every library gets the channel accessors.
 		[TestMethod]
-		public void ALibraryWithNoSurfaceKeepsItsRuntimeFunctions()
+		public void ALibraryWithNoExportsKeepsItsRuntimeFunctions()
 		{
 			foreach (BackendLanguage lang in Targets)
 			{
@@ -112,7 +112,7 @@ u32 helper(u32 v)
 	return v * 2:u32;
 }
 
-u32 surface(u32 v)
+u32 entry(u32 v)
 {
 	return helper(v) + 1:u32;
 }
@@ -124,18 +124,18 @@ u32 surface(u32 v)
 ");
 				result.AssertNoErrors();
 
-				Assert.IsTrue(Defines(lang, result.CodeOutput, "surface"),
+				Assert.IsTrue(Defines(lang, result.CodeOutput, "entry"),
 					$"{lang}: a library with nothing exported dropped a function its author wrote.");
 				Assert.IsTrue(Defines(lang, result.CodeOutput, "helper"),
 					$"{lang}: a library with nothing exported dropped a function its author wrote.");
 
-				//The root set IS the accessors and nothing else -- asserting they are here makes the two above mean "scaffolding is not a surface", not "nothing was emitted".
+				//The root set IS the accessors and nothing else -- asserting they are here makes the two above mean "scaffolding is not an export", not "nothing was emitted".
 				Assert.IsTrue(Defines(lang, result.CodeOutput, "channel_count"),
 					$"{lang}: the accessors are gone, so this no longer tests that scaffolding is discounted.");
 			}
 		}
 
-		//A library whose surface is its solver: `Solver::Export` marks its entries, so it prunes like any program -- else the test above passes by never pruning.
+		//A library that exports through its solver: `Solver::Export` marks its entries, so it prunes like any program -- else the test above passes by never pruning.
 		[TestMethod]
 		public void ALibraryWithASolverIsPrunedToItsEntries()
 		{

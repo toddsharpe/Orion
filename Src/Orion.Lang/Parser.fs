@@ -125,16 +125,14 @@ module Parser =
                 match measure with
                 | Some terms -> name + "<" + unitText terms + ">"
                 | None -> name
-    //Hex alongside decimal: FParsec keeps the 0x prefix, so the value is read from the digits.
+    //An integer's 64 bits, hex or decimal: past Int64.MaxValue it keeps the u64 pattern a `:u64` reads back; None past 64 bits.
     let intValue (nl: NumberLiteral) =
-        if nl.IsHexadecimal then
-            let negative = nl.String.StartsWith("-")
-            let magnitude = System.Convert.ToInt64(nl.String.Substring(if negative then 3 else 2), 16)
-            if negative then -magnitude else magnitude
-        else
-            int64 nl.String
-    let floatValue (nl: NumberLiteral) =
-        if nl.IsHexadecimal then float (intValue nl) else float nl.String
+        let negative = nl.String.StartsWith("-")
+        let digits = nl.String.Substring((if negative then 1 else 0) + (if nl.IsHexadecimal then 2 else 0))
+        let style = if nl.IsHexadecimal then System.Globalization.NumberStyles.AllowHexSpecifier else System.Globalization.NumberStyles.None
+        match System.UInt64.TryParse(digits, style, System.Globalization.CultureInfo.InvariantCulture) with
+        | true, magnitude -> Some (if negative then -(int64 magnitude) else int64 magnitude)
+        | _ -> None
     //`42`, `1.5`, `0xFF`, and the typed forms `128:i64` and `3.14:f32`.
     let pnumber =
         let impl : Parser<Literal, unit> =
@@ -144,13 +142,19 @@ module Parser =
                             ||| NumberLiteralOptions.AllowHexadecimal
             numberLiteral numberFormat "number"
             >>= fun nl ->
-                    opt (attempt (pstring ":" >>. ptypecode))
-                    |>> fun tc ->
-                            match tc with
-                            | Some code when isFloatCode code -> TypedFloat(floatValue nl, code)
-                            | Some code when nl.IsInteger -> TypedInt(intValue nl, code)
-                            | Some code -> TypedFloat(floatValue nl, code)
-                            | None -> if nl.IsInteger then Int(int (intValue nl)) else Float(floatValue nl)
+                    let whole = if nl.IsInteger then intValue nl else Some 0L
+                    match whole with
+                    | _ when nl.IsHexadecimal && not nl.IsInteger -> fail (sprintf "%s: a hexadecimal literal is a whole number" nl.String)
+                    | None -> fail (sprintf "%s does not fit in 64 bits" nl.String)
+                    | Some value ->
+                        let real = if nl.IsHexadecimal then float value else float nl.String
+                        opt (attempt (pstring ":" >>. ptypecode))
+                        |>> fun tc ->
+                                match tc with
+                                | Some code when isFloatCode code -> TypedFloat(real, code)
+                                | Some code when nl.IsInteger -> TypedInt(value, code)
+                                | Some code -> TypedFloat(real, code)
+                                | None -> if nl.IsInteger then Int(int value) else Float(real)
         impl .>> ws |> withPos
     //`true`, `false`: a keyword not a prefix, so the match must end the word or `trueHeight` leaves a `Height` behind.
     let pbool =
@@ -345,7 +349,7 @@ module Parser =
     let phole =
         %% (pstring "${") -- +.pexpr -- (pstring "}") -- +.(opt (attempt (pstring ":" >>. ptypecode))) -- ws
             -|> fun e code -> Hole(e, code)
-    //`#code { x = $(v); }` - a fragment as a value, parsed HERE so a syntax error lands here.
+    //`#code { x = ${v}; }` - a fragment as a value, parsed HERE so a syntax error lands here.
     let pcodeexpr = %% (str "#code") -- +.pblock -|> fun body -> CodeExpr(body)
 
     let opp =
@@ -562,7 +566,7 @@ module Parser =
         let pinit = (attempt pconstruct <|> passign) |> withPos
         %% (str_ws "for") -- (str "(") -- +.pinit -- (str ";") -- +.pexpr -- (str ";") -- +.pexpr -- (str ")") -- +.pblock -|>
             fun init until step block -> For(init, until, step, block)
-    //`for (T x in it)` desugars to a counted loop over a hoisted `T[]` temp a build List freezes into.
+    //`for (T x in it)` desugars to a counted loop over a hoisted `ConstSpan<T>` view a build List freezes into.
     let pforeach =
         %% (str_ws "for") -- (str "(") -- +.pconstflag -- +.ptype -- +.pidentifier -- (str_ws "in") -- +.pexpr -- (str ")") -- +.pblock -- +.getPosition -|>
             fun isConst elemType name source body p ->

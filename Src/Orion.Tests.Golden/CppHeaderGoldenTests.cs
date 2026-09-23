@@ -2,7 +2,7 @@ using System.IO;
 
 namespace Orion.Tests.Golden
 {
-	//The generated C++ surface header proved the only way it can be: a consumer including it and NOTHING else is compiled, linked and run -- in its own directory, since it needs a second source file the top-level corpus enumeration would not expect.
+	//The generated C++ header proved the only way it can be: a consumer including it and NOTHING else is compiled, linked and run -- in its own directory, since it needs a second source file the top-level corpus enumeration would not expect.
 	[TestClass]
 	public class CppHeaderGoldenTests
 	{
@@ -22,7 +22,7 @@ namespace Orion.Tests.Golden
 			Corpus.Compile(test, Path.Combine(HeadersDir, test + ".src"), "cpp", cppFile);
 			Assert.IsTrue(File.Exists(headerFile), $"{test}: compiling wrote no header beside {cppFile}.");
 
-			//What the header must NOT carry: an internal type is the translation unit's own, and leaking one into the surface is the failure this check exists to catch.
+			//What the header must NOT carry: an internal type is the translation unit's own, and leaking one into the header is the failure this check exists to catch.
 			string header = File.ReadAllText(headerFile);
 			Assert.IsFalse(header.Contains("Scratch"),
 				$"{test}: the header declares `Scratch`, which the source did not export.\n{header}");

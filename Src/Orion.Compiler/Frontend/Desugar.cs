@@ -9,18 +9,25 @@ namespace Orion.Frontend
 	//Rewrites sugar into core nodes before binding: #test/#run hoists, #create, #code, interpolation, comprehensions.
 	public static class Desugar
 	{
+		//A unit the compile owns: its `#test`s are declared on the session, and on a test run hoisted like any file-scope `#run`.
+		public static void Run(TranslationUnit tu, CompileSession session, List<Message> messages)
+		{
+			FileTestsToRuns(tu, session);
+			Run(tu, messages);
+		}
+
+		//A unit that declares no `#test`, as RTTI's own source does.
 		public static void Run(TranslationUnit tu, List<Message> messages)
 		{
 			//Before the rewrite, so a hoisted block picks up its void ResultType like a written one.
-			LowerFileTests(tu);
 			HoistFileRuns(tu, messages);
-			LowerRunConsts(tu, messages);
+			RunConstsToLocals(tu, messages);
 			tu.Rewrite(i => Process(i, messages));
 			ReportStrays([tu], messages);
 		}
 
 		//A `#test` becomes a file-scope `#run` on a test run; otherwise it is dropped here, before binding.
-		private static void LowerFileTests(TranslationUnit tu)
+		private static void FileTestsToRuns(TranslationUnit tu, CompileSession session)
 		{
 			List<FileTest> tests = tu.Blocks.OfType<FileTest>().ToList();
 			foreach (FileTest test in tests)
@@ -28,9 +35,9 @@ namespace Orion.Frontend
 
 			//Declared whether or not they run, so a compile that skips them can say how many it skipped; the region is the handle a runner matches a failure back by.
 			foreach (FileTest test in tests)
-				Compiler.Session.Declared.Add(new DeclaredTest(test.Name, test.Entry, test.Region));
+				session.Declared.Add(new DeclaredTest(test.Name, test.Entry, test.Region));
 
-			if (!Compiler.Session.Testing)
+			if (!session.Testing)
 				return;
 
 			//Ordered as declared, which is `#using` order, so a run reports in the order the tree was swept.
@@ -52,7 +59,7 @@ namespace Orion.Frontend
 		}
 
 		//A file-scope `#run` or calling constant becomes a local at the top of every function naming it; see Docs/BuildTime.md.
-		private static void LowerRunConsts(TranslationUnit tu, List<Message> messages)
+		private static void RunConstsToLocals(TranslationUnit tu, List<Message> messages)
 		{
 			List<Const> consts = tu.Blocks.OfType<Const>().Where(i => i.Initializer is RunExpr || Calls(i.Initializer)).ToList();
 			if (consts.Count == 0)
@@ -62,11 +69,11 @@ namespace Orion.Frontend
 				tu.Blocks.Remove(c);
 
 			foreach (Function fn in tu.Blocks.OfType<Function>())
-				LowerRunConsts(fn, consts, messages);
+				RunConstsToLocals(fn, consts, messages);
 		}
 
 		//The locals for one function: what it names among `consts`, each a fresh initializer from the constant's parse node. Also what a clone reparsed from source gets back, so its template records what it named.
-		internal static void LowerRunConsts(Function fn, IEnumerable<Const> consts, List<Message> messages)
+		internal static void RunConstsToLocals(Function fn, IEnumerable<Const> consts, List<Message> messages)
 		{
 			foreach (Const c in consts)
 			{
@@ -417,7 +424,7 @@ namespace Orion.Frontend
 				Region = node.Region
 			};
 
-		//Every `pack<$(t)>` in a fragment, walked in document order so frontend and fill agree on numbering.
+		//Every `pack<${t}>` in a fragment, walked in document order so frontend and fill agree on numbering.
 		internal static IEnumerable<TypeName> TypeHoles(IEnumerable<Statement> statements) =>
 			statements.SelectMany(s => s.DescendantsAndSelf())
 				.SelectMany(node => node switch

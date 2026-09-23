@@ -85,7 +85,7 @@ namespace Orion.Backend.CSharp
 		{
 			return reachable.Select(i =>
 			{
-				List<Code> body = Lowered.Run(i.St);
+				List<Code> body = Statements.Run(i.St);
 
 				//A non-void C# function cannot run off its end, and the relooper may leave a body ending in a loop it proves nothing about; the trailing return costs a disabled warning where unneeded.
 				if (!Language.IsVoid(i.ReturnType) && !EndsWithReturn(body))
@@ -125,18 +125,18 @@ namespace Orion.Backend.CSharp
 				: new Declaration($"ref {cs}", Ident(port.Name), $"ref {cell}");
 		}
 
-		//Surface tokens for the shared StCtrl walk in Backend/Render/StmtPrinter.
-		private sealed class Lowering : StmtPrinter
+		//C#'s tokens for the shared StCtrl walk in Backend/Render/StmtPrinter.
+		private sealed class Printer : StmtPrinter
 		{
 			protected override string Forever => "true";
 			protected override string End => ";";
-			protected override string Not(StExpr condition) => $"!{Px(condition, ExprPrinter.UnaryPrec)}";
-			protected override string Expr(StExpr e) => Px(e);
+			protected override string Not(StExpr condition) => $"!{PrintExpr(condition, ExprPrinter.UnaryPrec)}";
+			protected override string Expr(StExpr e) => PrintExpr(e);
 			protected override string Name(DataSymbol symbol) => Cs(symbol);
 			protected override IEnumerable<string> Raw(Tac tac) => Codegen.Raw(tac);
 		}
 
-		private static readonly Lowering Lowered = new Lowering();
+		private static readonly Printer Statements = new Printer();
 
 		//A local or temp declaration, always initialized: C# forbids reading an unassigned local, and the relooper's order is not the source's.
 		private static Declaration Declare(NamedDataSymbol sym)

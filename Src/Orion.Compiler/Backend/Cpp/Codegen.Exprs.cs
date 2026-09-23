@@ -20,9 +20,9 @@ namespace Orion.Backend.Cpp
 		private static string Qualify(Symbol symbol, string name) =>
 			Namespace(symbol) is string ns ? $"{ns}::{name}" : name;
 
-		private string Px(StExpr e) => Px(e, 0);
+		private string PrintExpr(StExpr e) => PrintExpr(e, 0);
 
-		private string Px(StExpr e, int minPrec)
+		private string PrintExpr(StExpr e, int minPrec)
 		{
 			switch (e)
 			{
@@ -35,28 +35,28 @@ namespace Orion.Backend.Cpp
 
 				case StLeaf l: return Cpp(l.Symbol);
 				case StIndex ix when ix.Container is PrimitiveTypeSymbol { Code: TypeCode.str }:
-					return $"str_at({Px(ix.Array)}, {Px(ix.Index)})";
+					return $"str_at({PrintExpr(ix.Array)}, {PrintExpr(ix.Index)})";
 
-				case StIndex ix: return $"{Px(ix.Array)}[{Px(ix.Index)}]";
-				case StMember m when m.Field == "Length": return $"static_cast<i32>({Px(m.Instance)}.size())";
-				case StMember m when m.Owner is RefTypeSymbol or BuiltinTypeSymbol { ByPointer: true }: return $"{Px(m.Instance)}->{m.Field}";
-				case StMember m: return $"{Px(m.Instance)}.{m.Field}";
-				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner: return $"!{Px(inner, ExprPrinter.UnaryPrec)}";
+				case StIndex ix: return $"{PrintExpr(ix.Array)}[{PrintExpr(ix.Index)}]";
+				case StMember m when m.Field == "Length": return $"static_cast<i32>({PrintExpr(m.Instance)}.size())";
+				case StMember m when m.Owner is RefTypeSymbol or BuiltinTypeSymbol { ByPointer: true }: return $"{PrintExpr(m.Instance)}->{m.Field}";
+				case StMember m: return $"{PrintExpr(m.Instance)}.{m.Field}";
+				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner: return $"!{PrintExpr(inner, ExprPrinter.UnaryPrec)}";
 				case StBin b:
 				{
 					int p = ExprPrinter.Prec(b.Op);
 					(int lp, int rp) = ExprPrinter.OperandPrec(b.Op);
-					string s = $"{Px(b.Left, lp)} {Spelling.Binary[b.Op]} {Px(b.Right, rp)}";
+					string s = $"{PrintExpr(b.Left, lp)} {Spelling.Binary[b.Op]} {PrintExpr(b.Right, rp)}";
 					return p < minPrec ? $"({s})" : s;
 				}
-				case StUn { Op: UnaryTacOp.BitNot } u: return $"~{Px(u.Operand, ExprPrinter.UnaryPrec)}";
-				case StUn { Op: UnaryTacOp.Negate } u: return $"-{Px(u.Operand, ExprPrinter.UnaryPrec)}";
-				case StUn u: return $"{Px(u.Operand, ExprPrinter.UnaryPrec)} {Spelling.Unary[u.Op]}";
-				case StCast c: return $"static_cast<{Spelling.Emitted(c.Target)}>({Px(c.Value)})";
+				case StUn { Op: UnaryTacOp.BitNot } u: return $"~{PrintExpr(u.Operand, ExprPrinter.UnaryPrec)}";
+				case StUn { Op: UnaryTacOp.Negate } u: return $"-{PrintExpr(u.Operand, ExprPrinter.UnaryPrec)}";
+				case StUn u: return $"{PrintExpr(u.Operand, ExprPrinter.UnaryPrec)} {Spelling.Unary[u.Op]}";
+				case StCast c: return $"static_cast<{Spelling.Emitted(c.Target)}>({PrintExpr(c.Value)})";
 				//A wired block reads its ports off the state, so its call carries exactly that.
 				case StCall c when Netlist.Wired(c.Function): return $"{Cpp(c.Function.EmitName)}({Solver.StateName})";
-				case StCall c: return $"{Qualify(c.Function, Cpp(c.Function.EmitName))}({string.Join(", ", c.Args.Select(a => Px(a)))})";
-				default: throw new NotImplementedException($"Cpp Px: {e.GetType().Name}");
+				case StCall c: return $"{Qualify(c.Function, Cpp(c.Function.EmitName))}({string.Join(", ", c.Args.Select(a => PrintExpr(a)))})";
+				default: throw new NotImplementedException($"Cpp PrintExpr: {e.GetType().Name}");
 			}
 		}
 
@@ -69,7 +69,7 @@ namespace Orion.Backend.Cpp
 			}
 			else
 			{
-				parts.Add(Px(e));
+				parts.Add(PrintExpr(e));
 			}
 		}
 
@@ -100,7 +100,7 @@ namespace Orion.Backend.Cpp
 				_ => (null, null),
 			};
 
-			return op != null && read is StLeaf or StMember or StIndex && Px(read) == target ? $"{op}{target};" : null;
+			return op != null && read is StLeaf or StMember or StIndex && PrintExpr(read) == target ? $"{op}{target};" : null;
 		}
 
 		private static bool IsOne(StExpr e) => e is StLeaf { Symbol: LiteralSymbol lit } && IsOne(lit);
@@ -143,6 +143,14 @@ namespace Orion.Backend.Cpp
 
 						case PrimitiveTypeSymbol p when p.Code == TypeCode.f64:
 							return Spelling.Float(Convert.ToDouble(lit.Value));
+
+						//C++ has no negative literals, and no signed one holds INT64_MIN's magnitude, so it is spelled as arithmetic.
+						case PrimitiveTypeSymbol when lit.Value is long.MinValue:
+							return "(-9223372036854775807LL - 1)";
+
+						//A decimal past INT64_MAX fits no signed type, so the suffix says it is unsigned.
+						case PrimitiveTypeSymbol when lit.Value is ulong big && big > long.MaxValue:
+							return $"{big}ULL";
 
 						case PrimitiveTypeSymbol p:
 							return lit.Value.ToString();

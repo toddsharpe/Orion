@@ -1,145 +1,115 @@
 # Compiler
 
-The compiler is a .NET 9 library: an F# parser ([Src/Orion.Lang](../Src/Orion.Lang)) on FParsec, and
-a C# pipeline ([Src/Orion.Compiler](../Src/Orion.Compiler)) that lowers what it produces and renders
-one of four targets. The `orion` command ([Src/Orion](../Src/Orion)) is one host of it, and the
-thinnest.
+The compiler is a .NET 9 library: an F# parser on FParsec ([Src/Orion.Lang](../Src/Orion.Lang)) and a
+C# pipeline ([Src/Orion.Compiler](../Src/Orion.Compiler)) that lowers what it produces and renders one
+of four targets. The `orion` command ([Src/Orion](../Src/Orion)) is its thinnest host.
 
 ```
 orion compile Demo/Apps/tour.src --lang cpp -o build/tour.cpp
 orion test                       # sweep the source root and run its #tests
 ```
 
-Every phase is timed, records its messages, and hands back a state object — which is what `-v` prints
-and what the playground's Analysis tab renders. A phase that reports an error stops the compile with
-everything gathered so far.
+The pipeline is a table of phases in `Compiler.cs`. Each is timed, records its messages and returns a
+state object; an error stops the compile. `-v` prints each state: the program's own symbols, each
+function's TACs (its control flow once structured), the call graph, the build's MSIL and the code.
+The playground's Pipeline and Analysis tabs show the same.
 
 ## The pipeline
 
 | | |
 |---|---|
-| **Frontend** | Inputs · Parser · Combined · Desugar · Conditionals · Monomorphizer · BuildLocals · Specializer · Binding · IR |
-| **RTTI** | Declare (before Binding) · Fill (after the build) |
-| **BuildTime** | BuildRegions · TacAnalyze · Generate · Execute · Channels · Blocks |
+| **Frontend** | Inputs, Parser, Combined, Desugar, Conditionals, Monomorphizer, RTTI Declare, BuildLocals, Specializer, Binding, IR |
+| **BuildTime** | BuildRegions, TacAnalyze, Generate, Execute, Channels, Blocks, RTTI Fill |
 | **Optimize** | IR |
-| **Backend** | Checks · Prepare · StIr · ShortCircuit · Optimize · Guards · ControlFlow · Prune · Codegen |
+| **Backend** | Checks, Prepare, StIr, ShortCircuit, Fuse, Guards, ControlFlow, Prune, Codegen |
 
-**Parsing** reads the entry and everything it `#using`s depth-first, deduped by path, into one
-translation unit with dependencies first. The F# parse tree becomes a mutable C# AST.
+**Parser** reads the entry and everything it `#using`s depth-first, deduped by path, dependencies
+first; a file-scope `#if` picks its blocks against the defines here. The F# tree becomes a mutable C#
+AST, one class per syntax case, with `for..in` already a counted loop over a view.
 
-**Desugar** lowers the sugar: interpolation into `+` and the stringify builtins, `for..in` into a
-counted loop over a view, `#create` into a `Solver::Block` call, `#code { }` into a fragment
-registration, `#test` into a file-scope `#run` on a test run and into nothing otherwise.
-**Conditionals** folds `#if`.
+**Desugar** lowers interpolation to `+` and the stringifiers, a comprehension to a loop, `#create` to
+a `Solver::Block` call, `#code` to a registered fragment, `#src` to a build call, and `#test` to a
+file-scope `#run` when tests run; it hoists file-scope `#run`s into the entry and turns a built
+file-scope `const` into a local of each function naming it. **Conditionals** folds each ordinary
+function's `#if`s; a generic's fold per instance in the **Monomorphizer**, which clones one function
+or struct per type argument and keeps the templates, since build-time code may name a new instance.
+**BuildLocals** hoists `#build` locals to cells; **Specializer** sets `#param` templates aside until
+`#create` supplies values.
 
-**Monomorphizer** expands generics C++-style: one clone per type argument, before binding; the
-templates outlive the pass, since code spliced during the build may be the first to name an
-instantiation. **BuildLocals** hoists each `#build` local to a cell that outlives one build region.
-**Specializer** registers the `#param` block templates and takes them out of the unit until `#create`
-supplies values.
+**Binding** resolves every name into nested symbol tables and types every node. The builtin surface
+is reflected from [BuildTime/Builtins](../Src/Orion.Compiler/BuildTime/Builtins): `FileBuiltins`
+supplies `File::`, its public members *are* the Orion surface (a property is a member, an indexer `[]`,
+an operator the operator), and `[BuildOnly]` keeps a class or member out of runtime code. **IR** lowers the tree to
+three-address code: one operation per TAC, temps for intermediates, labels and gotos.
 
-**Binding** resolves every name into a nested symbol table and types every node. The builtin surface
-comes from reflection over the C# classes in [BuildTime/](../Src/Orion.Compiler/BuildTime): what a
-class declares `public` *is* its Orion surface — a property is a member, an indexer is `[]`, a method
-is a function taking its receiver first — so there is no second list to keep in step.
+## The build stage
 
-**IR** lowers the bound tree to three-address code: one operation per TAC, temps for every
-intermediate, labels and gotos for control flow.
+`BuildRegions` lifts every `#run { }` into a build-only function. `TacAnalyze` adds missing returns
+and checks the port rules — an `#input` is never written, a `#pure` never read and always written —
+and that no `Span` or `Ref` outlives what it views. `Generate` emits MSIL for build functions into an
+in-memory assembly, and `Execute` walks the TACs from `main`, running each build call whose arguments
+are known and splicing its result ([BuildTime.md](BuildTime.md)). `Channels` then emits ring storage
+and accessors, and `Blocks` reports an `#init` nothing will run.
 
-## The build stage, in the middle
-
-`BuildRegions` lifts every `#run { }` into a build-only function and leaves a call behind. `Generate`
-emits MSIL for every build function into an in-memory assembly. `Execute` walks the TAC stream from
-`main`: each build call whose arguments are known is invoked, replaced by its result as a literal, and
-deleted — and each lifted region is invoked, then removed whole. Splices from inside it are parsed,
-bound and lowered on the spot and inserted at the callsite.
-
-Afterwards `Channels` emits the ring storage and accessors (every `Channel::Tx` has run by then), and
-`Blocks` reports any block that declares an `#init` nothing will run.
-
-Anything the build filed with `Output::Write` comes out as `CompilerResult.Outputs`, a name below the
-output directory and its text; the diagrams in `Diagrams/` (the call graph, a solver's netlist, a
-function's CFG and structured IR) are `Graph`s that `Dot` writes as Graphviz text, which is what the
-playground draws and what `orion compile` hands to `dot -Tpdf`.
+Files the build wrote with `Output::Write` come back as `CompilerResult.Outputs`. The call graph,
+netlist, CFG and structured-form diagrams in `Diagrams/` are Graphviz text the playground draws.
 
 ## RTTI
 
-With `--rtti`, the compiler describes the finished program back to itself. The descriptors and
-accessors are *written in Orion* ([Rtti/Types.src](../Src/Orion.Compiler/Rtti/Types.src),
-[Rtti/Code.src](../Src/Orion.Compiler/Rtti/Code.src), embedded in the compiler) and compiled like any
-other source. `Declare` binds them before the program does; `Fill` — after the build, so every
-`#create`d block exists — builds the tables:
+With `--rtti` the program can describe itself. The descriptors are Orion,
+[Rtti/Types.src](../Src/Orion.Compiler/Rtti/Types.src) and [Rtti/Code.src](../Src/Orion.Compiler/Rtti/Code.src),
+compiled like any source: `Declare` binds them first, and `Fill` builds the tables after the build:
 
 ```
 RtFunction f = Function::Get("scale");
 WriteLine($"{f.Name} -> {f.Return.Name}, {f.Inputs.Length} inputs");
 ```
 
-`RtType` carries a name, a kind, a byte width, an element and a struct's fields with packed offsets;
-`RtFunction` carries the return type and the input, output and state ports. Types are described once
-and referred to by index, row 0 being the "no type" row that ends a walk. The same classification
-backs the build-time `Type` handle, so both faces answer alike.
+`RtType` has a name, kind, size, length, element and fields with packed offsets; `RtFunction` has a
+return type and input, output and state ports. Row 0 is the "no type" ending a walk, and the build-time
+`Type` handle classifies alike.
 
 ## Optimizing
 
-The TAC optimizer runs per function: literal evaluation, identity-cast removal, temp condensing,
-algebraic simplification, common subexpression elimination, dead-store elimination and unused-result
-dropping, over a control-flow graph and a data graph built from the TAC stream.
+Per runtime function, over a control-flow and a data graph: literal folding, identity-cast removal,
+temp condensing, algebraic simplification, common subexpressions, dead stores, unused results.
 
 ## The backend
 
-**Checks** rejects what no target can honestly emit: a runtime function calling a build one, an
-`#export`ed signature naming a type the header cannot declare, two function statics that would lift
-to one module global. Two more run earlier in the frontend — the port rules, and a
-`Span` or `Ref` may not be returned or stored where the storage it views would not outlive it. The
-port rules are that an `#input` may not be written, and a `#pure` may not be read and must be written
-on every path to a return; both are checked over the TACs, where reads and writes are exact.
+**Checks** rejects what no target can emit: a runtime function calling a build one, an `#export`
+naming a type the header cannot declare, two function statics that would lift to one global.
 
-**Prepare** applies rewrites for the things *this* target cannot express. A target is a record of
-capability flags, so each rewrite is written once and each backend says whether it needs it:
+**Prepare** rewrites what *this* target lacks. A target is a record of capability flags, so each
+rewrite is written once:
 
-| flag | when absent |
-|---|---|
-| `ByRefParams` | out parameters become extra return values, and call sites unpack a tuple |
-| `StaticLocals` | function statics lift to module globals, initialized at module scope |
-| `DoWhile` | `do { } while (c)` becomes `while (true) { ...; if (!c) break; }` |
-| `CStyleFor` | `for (init; c; step)` becomes `init; while (c) { ...; step; }` |
-| `Switch` | a switch becomes a right-nested if / else-if chain |
+| flag | when absent | C++ | C# | Python, JS |
+|---|---|---|---|---|
+| `ByRefParams` | an `#output` or `#state` parameter becomes an extra return value | ✓ | ✓ | |
+| `StaticLocals` | a function static becomes a module global | ✓ | | |
+| `CStyleControl` | `do`/`while` becomes `while (true)` with a trailing break, `for` a `while`, and `switch` nested `if`/`else` | ✓ | | |
 
-C++ has all five, C# has `ByRefParams`, Python and JavaScript have none.
+**StIr** is the relooper: it recovers if/else, loops, switch, break and continue from the *final*
+control-flow graph. **ShortCircuit** folds a lowered `&&`/`||` back into one expression where that is
+free; **Fuse** inlines single-use temps into expressions; **Guards** drops control flow that says
+nothing; **ControlFlow** expands the shapes the target lacks; **Prune** drops build-only symbols and
+whatever the roots — a runtime `main`, the `#export`s, the solver and channel entries — never reach.
 
-**StIr** is the relooper: it recovers structure — if/else, while, do/while, for, switch, break,
-continue — from the *final* control-flow graph, after the optimizer and the build stage have had their
-way with it. **ShortCircuit** folds the branch a `&&`/`||` lowered to back into one expression where
-that is free. **Optimize** fuses single-use temps into expression trees, turning three-address code
-back into readable expressions. **Guards** drops control flow that says nothing: an else whose if-arm
-already jumped away, a switch whose every arm is empty. **ControlFlow** expands whatever shapes this
-target lacks, and **Prune** drops every build-only symbol and every function unreachable from the
-program's roots — a runtime `main`, the `#export`s, the solver and channel entries.
+**Codegen** renders the structured IR. One statement walk (`StmtPrinter`) and one precedence-aware
+expression printer (`ExprPrinter`) serve all four targets; Python, JavaScript and C# share one module
+shape (`ModuleBackend`), and C++ writes a translation unit with a header. See [Cpp.md](Cpp.md),
+[Python.md](Python.md), [JavaScript.md](JavaScript.md) and [CSharp.md](CSharp.md).
 
-**Codegen** renders the structured IR. The walk over control flow and the precedence-aware expression
-printer are shared; only the spelling differs. See [Cpp.md](Cpp.md), [Python.md](Python.md),
-[JavaScript.md](JavaScript.md) and [CSharp.md](CSharp.md).
+## Roots, diagnostics, hosts
 
-## Source roots and diagnostics
+An `orion.json` marks the source root; `orion test` sweeps it, skipping `build/` and any file with a
+`main`, since a sweep merges libraries into one program. A message carries a file, line and column,
+shown by the CLI with a caret and by the language server as a squiggle.
 
-The directory holding an empty `orion.json` is the root, and every `#using` is named from it. A path
-holds no `..` and is never absolute, so a tree cannot reach outside itself; `-I` adds further trees,
-searched after the root. `orion test` sweeps a root for `.src` files, skipping `build/` output and any
-file declaring a `main` — a sweep merges libraries into one program, and two `main`s are two programs.
+The CLI, the language server ([Src/Orion.LangSvr](../Src/Orion.LangSvr)) behind the VS Code extension
+([Tools/](../Tools/)), and the playground ([Src/Orion.Web](../Src/Orion.Web)) all run this pipeline. `Compiler.Session` is process-wide and Execute swaps the working directory, so a host runs
+one compile at a time.
 
-A message carries a region: file, line and column. The CLI prints the source line with a caret under
-it; the language server publishes the same messages as squiggles.
-
-## Hosts and tests
-
-The same pipeline runs from four places: the CLI, the language server
-([Src/Orion.LangSvr](../Src/Orion.LangSvr) — hover, definition, semantic tokens, diagnostics over
-unsaved buffers), the browser playground ([Src/Orion.Web](../Src/Orion.Web) — the compiler compiled
-to WebAssembly), and the VS Code extension in [Tools/](../Tools/). Per-compile state is reset on
-entry. One compile at a time: `Compiler.Session` is a process-wide static and Execute swaps
-`Environment.CurrentDirectory` around the build, so an embedding host runs its compiles serially.
-
-`dotnet test Src/Orion.Tests` covers the pieces; `dotnet test Src/Orion.Tests.Golden` compiles every
-program in [Tests/](../Tests/) to every backend, runs it, and diffs stdout against one golden. That is
-the only thing asserting the targets agree.
+`dotnet test Src/Orion.Tests` covers the pieces, including completeness tests that fail when a new
+operator or runtime builtin misses a folder, backend or runtime. `dotnet test Src/Orion.Tests.Golden`
+runs every program in [Tests/](../Tests/) on every backend against one golden, the only check that the
+targets agree.

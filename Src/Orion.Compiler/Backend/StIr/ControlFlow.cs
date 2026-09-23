@@ -12,7 +12,7 @@ namespace Orion.Backend.StIr
 			switch (c)
 			{
 				case StDoWhile d when !t.CStyleControl:
-					return new StLoop(new StSeq([Expand(d.Body, t), new StIf(d.Cond, true, new StBreak(), null)]));
+					return new StLoop(new StSeq([Expand(d.Body, t), new StIf(d.Cond, Negate: true, new StBreak(), null)]));
 
 				case StFor fr when !t.CStyleControl:
 					return new StSeq([
@@ -26,7 +26,7 @@ namespace Orion.Backend.StIr
 					{
 						StCase arm = sw.Cases[i];
 						StExpr cond = new StBin(BinaryTacOp.Equals, sw.Clause, arm.Value, Language.Primitives[TypeCode.@bool]);
-						tail = new StIf(cond, false, Expand(arm.Body, t), tail);
+						tail = new StIf(cond, Negate: false, Expand(arm.Body, t), tail);
 					}
 					return tail ?? new StSeq([]);
 				}

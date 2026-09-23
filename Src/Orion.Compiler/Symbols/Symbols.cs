@@ -384,6 +384,7 @@ namespace Orion.Symbols
 	//A function local.
 	public record LocalDataSymbol(string Name, TypeSymbol Type, LocalStorage Storage) : NamedDataSymbol(Name, Type)
 	{
+		//A `const` local written once with a literal, moved to static storage by Rewrites.Constants: static, but not a `#state` local.
 		public bool Hoisted { get; init; }
 
 		//The declaring scope: sibling scopes may reuse a name, and without this the two records compare equal.

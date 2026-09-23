@@ -27,5 +27,17 @@ namespace Orion.Symbols
 
 			return global;
 		}
+
+		//Whether a root symbol is part of what Create installs rather than the program's own: a typedef, measure, extern, build-hosted enum or non-bool literal is the program's.
+		public static bool IsSurface(Symbol symbol) => symbol switch
+		{
+			AliasTypeSymbol or MeasuredTypeSymbol => false,
+			PrimitiveTypeSymbol or SpanTypeSymbol or FunctionTypeSymbol or ArgsTypeSymbol or BuiltinTypeSymbol => true,
+			BuiltinFunctionSymbol function => !function.IsExtern,
+			//A program's enum is hosted in the build's dynamic assembly, a CLR-projected one in the compiler's own.
+			EnumTypeSymbol @enum => @enum.Hosted is { Assembly.IsDynamic: false },
+			LiteralSymbol literal => literal.Value is bool,
+			_ => false,
+		};
 	}
 }

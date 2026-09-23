@@ -12,7 +12,7 @@ function Platform_Running() {
 }
 
 // THE clock, matching the C++ runtime's: advanced by Platform_SleepUntil rather than by being read, so two reads inside one cycle agree -- a page has no wall clock, so a run here is always simulated.
-let _simulated = 0;
+let _simulated = 0n;
 function Platform_Now() {
 	return _simulated;
 }

@@ -54,7 +54,7 @@ namespace Orion.BuildTime
 		internal static Ast.Statement Set(Ast.Expression target, Ast.Expression value) =>
 			new Ast.Assignment { Init = new Ast.Assign { Target = target, Value = value } };
 
-		//Positional arguments only: a generator names nothing, so every ArgumentName is null.
+		//Positional arguments only: a generator names nothing, so every entry of ArgumentNames is null.
 		internal static Ast.Expression Call(string function, List<Ast.Expression> arguments) =>
 			new Ast.Call
 			{

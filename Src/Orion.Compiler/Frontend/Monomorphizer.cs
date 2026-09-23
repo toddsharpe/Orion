@@ -25,21 +25,19 @@ namespace Orion.Frontend
 	//C++-style generics: each <T> instantiation is cloned into a concrete function before binding.
 	public static class Monomorphizer
 	{
+		//The private helpers read the session's generics here rather than take it through ten signatures; every public entry is handed the ambient session.
 		private static Generics Generics => Compiler.Session.Generics;
-
-		//Was `name` a generic function in this compile? Asked when a call did not resolve, to tell a typo apart from a template that could not be instantiated.
-		public static bool IsTemplate(string name) => Generics.Templates.ContainsKey(name);
 
 		//The no-substitution map the walks over concrete code share.
 		private static readonly Dictionary<string, TypeName> NoMap = new Dictionary<string, TypeName>();
 
-		public static void Expand(TranslationUnit tu, List<Message> messages)
+		public static void Expand(TranslationUnit tu, CompileSession session, List<Message> messages)
 		{
-			//Conditionals published the compile's facts; a #src unit never runs it, so its own are built here.
-			TypeFacts.Current ??= TypeFacts.From(tu);
+			//Conditionals kept the compile's facts on the session; a #src unit never runs it, so its own are built here.
+			session.TypeFacts ??= TypeFacts.From(tu);
 
 			//Collect templates and remove them from the unit (they have open types, cannot bind).
-			Compiler.Session.Generics = new Generics
+			session.Generics = new Generics
 			{
 				Templates = tu.Blocks
 					.OfType<Function>()
@@ -56,7 +54,7 @@ namespace Orion.Frontend
 					.GroupBy(i => i.Name)
 					.ToDictionary(i => i.Key, i => (int)i.First().Value),
 			};
-			if (Generics.Templates.Count == 0 && Generics.StructTemplates.Count == 0)
+			if (session.Generics.Templates.Count == 0 && session.Generics.StructTemplates.Count == 0)
 				return;
 
 			tu.Blocks = tu.Blocks.Where(i =>
@@ -83,7 +81,7 @@ namespace Orion.Frontend
 			foreach (Function fn in tu.Blocks.OfType<Function>())
 				work.Enqueue((fn, new Dictionary<string, TypeName>()));
 
-			Drain(work, tu.Blocks.Add, messages);
+			Drain(work, tu.Blocks.Add, session, messages);
 			DrainStructs(tu.Blocks.Add, messages);
 		}
 
@@ -117,40 +115,40 @@ namespace Orion.Frontend
 		}
 
 		//Expand a unit compiled apart mid-build (`#src`): its templates are its own, and the outer compile's survive the load.
-		public static void ExpandIsolated(TranslationUnit tu, List<Message> messages)
+		public static void ExpandIsolated(TranslationUnit tu, CompileSession session, List<Message> messages)
 		{
-			Generics outer = Compiler.Session.Generics;
-			TypeFacts facts = TypeFacts.Current;
+			Generics outer = session.Generics;
+			TypeFacts facts = session.TypeFacts;
 			try
 			{
 				//Cleared so Expand builds this unit's own facts rather than folding against the outer compile's.
-				TypeFacts.Current = null;
-				Expand(tu, messages);
+				session.TypeFacts = null;
+				Expand(tu, session, messages);
 			}
 			finally
 			{
-				Compiler.Session.Generics = outer;
-				TypeFacts.Current = facts;
+				session.Generics = outer;
+				session.TypeFacts = facts;
 			}
 		}
 
 		//Expand the generic calls in code the BUILD produced -- a `#insert` body, a `#param` clone -- and hand back the new instantiations; the caller binds them, since they did not exist when Binding ran.
-		public static List<Function> ExpandLate(List<Statement> body, List<Message> messages)
+		public static List<Function> ExpandLate(List<Statement> body, CompileSession session, List<Message> messages)
 		{
 			List<Function> created = new List<Function>();
-			if (Generics.Templates.Count == 0 && Generics.StructTemplates.Count == 0)
+			if (session.Generics.Templates.Count == 0 && session.Generics.StructTemplates.Count == 0)
 				return created;
 
 			Queue<(Function Fn, Dictionary<string, TypeName> Map)> work = new Queue<(Function, Dictionary<string, TypeName>)>();
 
 			//The body is not a function, so it is walked directly; anything it instantiates drains through the same loop, so a generic calling a generic works here too.
 			WalkStatements(body, call => OnCall(call, work, created.Add, messages), new Dictionary<string, TypeName>(), messages);
-			Drain(work, created.Add, messages);
+			Drain(work, created.Add, session, messages);
 
 			//A fragment may not be the first to name a struct instantiation: there is no unit here to add it to.
-			while (Generics.StructWork.Count > 0)
+			while (session.Generics.StructWork.Count > 0)
 			{
-				(Struct _, Dictionary<string, TypeName> _, string name) = Generics.StructWork.Dequeue();
+				(Struct _, Dictionary<string, TypeName> _, string name) = session.Generics.StructWork.Dequeue();
 				messages.Add(new Message($"Spliced code is the first to name struct instantiation {name}; name it once in compiled source so the build can instantiate it.", InputRegion.None, MessageType.Error));
 			}
 
@@ -161,6 +159,7 @@ namespace Orion.Frontend
 		private static void Drain(
 			Queue<(Function Fn, Dictionary<string, TypeName> Map)> work,
 			Action<Function> onCreated,
+			CompileSession session,
 			List<Message> messages)
 		{
 			while (work.Count > 0)
@@ -174,7 +173,7 @@ namespace Orion.Frontend
 
 				//Before WalkStatements, so a generic call in a dead branch is never instantiated either.
 				if (map.Count > 0)
-					Conditionals.Fold(fn.Body, new FoldEnv { Values = Conditionals.Defines(), Types = map, Facts = TypeFacts.Current, UndefinedIsFalse = true }, messages);
+					Conditionals.Fold(fn.Body, new FoldEnv { Values = Conditionals.Defines(session), Types = map, Facts = session.TypeFacts, UndefinedIsFalse = true }, messages);
 
 				WalkStatements(fn.Body, call => OnCall(call, work, onCreated, messages), map, messages);
 			}
@@ -309,9 +308,9 @@ namespace Orion.Frontend
 		}
 
 		//Re-apply the unit pass's rewrites to a `#param` clone reparsed from source: its signature types and the calls its body mangles; naming only -- ExpandLate makes any missing instantiation later.
-		public static void RewriteClone(Function clone)
+		public static void RewriteClone(Function clone, CompileSession session)
 		{
-			if (Generics.Templates.Count == 0 && Generics.StructTemplates.Count == 0)
+			if (session.Generics.Templates.Count == 0 && session.Generics.StructTemplates.Count == 0)
 				return;
 
 			clone.ReturnType = Rewrite(clone.ReturnType, NoMap, null);
@@ -320,7 +319,7 @@ namespace Orion.Frontend
 
 			void MangleCall(Call call)
 			{
-				if (call.GenericArgs.Count > 0 && Generics.Templates.ContainsKey(call.Function))
+				if (call.GenericArgs.Count > 0 && session.Generics.Templates.ContainsKey(call.Function))
 				{
 					call.Function = Mangle(call.Function, [.. call.GenericArgs.Select(Sized)]);
 					call.GenericArgs = new List<TypeName>();
@@ -330,8 +329,8 @@ namespace Orion.Frontend
 			WalkStatements(clone.Body, MangleCall, NoMap, null);
 
 			//A clone cannot be the first to name a struct instantiation; forget it, so a later real use still can.
-			while (Generics.StructWork.Count > 0)
-				Generics.StructInstantiated.Remove(Generics.StructWork.Dequeue().Name);
+			while (session.Generics.StructWork.Count > 0)
+				session.Generics.StructInstantiated.Remove(session.Generics.StructWork.Dequeue().Name);
 		}
 
 		//Mangle a template name + type arguments into a valid identifier: max<i32> -> max_i32.

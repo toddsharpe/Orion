@@ -3,6 +3,7 @@ using System.Linq;
 namespace Orion.BuildTime.Builtins
 {
 	//The Output:: builtins: extra files a build emits beside the generated code, written by whoever runs the compile.
+	[BuildOnly]
 	public static class OutputBuiltins
 	{
 		public static void Write(string name, string text)

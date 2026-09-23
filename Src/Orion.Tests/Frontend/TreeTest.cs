@@ -14,9 +14,6 @@ namespace Orion.Tests.Frontend
 		private static IEnumerable<Type> NodeTypes() => typeof(Node).Assembly.GetTypes()
 			.Where(i => !i.IsAbstract && typeof(Node).IsAssignableFrom(i));
 
-		//An uninitialized instance has null children, which is exactly the shape an arm must tolerate.
-		private static Node Sample(Type type) => (Node)RuntimeHelpers.GetUninitializedObject(type);
-
 		private static List<string> Names(Node node) =>
 			node.DescendantsAndSelf().OfType<Variable>().Select(i => i.SymbolName).ToList();
 
@@ -28,7 +25,8 @@ namespace Orion.Tests.Frontend
 			{
 				try
 				{
-					probe(Sample(type));
+					//An uninitialized instance has null children, which is exactly the shape an arm must tolerate.
+					probe((Node)RuntimeHelpers.GetUninitializedObject(type));
 				}
 				catch (NotImplementedException)
 				{

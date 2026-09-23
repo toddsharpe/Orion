@@ -44,7 +44,8 @@ namespace Orion.Frontend.Binder
 			return Surface.IsMathGeneric(stem) ? $"{stem}<T>(x)" : "to_str(x)";
 		}
 
-		private static void BindMathGeneric(BindContext ctx, SymbolTable current, Call expr)
+		//`sqrt<f32>(x)` names `sqrt_f32`, which takes no type argument; the stem stands when the argument is missing or unsupported.
+		private static string BindMathGeneric(BindContext ctx, SymbolTable current, Call expr)
 		{
 			TypeCode[] supported = Surface.MathGenerics[expr.Function];
 			string types = string.Join(", ", supported);
@@ -52,18 +53,18 @@ namespace Orion.Frontend.Binder
 			if (expr.GenericArgs.Count != 1)
 			{
 				ctx.Messages.Add(new Message($"{Where(ctx)}: {expr.Function} takes one type argument, e.g. {expr.Function}<{supported[0]}>(x)", expr.Region, MessageType.Error));
-				return;
+				return expr.Function;
 			}
 
 			TypeSymbol type = ResolveType(ctx, current, expr.GenericArgs[0]);
 			if (type is not PrimitiveTypeSymbol primitive || !supported.Contains(primitive.Code))
 			{
 				ctx.Messages.Add(new Message($"{Where(ctx)}: {expr.Function} is not defined for {type.Name}; it takes {types}", expr.Region, MessageType.Error));
-				return;
+				return expr.Function;
 			}
 
-			expr.Function = $"{expr.Function}_{primitive.Code}";
 			expr.GenericArgs = new List<TypeName>();
+			return $"{expr.Function}_{primitive.Code}";
 		}
 
 		public static void Visit(BindContext ctx, Invalid expr)
@@ -95,7 +96,8 @@ namespace Orion.Frontend.Binder
 			expr.Symbol = symbol;
 		}
 
-		private static void BindMethod(BindContext ctx, Call expr)
+		//`a.b.Method(x)` on a builtin receiver names the method's function, with the receiver prepended as its first argument; any other dotted name stands.
+		private static string BindMethod(BindContext ctx, Call expr)
 		{
 			SymbolTable current = ctx.Scoper.Peek();
 			int at = expr.Function.LastIndexOf('.');
@@ -103,15 +105,68 @@ namespace Orion.Frontend.Binder
 			string name = expr.Function[(at + 1)..];
 
 			if (!current.TryGet(path.Split('.')[0], out NamedDataSymbol _))
-				return;
+				return expr.Function;
 
 			NamedDataSymbol receiver = Resolve(ctx, path, expr.Region);
 			if (receiver?.Type is not BuiltinTypeSymbol type || !type.Methods.TryGetValue(name, out BuiltinFunctionSymbol method))
-				return;
+				return expr.Function;
 
-			expr.Function = method.Name;
 			expr.Arguments.Insert(0, new Variable { SymbolName = path, Symbol = receiver, Region = expr.Region });
 			expr.ArgumentNames.Insert(0, null);
+			return method.Name;
+		}
+
+		//The name a call is looked up by: a `#insert` of a Code, a builtin receiver's method, `__str` and a math stem each name the function they reach; at most one applies.
+		private static string CalleeName(BindContext ctx, SymbolTable current, Call expr)
+		{
+			//`#insert x` became Build::AddBody before x's type was known; a Code x inserts through Code::Insert instead.
+			if (expr.Function == Surface.Builtin(typeof(BuildTime.Builtins.BuildBuiltins), nameof(BuildTime.Builtins.BuildBuiltins.AddBody)) && expr.Arguments.Count == 1)
+			{
+				Expression inserted = expr.Arguments[0];
+				if (inserted.Symbol == null)
+					Visit(ctx, inserted);
+
+				return inserted.Symbol?.Type is BuiltinTypeSymbol { Name: "Code" }
+					? Surface.Builtin(typeof(BuildTime.Builtins.CodeBuiltins), nameof(BuildTime.Builtins.CodeBuiltins.Insert))
+					: expr.Function;
+			}
+
+			if (expr.Callee == null && expr.Function.Contains('.'))
+				return BindMethod(ctx, expr);
+
+			//An interpolation hole's `__str` is the stringify of the hole's type.
+			if (expr.Function == "__str")
+			{
+				Expression hole = expr.Arguments[0];
+				if (hole.Symbol == null)
+					Visit(ctx, hole);
+				return StrFunctionFor(ctx, hole.Symbol.Type, expr.Region);
+			}
+
+			if (Surface.IsMathGeneric(expr.Function))
+				return BindMathGeneric(ctx, current, expr);
+
+			if (Surface.IsInternalBuiltin(expr.Function))
+				ctx.Messages.Add(new Message($"{Where(ctx)}: {expr.Function} is internal; use {InternalBuiltinHint(expr.Function)}", expr.Region, MessageType.Error));
+
+			return expr.Function;
+		}
+
+		//Why a name matched no function: a generic called without type arguments or not instantiable, a builtin spelled with `_`, or nothing at all.
+		private static string Undefined(BindContext ctx, SymbolTable current, Call expr)
+		{
+			bool template = ctx.Session.Generics.Templates.ContainsKey(expr.Function);
+			if (template && expr.GenericArgs.Count == 0)
+				return $"{Where(ctx)}: Generic call to {expr.Function} requires explicit type arguments, e.g. {expr.Function}<i32>(...)";
+
+			if (template)
+				return $"{Where(ctx)}: Call to {expr.Function}<{string.Join(", ", expr.GenericArgs.Select(i => i.Name))}>, which could not be instantiated.";
+
+			string qualified = Surface.Spelled(expr.Function);
+			if (qualified != expr.Function && current.GetRoot().TryGet(qualified, out FunctionSymbol _))
+				return $"{Where(ctx)}: '{expr.Function}' is spelled '{qualified}'; a builtin is namespaced with `::`.";
+
+			return $"{Where(ctx)}: Call to undefined function {expr.Function}";
 		}
 
 		public static void Visit(BindContext ctx, Call expr)
@@ -119,7 +174,7 @@ namespace Orion.Frontend.Binder
 			SymbolTable current = ctx.Scoper.Peek();
 			bool buildContext = ctx.Scoper.IsBuildContext();
 
-			//Captured before BindMathGeneric renames the call, so the result can keep a measure the stem preserves.
+			//Captured before CalleeName renames a math stem, so the result can keep a measure the stem preserves.
 			string reshaping = Surface.IsMathGeneric(expr.Function) && Surface.MeasurePreserving.Contains(expr.Function)
 				? expr.Function : null;
 
@@ -128,34 +183,7 @@ namespace Orion.Frontend.Binder
 
 			bool buildCall = buildContext || expr.IsBuildCall;
 
-			if (expr.Function == Surface.Builtin(typeof(BuildTime.Builtins.BuildBuiltins), nameof(BuildTime.Builtins.BuildBuiltins.AddBody)) && expr.Arguments.Count == 1)
-			{
-				Expression inserted = expr.Arguments[0];
-				if (inserted.Symbol == null)
-					Visit(ctx, inserted);
-
-				if (inserted.Symbol?.Type is BuiltinTypeSymbol { Name: "Code" })
-					expr.Function = Surface.Builtin(typeof(BuildTime.Builtins.CodeBuiltins), nameof(BuildTime.Builtins.CodeBuiltins.Insert));
-			}
-
-			if (expr.Callee == null && expr.Function.Contains('.'))
-				BindMethod(ctx, expr);
-
-			if (expr.Function == "__str")
-			{
-				Expression hole = expr.Arguments[0];
-				if (hole.Symbol == null)
-					Visit(ctx, hole);
-				expr.Function = StrFunctionFor(ctx, hole.Symbol.Type, expr.Region);
-			}
-			else if (Surface.IsMathGeneric(expr.Function))
-			{
-				BindMathGeneric(ctx, current, expr);
-			}
-			else if (Surface.IsInternalBuiltin(expr.Function))
-			{
-				ctx.Messages.Add(new Message($"{Where(ctx)}: {expr.Function} is internal; use {InternalBuiltinHint(expr.Function)}", expr.Region, MessageType.Error));
-			}
+			expr.Function = CalleeName(ctx, current, expr);
 
 			FunctionTypeSymbol funcType = null;
 			bool unresolved = false;
@@ -170,6 +198,7 @@ namespace Orion.Frontend.Binder
 				{
 					ctx.Messages.Add(new Message($"{Where(ctx)}: Call to non-callable symbol {indirect.Name}", expr.Region, MessageType.Error));
 					funcType = DefaultFunctionType;
+					unresolved = true;
 				}
 			}
 			else if (Surface.IsGenericBuiltin(expr.Function))
@@ -178,6 +207,7 @@ namespace Orion.Frontend.Binder
 				{
 					ctx.Messages.Add(new Message($"{Where(ctx)}: Generic call to {expr.Function} requires explicit type arguments, e.g. {expr.Function}<i32>(...)", expr.Region, MessageType.Error));
 					funcType = DefaultFunctionType;
+					unresolved = true;
 				}
 				else
 				{
@@ -193,47 +223,26 @@ namespace Orion.Frontend.Binder
 					}
 
 					if (!buildCall && builtin.IsBuild)
-					{
 						ctx.Messages.Add(new Message($"{Where(ctx)}: Call to build-only function {expr.Function} from non-build context", expr.Region, MessageType.Error));
-						funcType = DefaultFunctionType;
-					}
-					else
-					{
-						expr.Callee = builtin;
-						funcType = builtin.FuncType as FunctionTypeSymbol;
-					}
+
+					expr.Callee = builtin;
+					funcType = builtin.FuncType as FunctionTypeSymbol;
 				}
 			}
 			else if (!current.TryGet(expr.Function, out FunctionSymbol callee))
 			{
-				string qualified = Surface.Spelled(expr.Function);
-
-				bool template = Monomorphizer.IsTemplate(expr.Function);
-
-				ctx.Messages.Add(new Message(
-					template && expr.GenericArgs.Count == 0
-						? $"{Where(ctx)}: Generic call to {expr.Function} requires explicit type arguments, e.g. {expr.Function}<i32>(...)"
-						: template
-							? $"{Where(ctx)}: Call to {expr.Function}<{string.Join(", ", expr.GenericArgs.Select(i => i.Name))}>, which could not be instantiated."
-							: qualified != expr.Function && current.GetRoot().TryGet(qualified, out FunctionSymbol _)
-								? $"{Where(ctx)}: '{expr.Function}' is spelled '{qualified}'; a builtin is namespaced with `::`."
-								: $"{Where(ctx)}: Call to undefined function {expr.Function}",
-					expr.Region, MessageType.Error));
+				ctx.Messages.Add(new Message(Undefined(ctx, current, expr), expr.Region, MessageType.Error));
 				funcType = DefaultFunctionType;
 				unresolved = true;
 			}
-			else if (!buildCall && callee.IsBuild)
-			{
-				ctx.Messages.Add(new Message($"{Where(ctx)}: Call to build-only function {expr.Function} from non-build context", expr.Region, MessageType.Error));
-				funcType = DefaultFunctionType;
-			}
-			else if (buildCall && callee is BuiltinFunctionSymbol { IsExtern: true })
-			{
-				ctx.Messages.Add(new Message($"{Where(ctx)}: External function {expr.Function} is a runtime platform service and cannot be called at build time", expr.Region, MessageType.Error));
-				funcType = DefaultFunctionType;
-			}
 			else
 			{
+				//A call refused for its context still has a signature, so the checks below judge it rather than a stand-in.
+				if (!buildCall && callee.IsBuild)
+					ctx.Messages.Add(new Message($"{Where(ctx)}: Call to build-only function {expr.Function} from non-build context", expr.Region, MessageType.Error));
+				else if (buildCall && callee is BuiltinFunctionSymbol { IsExtern: true })
+					ctx.Messages.Add(new Message($"{Where(ctx)}: External function {expr.Function} is a runtime platform service and cannot be called at build time", expr.Region, MessageType.Error));
+
 				expr.Callee = callee;
 				string funcTypeName = Language.FunctionType(callee.ReturnType, [.. callee.Parameters.Select(i => i.Type)]);
 				funcType = current.Get<TypeSymbol>(funcTypeName) as FunctionTypeSymbol;
@@ -533,7 +542,7 @@ namespace Orion.Frontend.Binder
 			List<int> dimensions = new List<int>();
 			foreach (Expression size in sizes)
 			{
-				if (size.Symbol is not LiteralSymbol lit || !IsIntegerType(lit.Type))
+				if (size.Symbol is not LiteralSymbol lit || !Language.IsInteger(lit.Type))
 				{
 					ctx.Messages.Add(new Message($"{Where(ctx)}: Sized array allocation {element.Name}[...] requires a constant integer size.", region, MessageType.Error));
 					return new LiteralSymbol(Array.CreateInstance(clr, 0), arrayType) with { Dimension = 0 };
@@ -827,9 +836,7 @@ namespace Orion.Frontend.Binder
 		private static TypeSymbol ArithmeticOperand(BindContext ctx, BinaryOp expr, string op, bool allowStr)
 		{
 			TypeSymbol type = expr.Operand1.Symbol.Type;
-			bool arithmetic = IsIntegerType(type)
-				|| (type as PrimitiveTypeSymbol)?.Code is TypeCode.f32 or TypeCode.f64
-				|| (allowStr && (type as PrimitiveTypeSymbol)?.Code is TypeCode.str);
+			bool arithmetic = Language.IsNumeric(type) || (allowStr && (type as PrimitiveTypeSymbol)?.Code is TypeCode.str);
 			if (!arithmetic)
 			{
 				string hint = type is StructTypeSymbol or BufferTypeSymbol
@@ -843,7 +850,7 @@ namespace Orion.Frontend.Binder
 		private static TypeSymbol ModOperand(BindContext ctx, BinaryOp expr)
 		{
 			TypeSymbol type = expr.Operand1.Symbol.Type;
-			if (!IsIntegerType(type))
+			if (!Language.IsInteger(type))
 				ctx.Messages.Add(new Message($"{Where(ctx)}: Operator '%' requires an integer operand, received {type}; use fmod(a, b) for floats.", expr.Region, MessageType.Error));
 
 			return type;
@@ -852,7 +859,7 @@ namespace Orion.Frontend.Binder
 		private static TypeSymbol IntegerOperand(BindContext ctx, BinaryOp expr, string op)
 		{
 			TypeSymbol type = expr.Operand1.Symbol.Type;
-			if (!IsIntegerType(type))
+			if (!Language.IsInteger(type))
 				ctx.Messages.Add(new Message($"{Where(ctx)}: Operator '{op}' requires an integer operand, received {type}.", expr.Region, MessageType.Error));
 
 			return type;
@@ -864,17 +871,13 @@ namespace Orion.Frontend.Binder
 			return type is PrimitiveTypeSymbol { Code: TypeCode.@bool } ? type : IntegerOperand(ctx, expr, op);
 		}
 
-		private static bool IsIntegerType(TypeSymbol type) =>
-			(type as PrimitiveTypeSymbol)?.Code is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64
-				or TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64;
-
 		public static void Visit(BindContext ctx, UnaryOp expr)
 		{
 			Visit(ctx, expr.Operand1);
 
 			SymbolTable current = ctx.Scoper.Peek();
 
-			if (expr.Op == AstOp.BitNot && !IsIntegerType(expr.Operand1.Symbol.Type))
+			if (expr.Op == AstOp.BitNot && !Language.IsInteger(expr.Operand1.Symbol.Type))
 				ctx.Messages.Add(new Message($"{Where(ctx)}: Operator '~' requires an integer operand, received {expr.Operand1.Symbol.Type}.", expr.Region, MessageType.Error));
 
 			if (expr.Op is AstOp.Increment or AstOp.Decrement)
@@ -887,6 +890,12 @@ namespace Orion.Frontend.Binder
 
 			expr.Symbol = ctx.NewTemp(expr.Operand1.Symbol.Type);
 			current.Add(expr.Symbol);
+
+			if (expr is PostfixOp postfix)
+			{
+				postfix.Stepped = ctx.NewTemp(expr.Operand1.Symbol.Type);
+				current.Add(postfix.Stepped);
+			}
 		}
 		public static void Visit(BindContext ctx, Cast expr)
 		{

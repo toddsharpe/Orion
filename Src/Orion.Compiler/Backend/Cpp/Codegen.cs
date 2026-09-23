@@ -23,7 +23,7 @@ namespace Orion.Backend.Cpp
 		{
 			_header = header;
 			_types = types;
-			_lowered = new Lowering(this);
+			_statements = new Printer(this);
 		}
 
 		public string Render(SymbolTable root, CallGraph.Node main)
@@ -40,7 +40,7 @@ namespace Orion.Backend.Cpp
 
 		public string RenderHeader(SymbolTable root, CallGraph.Node main)
 		{
-			if (!Header.HasSurface(root))
+			if (!Header.HasExports(root))
 				return null;
 
 			Writer writer = new Writer();
@@ -51,7 +51,7 @@ namespace Orion.Backend.Cpp
 		//The exported types alone: what a platform includes to fill a program's structs without being that program's translation unit.
 		public string RenderTypes(SymbolTable root, CallGraph.Node main)
 		{
-			if (!Header.HasSurface(root))
+			if (!Header.HasExports(root))
 				return null;
 
 			Writer writer = new Writer();
@@ -63,7 +63,7 @@ namespace Orion.Backend.Cpp
 		{
 			List<SourceFunctionSymbol> reachable = root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Distinct().ToList();
 
-			bool exported = _header != null && Header.HasSurface(root);
+			bool exported = _header != null && Header.HasExports(root);
 
 			//Only the tiers this program still uses: an erased #param str or a pruned WriteLine costs nothing.
 			List<Reference> includes = Includes.For(root, reachable);
@@ -199,7 +199,7 @@ namespace Orion.Backend.Cpp
 
 		private List<Function> CreateFunctions(IEnumerable<SourceFunctionSymbol> reachable, bool exported)
 		{
-			bool surfaced = Prune.Surfaced(reachable);
+			bool anyExported = Prune.AnyExported(reachable);
 
 			return reachable.Select(i =>
 			{
@@ -214,7 +214,7 @@ namespace Orion.Backend.Cpp
 					.Where(t => t.Declare && t.Result is LocalDataSymbol { Storage: LocalStorage.Static } && t.Operand1 is LiteralSymbol)
 					.Select(t => (NamedDataSymbol)t.Result)];
 
-				List<Code> body = _lowered.Run(i.St);
+				List<Code> body = _statements.Run(i.St);
 
 				if (body.Count > 0 && body[^1] is Line { Text: "return;" })
 					body.RemoveAt(body.Count - 1);
@@ -243,8 +243,8 @@ namespace Orion.Backend.Cpp
 
 				HashSet<ParamDataSymbol> written = WrittenParams(i);
 				List<string> args = i.Wired ? [$"{Solver.StructName}& {Solver.ParamName}"] : i.Parameters.Select(p => Declare(p, written)).ToList();
-				//A program with a surface keeps its unexported functions to itself; without one every function is linkable.
-				string storage = !surfaced || i.IsExport || Orion.Rtti.Generator.Owns(i) ? string.Empty : "static ";
+				//A program with exports keeps its unexported functions to itself; without any, every function is linkable.
+				string storage = !anyExported || i.IsExport || Orion.Rtti.Generator.Owns(i) ? string.Empty : "static ";
 				return new Function($"{storage}{Cpp(i.ReturnType)}", Cpp(i.Name), args, locals, body, Namespace(i),
 					Declared: exported && Header.Declares(i));
 			}).ToList();
@@ -254,13 +254,13 @@ namespace Orion.Backend.Cpp
 		private static List<Declaration> Without(List<Declaration> decls, HashSet<string> names) =>
 			decls.Where(d => !names.Contains(d.Name)).ToList();
 
-		//Surface tokens for the shared StCtrl walk in Backend/Render/StmtPrinter; the symbol spellings are instance state, so it holds its Codegen.
-		private sealed class Lowering(Codegen owner) : StmtPrinter
+		//C++'s tokens for the shared StCtrl walk in Backend/Render/StmtPrinter; the symbol spellings are instance state, so it holds its Codegen.
+		private sealed class Printer(Codegen owner) : StmtPrinter
 		{
 			protected override string Forever => "true";
 			protected override string End => ";";
-			protected override string Not(StExpr condition) => $"!{owner.Px(condition, ExprPrinter.UnaryPrec)}";
-			protected override string Expr(StExpr e) => owner.Px(e);
+			protected override string Not(StExpr condition) => $"!{owner.PrintExpr(condition, ExprPrinter.UnaryPrec)}";
+			protected override string Expr(StExpr e) => owner.PrintExpr(e);
 			protected override string Name(DataSymbol symbol) => owner.Cpp(symbol);
 			protected override IEnumerable<string> Raw(Tac tac) => [owner.Raw(tac)];
 
@@ -271,7 +271,7 @@ namespace Orion.Backend.Cpp
 				?? Store(a);
 		}
 
-		private readonly Lowering _lowered;
+		private readonly Printer _statements;
 
 		private static bool IsHeavy(TypeSymbol type)
 		{

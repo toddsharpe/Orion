@@ -28,6 +28,10 @@ namespace Orion.IR.Opts
 				LinkedListNode<Tac> writer = incoming.Start.Tac;
 				LinkedListNode<Tac> reader = outgoing.End.Tac;
 
+				//The merged tac reads the writer's operands where the reader stood, so a tac in between could change them.
+				if (writer.Next != reader)
+					continue;
+
 				messages.Trace($"Temp: {temp}");
 				messages.Trace($" - Writer: {writer.Value}");
 				messages.Trace($" - Reader: {reader.Value}");

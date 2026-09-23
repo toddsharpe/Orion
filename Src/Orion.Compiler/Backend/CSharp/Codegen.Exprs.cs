@@ -43,16 +43,10 @@ namespace Orion.Backend.CSharp
 		private static bool IsNarrow(TypeSymbol type) =>
 			type is PrimitiveTypeSymbol { Code: TypeCode.i8 or TypeCode.i16 or TypeCode.u8 or TypeCode.u16 };
 
-		private static bool IsUnsigned(TypeSymbol type) =>
-			type is PrimitiveTypeSymbol { Code: TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64 };
-
-		private static bool IsNumeric(TypeSymbol type) =>
-			type is PrimitiveTypeSymbol p && p.Code != TypeCode.str && p.Code != TypeCode.@bool && p.Code != TypeCode.@void;
-
 		//A fused expression -> C# text
-		private static string Px(StExpr e) => Px(e, 0);
+		private static string PrintExpr(StExpr e) => PrintExpr(e, 0);
 
-		private static string Px(StExpr e, int minPrec)
+		private static string PrintExpr(StExpr e, int minPrec)
 		{
 			switch (e)
 			{
@@ -60,20 +54,20 @@ namespace Orion.Backend.CSharp
 
 				//A string is a run of bytes, so `s[i]` is a byte read rather than an element of a buffer.
 				case StIndex ix when ix.Container is PrimitiveTypeSymbol { Code: TypeCode.str }:
-					return $"str_at({Px(ix.Array)}, {Px(ix.Index)})";
+					return $"str_at({PrintExpr(ix.Array)}, {PrintExpr(ix.Index)})";
 
-				case StIndex ix: return $"{Px(ix.Array)}[{Px(ix.Index)}]";
-				case StMember m: return $"{Px(m.Instance)}.{Ident(m.Field)}";
+				case StIndex ix: return $"{PrintExpr(ix.Array)}[{PrintExpr(ix.Index)}]";
+				case StMember m: return $"{PrintExpr(m.Instance)}.{Ident(m.Field)}";
 
-				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner: return $"!{Px(inner, ExprPrinter.UnaryPrec)}";
+				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner: return $"!{PrintExpr(inner, ExprPrinter.UnaryPrec)}";
 				case StBin b:
 				{
 					int p = ExprPrinter.Prec(b.Op);
 					(int lp, int rp) = ExprPrinter.OperandPrec(b.Op);
 
 					//C# declares `<<` and `>>` for an `int` count alone and a `uint` does not convert on its own; stated only where the count is not already an i32.
-					string right = b.Op is BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight ? Counted(b.Right, rp) : Px(b.Right, rp);
-					string s = $"{Px(b.Left, lp)} {Spelling.Binary[b.Op]} {right}";
+					string right = b.Op is BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight ? Counted(b.Right, rp) : PrintExpr(b.Right, rp);
+					string s = $"{PrintExpr(b.Left, lp)} {Spelling.Binary[b.Op]} {right}";
 
 					//Promotion: `byte + byte` is an `int`, so an 8- or 16-bit result is cast back to its Orion width; the cast brings its own parentheses, so the precedence guard is not needed on top.
 					if (IsNarrow(b.Type))
@@ -84,10 +78,10 @@ namespace Orion.Backend.CSharp
 				case StUn u:
 				{
 					//`-x` is not declared for `uint`/`ulong`, so an unsigned negation is spelled as the two's complement it means. `~x + 1` promotes, which the cast back undoes.
-					if (u.Op == UnaryTacOp.Negate && IsUnsigned(u.Type))
-						return Cast(u.Type, $"~{Px(u.Operand, ExprPrinter.UnaryPrec)} + 1");
+					if (u.Op == UnaryTacOp.Negate && Language.IsUnsigned(u.Type))
+						return Cast(u.Type, $"~{PrintExpr(u.Operand, ExprPrinter.UnaryPrec)} + 1");
 
-					string operand = Px(u.Operand, ExprPrinter.UnaryPrec);
+					string operand = PrintExpr(u.Operand, ExprPrinter.UnaryPrec);
 					string s = u.Op switch
 					{
 						UnaryTacOp.BitNot => $"~{operand}",
@@ -98,13 +92,13 @@ namespace Orion.Backend.CSharp
 				}
 
 				//An enum is not an integer in C#, so both directions are written. `unchecked` is not the project's to decide: a CONSTANT out of range is an error by default, and Orion integers wrap.
-				case StCast c: return Cast(c.Target, Px(c.Value));
+				case StCast c: return Cast(c.Target, PrintExpr(c.Value));
 
 				//A wired block reads its ports off the state, so its call carries exactly that.
 				case StCall c when Netlist.Wired(c.Function): return $"{Ident(c.Function.EmitName)}({Solver.StateName})";
 				case StCall c: return $"{Ident(c.Function.EmitName)}({string.Join(", ", c.Args.Select((a, i) => Argument(c.Function, i, a)))})";
 
-				default: throw new NotImplementedException($"CSharp Px: {e.GetType().Name}");
+				default: throw new NotImplementedException($"CSharp PrintExpr: {e.GetType().Name}");
 			}
 		}
 
@@ -114,16 +108,16 @@ namespace Orion.Backend.CSharp
 		//A shift count: an `int`, cast where the operand is some other width.
 		private static string Counted(StExpr e, int minPrec)
 		{
-			TypeSymbol type = TypeOf(e);
+			TypeSymbol type = ExprPrinter.TypeOf(e);
 			return type is PrimitiveTypeSymbol { Code: TypeCode.i32 }
-				? Px(e, minPrec)
-				: $"(int)({Px(e)})";
+				? PrintExpr(e, minPrec)
+				: $"(int)({PrintExpr(e)})";
 		}
 
 		//One argument at a call site: `ref` where the callee writes through, a copy for a struct by value, and a cast to the formal's width where C# would not convert on its own (`int`->`uint`).
 		private static string Argument(FunctionSymbol function, int index, StExpr arg)
 		{
-			string rendered = Px(arg);
+			string rendered = PrintExpr(arg);
 			if (index >= function.Parameters.Count)
 				return rendered;
 
@@ -136,35 +130,11 @@ namespace Orion.Backend.CSharp
 			if (formal.Type is StructTypeSymbol)
 				return $"copy_value({rendered})";
 
-			TypeSymbol actual = TypeOf(arg);
-			if (IsNumeric(formal.Type) && IsNumeric(actual) && Cs(formal.Type) != Cs(actual))
+			TypeSymbol actual = ExprPrinter.TypeOf(arg);
+			if (Language.IsNumeric(formal.Type) && Language.IsNumeric(actual) && Cs(formal.Type) != Cs(actual))
 				return Cast(formal.Type, rendered);
 
 			return rendered;
-		}
-
-		//The type an expression has, or null where the node does not carry one. Read to decide a cast, so an unknown is answered by leaving the expression as it stands.
-		private static TypeSymbol TypeOf(StExpr e)
-		{
-			switch (e)
-			{
-				case StLeaf l: return l.Symbol.Type;
-				case StBin b: return b.Type;
-				case StUn u: return u.Type;
-				case StCast c: return c.Target;
-				case StCall c: return c.Function.ReturnType;
-				case StIndex ix:
-					return ix.Container switch
-					{
-						PrimitiveTypeSymbol { Code: TypeCode.str } => Language.Primitives[TypeCode.u8],
-						BufferTypeSymbol b => b.Element,
-						_ => null,
-					};
-				//`Length` is synthesized by the compiler for buffer types, so it is in the field list too.
-				case StMember m:
-					return (m.Owner as CompositeTypeSymbol)?.Fields.FirstOrDefault(f => f.Name == m.Field)?.Type;
-				default: return null;
-			}
 		}
 
 		//Zero-initialize, matching C++'s `T x = {}` field for field and element for element.
@@ -240,7 +210,7 @@ namespace Orion.Backend.CSharp
 						case PrimitiveTypeSymbol p when p.Code == TypeCode.@bool:
 							return (bool)lit.Value ? "true" : "false";
 
-						case PrimitiveTypeSymbol p when p.Code == TypeCode.f32 || p.Code == TypeCode.f64:
+						case PrimitiveTypeSymbol p when Language.IsFloat(p):
 							return Float(Convert.ToDouble(lit.Value), p.Code);
 
 						case PrimitiveTypeSymbol p:

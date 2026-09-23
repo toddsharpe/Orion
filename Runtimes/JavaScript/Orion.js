@@ -164,7 +164,7 @@ function pack_be_bool(buf, off, v) { buf[off] = v ? 1 : 0; }
 
 function unpack_le_f64(buf, off) { return _unpackView(buf, off, 8).getFloat64(0, true); }
 function unpack_le_f32(buf, off) { return _unpackView(buf, off, 4).getFloat32(0, true); }
-function unpack_le_i64(buf, off) { return Number(_unpackView(buf, off, 8).getBigInt64(0, true)); }
+function unpack_le_i64(buf, off) { return _unpackView(buf, off, 8).getBigInt64(0, true); }
 function unpack_le_i32(buf, off) { return _unpackView(buf, off, 4).getInt32(0, true); }
 function unpack_le_u32(buf, off) { return _unpackView(buf, off, 4).getUint32(0, true); }
 function unpack_le_u16(buf, off) { return _unpackView(buf, off, 2).getUint16(0, true); }
@@ -173,25 +173,27 @@ function unpack_le_bool(buf, off) { return buf[off] !== 0; }
 
 function unpack_be_f64(buf, off) { return _unpackView(buf, off, 8).getFloat64(0, false); }
 function unpack_be_f32(buf, off) { return _unpackView(buf, off, 4).getFloat32(0, false); }
-function unpack_be_i64(buf, off) { return Number(_unpackView(buf, off, 8).getBigInt64(0, false)); }
+function unpack_be_i64(buf, off) { return _unpackView(buf, off, 8).getBigInt64(0, false); }
 function unpack_be_i32(buf, off) { return _unpackView(buf, off, 4).getInt32(0, false); }
 function unpack_be_u32(buf, off) { return _unpackView(buf, off, 4).getUint32(0, false); }
 function unpack_be_u16(buf, off) { return _unpackView(buf, off, 2).getUint16(0, false); }
 function unpack_be_u8(buf, off) { return buf[off] & 0xFF; }
 function unpack_be_bool(buf, off) { return buf[off] !== 0; }
 
-//Casts, one helper per target width rather than per (source, target) pair: JS numbers are doubles, so truncation toward zero and the wrap to range both have to be spelled out.
-function cast_i8(v) { return (Math.trunc(v) << 24) >> 24; }
-function cast_i16(v) { return (Math.trunc(v) << 16) >> 16; }
-function cast_i32(v) { return Math.trunc(v) | 0; }
-function cast_u8(v) { return Math.trunc(v) & 0xFF; }
-function cast_u16(v) { return Math.trunc(v) & 0xFFFF; }
-function cast_u32(v) { return Math.trunc(v) >>> 0; }
-//64-bit wrapping needs more than 53 bits of mantissa, so it goes through BigInt and comes back.
-function cast_i64(v) { return Number(BigInt.asIntN(64, BigInt(Math.trunc(v)))); }
-function cast_u64(v) { return Number(BigInt.asUintN(64, BigInt(Math.trunc(v)))); }
-function cast_f32(v) { return Math.fround(v); }
-function cast_f64(v) { return v; }
+//Casts, one helper per target width: a number truncates toward zero and wraps to range, and a 64-bit BigInt keeps the low 32 bits a narrower cast needs.
+function _low32(v) { return typeof v === "bigint" ? Number(BigInt.asIntN(32, v)) : Math.trunc(v); }
+function cast_i8(v) { return (_low32(v) << 24) >> 24; }
+function cast_i16(v) { return (_low32(v) << 16) >> 16; }
+function cast_i32(v) { return _low32(v) | 0; }
+function cast_u8(v) { return _low32(v) & 0xFF; }
+function cast_u16(v) { return _low32(v) & 0xFFFF; }
+function cast_u32(v) { return _low32(v) >>> 0; }
+//i64 and u64 are BigInts, since a double rounds past 2^53; a number becomes one by truncating toward zero.
+function _big(v) { return typeof v === "bigint" ? v : BigInt(Math.trunc(v)); }
+function cast_i64(v) { return BigInt.asIntN(64, _big(v)); }
+function cast_u64(v) { return BigInt.asUintN(64, _big(v)); }
+function cast_f32(v) { return Math.fround(Number(v)); }
+function cast_f64(v) { return Number(v); }
 //Not a width at all: `&`, `|` and `^` on two bools come back as 0 or 1, and have to go back to a bool.
 function cast_bool(v) { return !!v; }
 

@@ -17,6 +17,7 @@ namespace Orion.BuildTime.Builtins
 		{
 			WriteLine(string.Join(",", ints));
 		}
+		[BuildOnly]
 		public static void WriteArgs(object args)
 		{
 			WriteLine(args_str(args));
@@ -43,6 +44,7 @@ namespace Orion.BuildTime.Builtins
 
 		public static string u64_str(ulong b) => b.ToString();
 
+		[BuildOnly]
 		public static string args_str(object args)
 		{
 			string inside = string.Join(",", Env.Bag(args).Select(i => $"{i.Key}={i.Value}"));
@@ -94,6 +96,7 @@ namespace Orion.BuildTime.Builtins
 			return new string(chars);
 		}
 
+		[BuildOnly]
 		public static byte[] str_md5(string s)
 		{
 			byte[] inputBytes = Encoding.ASCII.GetBytes(s);
@@ -137,11 +140,13 @@ namespace Orion.BuildTime.Builtins
 			return string.Empty;
 		}
 
+		[BuildOnly]
 		public static BuildList<T> Build_src<T>(string path, string entry, object args)
 		{
 			return SrcLoader.Invoke(path, entry, args) as BuildList<T> ?? SrcLoader.Stopped<BuildList<T>>(path, entry);
 		}
 
+		[BuildOnly]
 		public static T Build_src_one<T>(string path, string name, object args)
 		{
 			return SrcLoader.Invoke(path, name, args) is T value ? value : SrcLoader.Stopped<T>(path, name);

@@ -12,7 +12,7 @@ namespace Orion.BuildTime.Builtins
 		//The define's value as text, or `fallback` when this compile did not define it; an `#if` folds before anything binds, so a define is not a symbol an expression could name instead.
 		public static string Get(string name, string fallback)
 		{
-			return Frontend.Conditionals.Defines().TryGetValue(name, out Ast.Literal literal)
+			return Frontend.Conditionals.Defines(Compiler.Session).TryGetValue(name, out Ast.Literal literal)
 				? Text(literal)
 				: fallback;
 		}
@@ -20,7 +20,7 @@ namespace Orion.BuildTime.Builtins
 		//Whether it was defined at all, which `Get` cannot say: a define may be set to the fallback's own text.
 		public static bool Has(string name)
 		{
-			return Frontend.Conditionals.Defines().ContainsKey(name);
+			return Frontend.Conditionals.Defines(Compiler.Session).ContainsKey(name);
 		}
 
 		//Invariant culture, and `true` over CLR's `True`: what comes back out must be what was written down.

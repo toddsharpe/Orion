@@ -1,6 +1,7 @@
 ﻿namespace Orion.BuildTime.Builtins
 {
 	//The File:: builtins: line-oriented reads, resolved against the working directory or the source root.
+	[BuildOnly]
 	public static class FileBuiltins
 	{
 		//Through Lines, so a missing path is reported by name rather than surfacing as an unhandled exception.

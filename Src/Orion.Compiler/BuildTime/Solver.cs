@@ -25,21 +25,15 @@ namespace Orion.BuildTime
 		//The one net the platform drives, not a block: the shared cycle timestamp, written into this cell by `solver_cycle` on entry and read as an ordinary `#input`.
 		public const string CycleTimeName = "cycle_time";
 
-		//The wired blocks, exposed so a host (the web visualizer) can draw the netlist; each #input/#output ParamDataSymbol carries the net it connects to.
-		private readonly List<SourceFunctionSymbol> _blocks;
-
-		//Read-only to a host and to Orion, which reaches a solver handle through `Solver::New`.
-		public IReadOnlyList<SourceFunctionSymbol> Blocks => _blocks;
+		//The wired blocks in cycle order, each port carrying its net, as Diagrams.Netlist draws them; internal, since a public property would join Orion's `Solver` type.
+		internal readonly List<SourceFunctionSymbol> Blocks;
 		private readonly SymbolTable _root;
 
 		//The wired nets, so ViewState shows the signals without a block's private memory.
 		private HashSet<string> _nets = new HashSet<string>();
 
-		//One `state.<cell> = <literal>;` per #state port that declared an initializer.
-		private readonly List<string> _inits = new List<string>();
-
-		//Read-only to a host and to Orion, as Blocks is.
-		public IReadOnlyList<string> Inits => _inits;
+		//One `state.<cell> = <literal>;` per #output or #state port that declared an initializer; internal, as Blocks is.
+		internal readonly List<string> Inits = new List<string>();
 
 		//Set by SolveExported before Solve, because wiring differs: an exported netlist has a cell no block drives.
 		private bool _exported;
@@ -55,7 +49,7 @@ namespace Orion.BuildTime
 
 		public Solver(List<SourceFunctionSymbol> functions, SymbolTable root)
 		{
-			_blocks = functions;
+			Blocks = functions;
 			_root = root;
 		}
 
@@ -70,7 +64,7 @@ namespace Orion.BuildTime
 
 			//One Device per #output net; two drivers is a wiring error, caught before it becomes a field.
 			List<Device> state = new List<Device>();
-			foreach (SourceFunctionSymbol func in _blocks)
+			foreach (SourceFunctionSymbol func in Blocks)
 			{
 				foreach (ParamDataSymbol output in func.Parameters.Where(j => j.Direction == ParamDirection.Out))
 				{
@@ -110,7 +104,7 @@ namespace Orion.BuildTime
 
 					//`#output f32 p = 101325.0:f32 @ "Baro.Ref"` starts the net, so cycle 0 reads a value.
 					if (output.Init != null)
-						_inits.Add($"{Base}.{cell} = {output.Init};");
+						Inits.Add($"{Base}.{cell} = {output.Init};");
 
 					//From here the port names the field.
 					output.Net = cell;
@@ -119,7 +113,7 @@ namespace Orion.BuildTime
 
 			//Hoist each #state port into a private field: storage but no Device, so nothing can wire to it.
 			List<Device> hoisted = new List<Device>();
-			foreach (SourceFunctionSymbol func in _blocks)
+			foreach (SourceFunctionSymbol func in Blocks)
 			{
 				foreach (ParamDataSymbol port in func.Parameters.Where(j => j.Direction == ParamDirection.State))
 				{
@@ -155,14 +149,14 @@ namespace Orion.BuildTime
 
 					//`#state i32 c = step + 1` starts the cell at the constant specialization already folded.
 					if (port.Init != null)
-						_inits.Add($"{Base}.{port.Net} = {port.Init};");
+						Inits.Add($"{Base}.{port.Net} = {port.Init};");
 				}
 			}
 
 			//The platform's cycle stamp, if any block asked: a cell like any other, so the input check finds it -- but with no producer, because no Orion code writes it.
 			if (_exported)
 			{
-				ParamDataSymbol stamp = _blocks
+				ParamDataSymbol stamp = Blocks
 					.SelectMany(f => f.Parameters)
 					.FirstOrDefault(p => p.Direction == ParamDirection.In && p.Net == CycleTimeName);
 
@@ -188,11 +182,11 @@ namespace Orion.BuildTime
 
 			//Where each block sits in the cycle, which is what decides WHICH cycle a read gets.
 			Dictionary<SourceFunctionSymbol, int> order = new Dictionary<SourceFunctionSymbol, int>(ReferenceEqualityComparer.Instance);
-			for (int i = 0; i < _blocks.Count; i++)
-				order[_blocks[i]] = i;
+			for (int i = 0; i < Blocks.Count; i++)
+				order[Blocks[i]] = i;
 
 			//Check inputs against state: every #input must read a net some block drives.
-			foreach (SourceFunctionSymbol func in _blocks)
+			foreach (SourceFunctionSymbol func in Blocks)
 			{
 				foreach (ParamDataSymbol input in func.Parameters.Where(j => j.Direction == ParamDirection.In))
 				{
@@ -303,7 +297,7 @@ namespace Orion.BuildTime
 		//A schedule tests the stamp, so the netlist carries one and the block runs after whatever writes it.
 		private void CheckSchedules(List<Message> messages, List<Device> state, Dictionary<SourceFunctionSymbol, int> order)
 		{
-			List<SourceFunctionSymbol> rated = [.. _blocks.Where(i => i.Period != 0 || i.Phase != 0)];
+			List<SourceFunctionSymbol> rated = [.. Blocks.Where(i => i.Period != 0 || i.Phase != 0)];
 			if (rated.Count == 0)
 				return;
 
@@ -407,7 +401,7 @@ namespace Orion.BuildTime
 			_root.Add(new GlobalDataSymbol(StateName, state));
 
 			//Wired: each block and its #init render over the state global, ports as entry bindings; MSIL keeps the port face.
-			foreach (SourceFunctionSymbol func in _blocks)
+			foreach (SourceFunctionSymbol func in Blocks)
 			{
 				func.Wired = true;
 				if (func.Init != null)
@@ -466,13 +460,13 @@ namespace Orion.BuildTime
 
 			//Hosted, `#state` initializers run at the `Solver::Struct` callsite; exported has none and a global's initializer cannot be arbitrary, so they run here.
 			if (!hosted)
-				foreach (string init in _inits)
+				foreach (string init in Inits)
 					statements.AddRange(CodeBuiltins.FromText(init));
 
 			statements.Add(Declare("bool", "init_ok", Bool(true)));
 
 			//`&` evaluates both sides, so a block that reports failure does not stop the ones after it.
-			foreach (SourceFunctionSymbol func in _blocks.Where(f => f.Init != null))
+			foreach (SourceFunctionSymbol func in Blocks.Where(f => f.Init != null))
 			{
 				Ast.Expression call = Call(func.Init.Name, [.. func.Init.Parameters.Select(i => Cell(i.Net))]);
 				statements.Add(Set(Var("init_ok"), Binary(Var("init_ok"), Ast.AstOp.BitAnd, call)));
@@ -501,7 +495,7 @@ namespace Orion.BuildTime
 			if (!hosted && _stamp != null)
 				statements.Add(Set(Cell(CycleTimeName), Var(CycleTimeName)));
 
-			foreach (SourceFunctionSymbol func in _blocks)
+			foreach (SourceFunctionSymbol func in Blocks)
 			{
 				Ast.Statement call = Exec(Call(func.Name, [.. func.Parameters.Select(i => Cell(i.Net))]));
 				statements.Add(func.Period == 0 ? call : Slot(func, call));
@@ -543,7 +537,7 @@ namespace Orion.BuildTime
 		//`state.<net>`, the shape every wired reference takes: hosted over the `state` local, exported over the global whose underscore no block's net can shadow.
 		private string Base => _exported ? StateName : "state";
 
-		//A dot is a field of a struct net, and the only place a cell has one: every other net mangled its away.
+		//A dot is a field of a struct net, and the only place a cell has one: every other net had its dots mangled away.
 		private Ast.Expression Cell(string net) => net.Split('.').Aggregate(Var(Base), Member);
 
 		//One net or cell of the state struct: what it is called, the field it becomes, and who reads and writes it.

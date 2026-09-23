@@ -17,7 +17,7 @@ namespace Orion.Backend.Render
 
 		internal void AppendLine(string text)
 		{
-			_sb.AppendLine($"{GetWhitespace(_scope)}{text}");
+			_sb.AppendLine($"{new string('\t', _scope)}{text}");
 		}
 
 		internal void PushScope()
@@ -52,11 +52,6 @@ namespace Orion.Backend.Render
 				if (blankAfter)
 					AppendLine();
 			}
-		}
-
-		private static string GetWhitespace(int scope)
-		{
-			return new string('\t', scope);
 		}
 
 		public override string ToString()

@@ -8,6 +8,7 @@ using System;
 namespace Orion.BuildTime.Builtins
 {
 	//The Solver:: builtins: assemble blocks into a Solver, solve the netlist, then generate or export.
+	[BuildOnly]
 	public static class SolverBuiltins
 	{
 		public static Solver New(IReadOnlyList<OrionFunction> funcs)
@@ -39,7 +40,6 @@ namespace Orion.BuildTime.Builtins
 
 		public static Solver LastSolved { get => Compiler.Session.LastSolved; private set => Compiler.Session.LastSolved = value; }
 
-		[BuildOnly]
 		public static OrionCode Struct(Solver solver)
 		{
 			if (BuildBuiltins.Failed())
@@ -52,7 +52,6 @@ namespace Orion.BuildTime.Builtins
 			return code;
 		}
 
-		[BuildOnly]
 		public static OrionCode ViewState(Solver solver)
 		{
 			return BuildBuiltins.Failed() ? CodeBuiltins.Empty() : CodeBuiltins.Of(solver.ViewState());
@@ -67,7 +66,7 @@ namespace Orion.BuildTime.Builtins
 
 		private static string Known()
 		{
-			List<string> names = [.. Frontend.Specializer.Templates.Keys.OrderBy(i => i)];
+			List<string> names = [.. Compiler.Session.Templates.Keys.OrderBy(i => i)];
 			return names.Count == 0 ? ", and this file declares none." : $". Declared: {string.Join(", ", names)}.";
 		}
 
@@ -127,7 +126,7 @@ namespace Orion.BuildTime.Builtins
 		{
 			Dictionary<string, object> values = Env.Bag(args);
 
-			if (!Frontend.Specializer.Templates.TryGetValue(name, out Ast.Function template))
+			if (!Compiler.Session.Templates.TryGetValue(name, out Ast.Function template))
 			{
 				Env.Report($"`#create {name}`: no solver block named '{name}'. A block is a function with a " +
 					$"`#param`{Known()}");
@@ -174,7 +173,7 @@ namespace Orion.BuildTime.Builtins
 				return cached.Func;
 			}
 
-			Ast.Function clone = Frontend.Specializer.Instantiate(template, mangled, env);
+			Ast.Function clone = Frontend.Specializer.Instantiate(template, mangled, env, Compiler.Session, Env.Context.Messages);
 
 			Ast.Function init = Frontend.Specializer.LiftInit(clone, mangled);
 

@@ -1,5 +1,6 @@
 using Mono.Reflection;
 using Orion.Clr;
+using Orion.Diagrams;
 using Orion.Graphs;
 using Orion.Symbols;
 using System;
@@ -44,6 +45,7 @@ namespace Orion.Diagnostics
 					case SymbolTable table:
 						sb.AppendLine($"{info.Name}:");
 						sb.Append(Symbols(table));
+						Code(sb, table);
 						break;
 					case CallGraph.Node node:
 						sb.AppendLine("Call graph:");
@@ -82,11 +84,23 @@ namespace Orion.Diagnostics
 			string indent = new string(' ', depth * 2);
 			sb.Append(indent).Append("table ").Append(table.Name).Append('\n');
 
-			foreach (Symbol symbol in table.GetAll())
+			//The root also holds the builtin surface, the same for every program, so it lists only the program's own.
+			foreach (Symbol symbol in table.GetAll().Where(i => table.Parent != null || !GlobalTable.IsSurface(i)))
 				sb.Append(indent).Append("  ").Append(symbol.GetType().Name.Replace("Symbol", string.Empty).PadRight(20)).Append(' ').Append(symbol).Append('\n');
 
 			foreach (SymbolTable child in table.Children)
 				Symbols(sb, child, depth + 1);
+		}
+
+		//Every function's code: its structured form once Backend::StIr has built one, its TACs until then.
+		private static void Code(StringBuilder sb, SymbolTable table)
+		{
+			foreach (SourceFunctionSymbol function in table.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()))
+			{
+				sb.Append("function ").Append(function.Name).Append('\n');
+				foreach (string line in function.St != null ? StIrText.Ctrl(function.St) : function.Tacs.Select(i => i.ToString()))
+					sb.Append("  ").Append(line).Append('\n');
+			}
 		}
 
 		public static string CallGraph(CallGraph.Node node)
@@ -107,7 +121,7 @@ namespace Orion.Diagnostics
 				CallGraph(sb, outgoing.Key, $"[{outgoing.Value.Value}] ", depth + 1, visited);
 		}
 
-		//One section per sealed generation: its fields, the static ctor that wires them, and every method.
+		//One section per sealed generation: its fields, one line for the static ctor that fills them, and every method's IL.
 		public static string Msil()
 		{
 			if (BuildAssembly.Generations.Count == 0)
@@ -123,12 +137,9 @@ namespace Orion.Diagnostics
 					sb.Append(field.Name).Append(": ").Append(field.FieldType).Append('\n');
 				sb.Append('\n');
 
-				ConstructorInfo ctor = generation.GetConstructor(BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes);
-				if (ctor != null)
-				{
-					sb.Append("Ctor: ").Append(ctor.Name).Append('\n');
-					Body(sb, ctor);
-				}
+				//The static ctor only fills each delegate field above, four instructions a field, so it is named rather than listed.
+				if (generation.GetConstructor(BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes) is ConstructorInfo ctor)
+					sb.Append("Ctor: ").Append(ctor.Name).Append(" fills each delegate field above\n\n");
 
 				foreach (MethodInfo method in generation.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
 				{

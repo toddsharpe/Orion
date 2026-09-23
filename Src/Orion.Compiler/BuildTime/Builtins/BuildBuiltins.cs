@@ -15,6 +15,7 @@ using System;
 namespace Orion.BuildTime.Builtins
 {
 	//`Build::` -- the function builder: it emits, splices, and re-enters the frontend from inside a running build.
+	[BuildOnly]
 	public static class BuildBuiltins
 	{
 		public static void Error(string message)
@@ -51,7 +52,7 @@ namespace Orion.BuildTime.Builtins
 		{
 			Frontend.Conditionals.Fold(
 				statements,
-				new Frontend.FoldEnv { Values = Frontend.Conditionals.Defines(), Facts = Frontend.TypeFacts.Current, UndefinedIsFalse = true },
+				new Frontend.FoldEnv { Values = Frontend.Conditionals.Defines(Compiler.Session), Facts = Compiler.Session.TypeFacts, UndefinedIsFalse = true },
 				Env.Context?.Messages ?? new List<Message>());
 
 			if (Env.Builder != null)
@@ -62,7 +63,7 @@ namespace Orion.BuildTime.Builtins
 
 			Expand(statements, Env.Context.Function.Table.GetRoot());
 
-			Binding.BindAst(Env.Context.Function, statements, Env.Context.Messages);
+			Binding.BindAst(Env.Context.Function, statements, Compiler.Session, Env.Context.Messages);
 			if (Env.Context.Messages.HasError())
 				return;
 
@@ -112,7 +113,7 @@ namespace Orion.BuildTime.Builtins
 
 		private static void Expand(List<Statement> statements, SymbolTable root)
 		{
-			List<Function> instances = Monomorphizer.ExpandLate(statements, Env.Context.Messages);
+			List<Function> instances = Monomorphizer.ExpandLate(statements, Compiler.Session, Env.Context.Messages);
 			if (instances.Count != 0)
 				Pipeline.Lower(instances, root, Env.Context.Messages, emit: true);
 		}
@@ -123,7 +124,7 @@ namespace Orion.BuildTime.Builtins
 
 			Expand(function.Body, root);
 
-			Binding.BindAst(function, root, Env.Context.Messages);
+			Binding.BindAst(function, root, Compiler.Session, Env.Context.Messages);
 
 			if (Env.Context.Messages.HasError())
 				throw new BuildStoppedException();

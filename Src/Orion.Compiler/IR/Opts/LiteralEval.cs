@@ -28,14 +28,15 @@ namespace Orion.IR.Opts
 					{
 						messages.Trace($"Candidate: {bin}");
 
+						//A `*` or `/` composes measures, so its operands may differ in measure but never in code.
 						bool isShift = bin.Op is BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight;
-						Trace.Assert(isShift || lit1.Type == lit2.Type);
+						Trace.Assert(isShift || IdentityCast.SameRuntime(lit1.Type, lit2.Type));
 
 						//A bool result passes the guard above with two enum operands, whose comparison nothing here folds.
 						if (bin.Operand1.Type is not PrimitiveTypeSymbol builtin)
 							continue;
 
-						if (builtin.Code == TypeCode.f32 || builtin.Code == TypeCode.f64)
+						if (Language.IsFloat(builtin))
 						{
 							object folded = FoldFloat(bin.Op, builtin.Code, lit1.Value, lit2.Value);
 							if (folded != null)
@@ -128,7 +129,8 @@ namespace Orion.IR.Opts
 					BinaryTacOp.Add => a + b,
 					BinaryTacOp.Subtract => a - b,
 					BinaryTacOp.Multiply => a * b,
-					_ => a / b,
+					BinaryTacOp.Divide => a / b,
+					_ => throw new NotImplementedException($"LiteralEval.FoldFloat: {op}"),
 				};
 				return float.IsFinite(r) ? (object)r : null;
 			}
@@ -138,7 +140,8 @@ namespace Orion.IR.Opts
 				BinaryTacOp.Add => da + db,
 				BinaryTacOp.Subtract => da - db,
 				BinaryTacOp.Multiply => da * db,
-				_ => da / db,
+				BinaryTacOp.Divide => da / db,
+				_ => throw new NotImplementedException($"LiteralEval.FoldFloat: {op}"),
 			};
 			return double.IsFinite(d) ? (object)d : null;
 		}
@@ -161,7 +164,7 @@ namespace Orion.IR.Opts
 				return null;
 			}
 
-			bool signed = code is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64;
+			bool signed = Language.IsSigned(code);
 
 			ulong result = op switch
 			{
@@ -172,7 +175,7 @@ namespace Orion.IR.Opts
 				BinaryTacOp.ShiftRight => signed
 					? unchecked((ulong)(SignExtend(a, width) >> count))
 					: a >> count,
-				_ => 0,
+				_ => throw new NotImplementedException($"LiteralEval.FoldBits: {op}"),
 			};
 
 			return Narrow(code, result);
@@ -183,7 +186,7 @@ namespace Orion.IR.Opts
 			if (!TryUnsigned(code, left, out ulong a) || !TryUnsigned(code, right, out ulong b) || !TryWidth(code, out int width))
 				return null;
 
-			bool signed = code is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64;
+			bool signed = Language.IsSigned(code);
 			long sa = SignExtend(a, width), sb = SignExtend(b, width);
 
 			switch (op)
@@ -208,7 +211,8 @@ namespace Orion.IR.Opts
 				BinaryTacOp.Subtract => unchecked(a - b),
 				BinaryTacOp.Multiply => unchecked(a * b),
 				BinaryTacOp.Divide => signed ? unchecked((ulong)(sa / sb)) : a / b,
-				_ => signed ? unchecked((ulong)(sa % sb)) : a % b,
+				BinaryTacOp.Mod => signed ? unchecked((ulong)(sa % sb)) : a % b,
+				_ => throw new NotImplementedException($"LiteralEval.FoldInteger: {op}"),
 			};
 
 			return Narrow(code, bits);
