@@ -15,31 +15,42 @@ namespace Orion.Ast
 		//The value as the CLR type its Orion type maps to; what LiteralSymbol and the backends read.
 		public abstract object Boxed { get; }
 
-		//A suffixed literal boxes as its width, wrapping as the target would. See Docs/Language.md.
-		internal static object Box(object value, string code)
+		//A suffixed integer as its width's CLR value. The binder refuses a value the width cannot hold, so the casts never drop a program's bits.
+		internal static object Box(Int128 value, string code)
 		{
-			if (value == null)
-				return null;
-
-			return code switch
+			unchecked
 			{
-				"f32" => Convert.ToSingle(value),
-				"f64" => Convert.ToDouble(value),
-				"i8" => unchecked((sbyte)Convert.ToInt64(value)),
-				"i16" => unchecked((short)Convert.ToInt64(value)),
-				"i32" => unchecked((int)Convert.ToInt64(value)),
-				"i64" => Convert.ToInt64(value),
-				"u8" => unchecked((byte)Convert.ToInt64(value)),
-				"u16" => unchecked((ushort)Convert.ToInt64(value)),
-				"u32" => unchecked((uint)Convert.ToInt64(value)),
-				"u64" => unchecked((ulong)Convert.ToInt64(value)),
-				_ => value,
-			};
+				//The object arm keeps each width's own CLR type; without it every arm would widen to double.
+				return code switch
+				{
+					"f32" => (float)value,
+					"f64" => (double)value,
+					"i8" => (sbyte)value,
+					"i16" => (short)value,
+					"i32" => (int)value,
+					"i64" => (long)value,
+					"u8" => (byte)value,
+					"u16" => (ushort)value,
+					"u32" => (uint)value,
+					"u64" => (ulong)value,
+					_ => (object)(long)value,
+				};
+			}
 		}
 
-		internal static Literal Create(Syntax.Literal literal)
+		//A suffixed float as its width's CLR value, or an integer width's for `1e3:i32`.
+		internal static object Box(double value, string code) => code switch
 		{
-			return literal switch
+			"f32" => (float)value,
+			"f64" => value,
+			"i8" or "i16" or "i32" or "i64" or "u8" or "u16" or "u32" or "u64" => Box((Int128)value, code),
+			_ => value,
+		};
+
+		//The node for a parsed literal, reported at the span it was written over.
+		internal static Literal Create(Syntax.Pos<Syntax.Literal> written)
+		{
+			Literal literal = written.Value switch
 			{
 				Syntax.Literal.String i => new StringLiteral
 				{
@@ -81,6 +92,9 @@ namespace Orion.Ast
 				},
 				_ => throw new NotImplementedException()
 			};
+
+			literal.Region ??= InputRegion.Create(written.Start, written.End);
+			return literal;
 		}
 
 		//The constant an expression spells, or null: only scalars are literals in the grammar, so literal-shaped aggregates are recognized here for what must be known before binding (a file-scope const, a case label).
@@ -150,13 +164,16 @@ namespace Orion.Ast
 		public override string ToString() => Value.ToString();
 	}
 
-	public class IntLiteral : Literal<int>
+	//An unsuffixed integer, an i32; Value is the number as written, so one past i32 is refused rather than wrapped.
+	public class IntLiteral : Literal<Int128>
 	{
+		public override object Boxed => unchecked((int)Value);
+
 		public override string ToString() => Value.ToString();
 	}
 
-	//An integer literal with an explicit type suffix (128:i64); Value is boxed as the matching CLR type.
-	public class TypedIntLiteral : Literal<long>
+	//An integer literal with an explicit type suffix (128:i64); Value is the number as written, and Boxed is it at the suffix's width.
+	public class TypedIntLiteral : Literal<Int128>
 	{
 		public string Code { get; set; }
 	

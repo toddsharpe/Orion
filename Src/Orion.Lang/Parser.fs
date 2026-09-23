@@ -125,13 +125,15 @@ module Parser =
                 match measure with
                 | Some terms -> name + "<" + unitText terms + ">"
                 | None -> name
-    //An integer's 64 bits, hex or decimal: past Int64.MaxValue it keeps the u64 pattern a `:u64` reads back; None past 64 bits.
+    //An integer's exact value, hex or decimal, for the binder to check against its type; None past 64 bits of magnitude.
     let intValue (nl: NumberLiteral) =
         let negative = nl.String.StartsWith("-")
         let digits = nl.String.Substring((if negative then 1 else 0) + (if nl.IsHexadecimal then 2 else 0))
         let style = if nl.IsHexadecimal then System.Globalization.NumberStyles.AllowHexSpecifier else System.Globalization.NumberStyles.None
         match System.UInt64.TryParse(digits, style, System.Globalization.CultureInfo.InvariantCulture) with
-        | true, magnitude -> Some (if negative then -(int64 magnitude) else int64 magnitude)
+        | true, magnitude ->
+            let exact = System.Int128(0UL, magnitude)
+            Some (if negative then -exact else exact)
         | _ -> None
     //`42`, `1.5`, `0xFF`, and the typed forms `128:i64` and `3.14:f32`.
     let pnumber =
@@ -142,19 +144,21 @@ module Parser =
                             ||| NumberLiteralOptions.AllowHexadecimal
             numberLiteral numberFormat "number"
             >>= fun nl ->
-                    let whole = if nl.IsInteger then intValue nl else Some 0L
+                    let whole = if nl.IsInteger then intValue nl else Some System.Int128.Zero
                     match whole with
                     | _ when nl.IsHexadecimal && not nl.IsInteger -> fail (sprintf "%s: a hexadecimal literal is a whole number" nl.String)
                     | None -> fail (sprintf "%s does not fit in 64 bits" nl.String)
                     | Some value ->
                         let real = if nl.IsHexadecimal then float value else float nl.String
-                        opt (attempt (pstring ":" >>. ptypecode))
-                        |>> fun tc ->
-                                match tc with
-                                | Some code when isFloatCode code -> TypedFloat(real, code)
-                                | Some code when nl.IsInteger -> TypedInt(value, code)
-                                | Some code -> TypedFloat(real, code)
-                                | None -> if nl.IsInteger then Int(int value) else Float(real)
+                        if System.Double.IsInfinity real then fail (sprintf "%s does not fit in f64" nl.String)
+                        else
+                            opt (attempt (pstring ":" >>. ptypecode))
+                            |>> fun tc ->
+                                    match tc with
+                                    | Some code when isFloatCode code -> TypedFloat(real, code)
+                                    | Some code when nl.IsInteger -> TypedInt(value, code)
+                                    | Some code -> TypedFloat(real, code)
+                                    | None -> if nl.IsInteger then Int(value) else Float(real)
         impl .>> ws |> withPos
     //`true`, `false`: a keyword not a prefix, so the match must end the word or `trueHeight` leaves a `Height` behind.
     let pbool =
@@ -496,7 +500,7 @@ module Parser =
                     //A named extent allocates by the constant it names, which the binder folds to its value.
                     let extent d =
                         match d with
-                        | Lit v -> posWrap elem.Start (Value (posWrap elem.Start (Int v)))
+                        | Lit v -> posWrap elem.Start (Value (posWrap elem.Start (Int (System.Int128.op_Implicit(v)))))
                         | Named n -> posWrap n.Start (IdentifierName n)
                     let alloc = { Value = Element(head, dims |> List.map extent); Start = t.Start; End = t.End }
                     Construct(storage, isConst, t, n, alloc)
@@ -587,7 +591,7 @@ module Parser =
                 //The temp only reads, so it views the iterable rather than copying it to walk it.
                 let spanOf t = w (Generic(w "ConstSpan", [w t]))
                 let declArr = w (Construct(w Stack, w Mutable, spanOf elemViewType, w arrName, source))
-                let initFor = w (Construct(w Stack, w Mutable, w (SimpleType (w "i32")), w idxName, w (Value (w (Int 0)))))
+                let initFor = w (Construct(w Stack, w Mutable, w (SimpleType (w "i32")), w idxName, w (Value (w (Int System.Int128.Zero)))))
                 let condFor = w (InfixOp(idxVar (), Less, w (Member(w (IdentifierName (w arrName)), w "Length"))))
                 let stepFor = w (PostfixOp(idxVar (), Increment))
                 let elemAt = w (Element(w (IdentifierName (w arrName)), [idxVar ()]))

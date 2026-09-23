@@ -345,7 +345,7 @@ namespace Orion.Frontend
 			return new string(name.Select(c => char.IsLetterOrDigit(c) ? c : '_').ToArray());
 		}
 
-		//Substitute a type-parameter suffix on a typed literal (0:T -> 0:i32), picking the literal kind to match.
+		//Substitute a type-parameter suffix on a typed literal (0:T -> 0:i32); the number stays as written, for the binder to check against the concrete type.
 		private static Literal SubstLiteral(Literal literal, Dictionary<string, TypeName> map)
 		{
 			string code = literal switch
@@ -357,16 +357,9 @@ namespace Orion.Frontend
 			if (code == null || !map.TryGetValue(code, out TypeName concrete))
 				return literal;
 
-			//A measured T picks its kind by the carrying primitive; the literal itself keeps the full spelling.
-			string name = concrete.MeasureBase ?? concrete.Name;
-			if (name == "f32" || name == "f64")
-			{
-				double value = Convert.ToDouble(literal.Boxed);
-				return new TypedFloatLiteral { Value = value, Code = concrete.Name, TypeName = Clone(concrete), Region = literal.Region };
-			}
-
-			long ivalue = Convert.ToInt64(literal.Boxed);
-			return new TypedIntLiteral { Value = ivalue, Code = concrete.Name, TypeName = Clone(concrete), Region = literal.Region };
+			return literal is TypedIntLiteral whole
+				? new TypedIntLiteral { Value = whole.Value, Code = concrete.Name, TypeName = Clone(concrete), Region = literal.Region }
+				: new TypedFloatLiteral { Value = ((TypedFloatLiteral)literal).Value, Code = concrete.Name, TypeName = Clone(concrete), Region = literal.Region };
 		}
 
 		//Substitute type parameters within a type name (recurses through generics/arrays).

@@ -364,6 +364,10 @@ namespace Orion.Frontend.Binder
 				}
 			}
 
+			//A number is checked at its own type first, so `300:u8` is refused rather than wrapped to 44 before the declared type sees it.
+			if (value is IntLiteral or TypedIntLiteral or FloatLiteral or TypedFloatLiteral)
+				ScalarType(ctx, value);
+
 			DeclareConstant(ctx, typeName, name, value.Boxed, region);
 		}
 
