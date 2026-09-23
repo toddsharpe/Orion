@@ -107,7 +107,7 @@ namespace Orion.LangSvr
 					TranslationUnit tu = TranslationUnit.Create(((ParserResult.Success)parse).Item1);
 
 					List<Message> messages = new List<Message>();
-					tu.Blocks = Conditionals.FoldBlocks(tu.Blocks, messages);
+					tu.Blocks = Conditionals.FoldBlocks(tu.Blocks, Compiler.Session, messages);
 
 					List<CompilerFile> imported = Imported(path, text, read);
 
@@ -121,19 +121,19 @@ namespace Orion.LangSvr
 
 					//The same pre-pass rows the compiler's table runs, so the two can never disagree on the order.
 					SymbolTable root = GlobalTable.Create();
-					Compilation ctx = new Compilation(combined, root);
+					Compilation ctx = new Compilation(combined, root, Compiler.Session);
 					foreach (Phase row in Pipeline.PrePasses)
 						row.Run(ctx, messages);
 
 					HashSet<FileBlock> own = new HashSet<FileBlock>(tu.Blocks, (IEqualityComparer<FileBlock>)ReferenceEqualityComparer.Instance);
 					List<FileBlock> importedBlocks = combined.Blocks.Where(b => !own.Contains(b)).ToList();
 					if (importedBlocks.Count > 0)
-						Binding.BindAst(new TranslationUnit { Blocks = importedBlocks }, root, new List<Message>());
+						Binding.BindAst(new TranslationUnit { Blocks = importedBlocks }, root, Compiler.Session, new List<Message>());
 
 					tu.Blocks = combined.Blocks.Where(own.Contains).ToList();
-					Binding.BindAst(tu, root, messages);
+					Binding.BindAst(tu, root, Compiler.Session, messages);
 					diags.AddRange(messages.Errors().Select(FromMessage));
-					List<Function> templates = Orion.Frontend.Specializer.Templates.Values.ToList();
+					List<Function> templates = Compiler.Session.Templates.Values.ToList();
 					return new Analysis { Diagnostics = diags, Ast = tu, Text = text, Templates = templates, Path = path, Documents = documents };
 				}
 				catch (Exception ex)
@@ -178,7 +178,7 @@ namespace Orion.LangSvr
 						? text
 						: read?.Invoke(file);
 
-				List<CompilerFile> files = Parsing.GatherAsts(full, new List<Message>(), Read);
+				List<CompilerFile> files = Parsing.GatherAsts(full, Compiler.Session, new List<Message>(), Read);
 
 				return files
 					.Where(f => !string.Equals(System.IO.Path.GetFullPath(f.File.Filename), full, StringComparison.OrdinalIgnoreCase))

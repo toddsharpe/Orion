@@ -1,0 +1,38 @@
+//`x++` is the operand from before its step and `++x` the one after, on a local, an element and a field, at run time and in MSIL.
+struct P { i32 x; }
+
+#build i32 stepped()
+{
+	i32 k = 3;
+	i32 was = k++;
+	return was * 10 + k;
+}
+
+i32 main()
+{
+	i32 i = 5;
+	i32 a = i++;
+	i32 b = ++i;
+	WriteLine($"local {a} {b} {i}");
+
+	i32[2] xs = [10, 20]:i32;
+	i32 c = xs[1]--;
+	i32 d = --xs[0];
+	WriteLine($"element {c} {d} {xs[0]} {xs[1]}");
+
+	P p = P{ x = 1 };
+	i32 e = p.x++;
+	WriteLine($"field {e} {p.x}");
+
+	i32 n = 0;
+	i32 total = 0;
+	do
+	{
+		total = total + n++;
+	} while (n < 4);
+	WriteLine($"loop {total} {n}");
+
+	i32 built = #run stepped();
+	WriteLine($"build {built}");
+	return 0;
+}

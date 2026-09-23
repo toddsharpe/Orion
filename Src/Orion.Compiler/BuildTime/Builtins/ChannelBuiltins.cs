@@ -7,6 +7,7 @@ using static Orion.BuildTime.AstBuild;
 namespace Orion.BuildTime.Builtins
 {
 	//The Channel:: builtins: channels declared during the build, emitted into the program afterward.
+	[BuildOnly]
 	public static class ChannelBuiltins
 	{
 		//One channel declaration: its service id, direction, payload bytes, and queue depth.

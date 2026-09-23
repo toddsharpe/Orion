@@ -142,22 +142,18 @@
 
 	//A program with no declared rate still has to be stamped with something that advances, or every
 	//cycle claims the same instant and anything deriving a rate from the stamps divides by zero.
-	const period = solver_period() > 0 ? solver_period() : 10000000;
+	const period = solver_period() > 0n ? solver_period() : 10000000n;
 
-	console.log("orion: " + (1000000000 / period) + " Hz, " + budget + " cycles");
+	console.log("orion: " + (1000000000 / Number(period)) + " Hz, " + budget + " cycles");
 
-	//From zero, not from the wall clock. The native platforms stamp with nanoseconds since the Unix
-	//epoch, which is around 1.8e18 and so past the 2^53 an i64 survives as a JS number: one ulp up
-	//there is 256 ns, and adding a 10 ms period to it landed cycles on ...850000100 and ...860000300.
-	//A stamp that ticks unevenly is worse than one that is not a date, and nothing outside this page
-	//reads these frames, so there is no clock to line them up against anyway.
+	//From zero, not from the wall clock: nothing outside this page reads these frames, and a run stamped from zero prints the same every time.
 	let cycles = 0;
 	while (cycles < budget) {
 		Channels_Fill();
 		//The simulated clock is the stamp, so a block publishing cycle health measures its latency
 		//against a clock that moved rather than one stuck at zero. The C++ platforms do this too.
-		Platform_SleepUntil(cycles * period);
-		solver_cycle(cycles * period);
+		Platform_SleepUntil(BigInt(cycles) * period);
+		solver_cycle(BigInt(cycles) * period);
 		Channels_Drain();
 
 		cycles++;

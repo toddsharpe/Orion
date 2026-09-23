@@ -35,7 +35,7 @@ module Syntax =
         //#pure i32 y @ net - an Output the block writes every cycle and never reads, so it holds nothing
         | Pure
 
-    //Whether a function or type is surface something OUTSIDE this program calls; absent means internal, kept only if the program reaches it and never written to the header.
+    //Whether a function or type is exported, for something OUTSIDE this program to call; absent means internal, kept only if the program reaches it and never written to the header.
     type ExportFlag =
         //i32 add(i32 a, i32 b) { }
         | Internal
@@ -171,9 +171,9 @@ module Syntax =
         | Lambda of Pos<TypeName> option * Pos<Parameter> list * Block
         //$"x = {value}"
         | Interp of InterpPart list
-        //#code { x = $(v); } - a code fragment as a build-time value, PARSED here
+        //#code { x = ${v}; } - a code fragment as a build-time value, PARSED here
         | CodeExpr of Block
-        //$(expr) and $(expr):u16 - a build-time value spliced into a fragment, optionally as a typed literal
+        //${expr} and ${expr}:u16 - a build-time value spliced into a fragment, optionally as a typed literal
         | Hole of Pos<Expr> * string option
 
     //One piece of an interpolated string or code template.
@@ -257,13 +257,13 @@ module Syntax =
         | Generic of Pos<string> * Pos<TypeName> list
         //f64<m/s^2>: a numeric primitive carrying a measure, one base and its exponent per term.
         | MeasuredType of Pos<string> * (Pos<string> * int) list
-        //pack<$(t)> - a build-time Type value where a type goes, inside a #code fragment
+        //pack<${t}> - a build-time Type value where a type goes, inside a #code fragment
         | HoleType of Pos<Expr>
 
     //One struct field: the `i32 x;` in struct Point { i32 x; }
     type Field = Field of Pos<TypeName> * Pos<Identifier>
 
-    //One enum member: the `Coast = 2` in enum Phase { Coast = 2 }
+    //One enum member and its position: `Coast` in enum Phase { Burn, Coast } is 1; members are never numbered by hand
     type EnumValue = EnumValue of Pos<Identifier> * int
 
     //A top-level declaration.

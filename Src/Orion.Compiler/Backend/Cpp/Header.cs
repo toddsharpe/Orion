@@ -5,11 +5,11 @@ using System.Linq;
 
 namespace Orion.Backend.Cpp
 {
-	//The program's surface as a C++ header: the `#export`ed types and functions, built by the same Codegen helpers as the definitions. See Docs/Cpp.md.
+	//The program's `#export` API as a C++ header: its exported types and functions, built by the same Codegen helpers as the definitions. See Docs/Cpp.md.
 	internal static class Header
 	{
-		//Whether there is anything for a consumer to include; not `Prune.Surfaced`, which a runtime `main` -- linked against, never declared -- satisfies on its own.
-		internal static bool HasSurface(SymbolTable root) =>
+		//Whether there is anything for a consumer to include; not `Prune.AnyExported`, which a runtime `main` -- linked against, never declared -- satisfies on its own.
+		internal static bool HasExports(SymbolTable root) =>
 			root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Any(Declares)
 			|| root.Traverse().SelectMany(i => i.GetAll<StructTypeSymbol>()).Any(i => i.IsExport)
 			|| root.Traverse().SelectMany(i => i.GetAll<EnumTypeSymbol>()).Any(i => i.IsExport);
@@ -22,7 +22,7 @@ namespace Orion.Backend.Cpp
 		internal static bool DeclaresExtern(BuiltinFunctionSymbol func) =>
 			Representable(func.ReturnType) && func.Parameters.All(p => Representable(p.Type));
 
-		//The surface's functions, over the types companion when there is one and the umbrella when there is not; a consumer includes one name either way.
+		//The exported functions, over the types companion when there is one and the umbrella when there is not; a consumer includes one name either way.
 		internal static File Generate(SymbolTable root, string types = null)
 		{
 			List<SourceFunctionSymbol> reachable = [.. root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>())];
@@ -38,7 +38,7 @@ namespace Orion.Backend.Cpp
 				{
 					{ "Exported structs", types == null ? CreateStructs(root) : [] },
 				},
-				//A header declares no storage: a global is the translation unit's own, and RTTI is not a program's surface.
+				//A header declares no storage: a global is the translation unit's own, and a program does not export its RTTI.
 				new Dictionary<string, List<Declaration>>(),
 				CreateFunctions(reachable),
 				//The externs the program calls, declared here so the platform's definition compiles against the same contract; one naming an unexported type stays out, since the header could not spell it.
@@ -46,7 +46,7 @@ namespace Orion.Backend.Cpp
 			);
 		}
 
-		//The types alone: what a platform may include without the surface, and beside another program's.
+		//The types alone: what a platform may include without the exported functions, and beside another program's.
 		internal static File GenerateTypes(SymbolTable root) =>
 			new File
 			(

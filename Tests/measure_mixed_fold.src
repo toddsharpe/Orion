@@ -1,0 +1,26 @@
+//Literals in two measures fold like any others: a measure rides in the type, over one primitive code.
+#measure m;
+#measure s;
+
+//A file-scope constant folds while binding, measures and all.
+const f64<m*s> Area = 2.0:f64<m> * 3.0:f64<s>;
+
+i32 main()
+{
+	//The optimizer folds each of these to one literal of the result's measure.
+	f64<m*s> product = 2.0:f64<m> * 3.0:f64<s>;
+	f64<m/s> speed = 12.0:f64<m> / 4.0:f64<s>;
+	f64<m> doubled = 2.0:f64<m> * 2.0;
+	f32<m*s> narrow = 1.5:f32<m> * 2.0:f32<s>;
+	WriteLine(to_str(product) + " " + to_str(speed) + " " + to_str(doubled) + " " + to_str(narrow));
+
+	//A #run multiplies the same literals in MSIL, at build time.
+	f64<m*s> built = #run { return 2.0:f64<m> * 3.0:f64<s>; };
+	WriteLine(to_str(built) + " " + to_str(Area));
+
+	//An integer measure boxes at its primitive's width, like a typedef.
+	i32<m> count = 2:i32<m> * 3;
+	WriteLine(to_str(count));
+
+	return 0;
+}

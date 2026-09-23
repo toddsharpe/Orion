@@ -168,7 +168,7 @@ namespace Orion.Backend.Python
 				Line l => !string.IsNullOrEmpty(l.Text),
 				CodeBlock b => b.Lines.Any(x => !string.IsNullOrEmpty(x)),
 				IfCode or IfElseCode or LoopCode => true,
-				_ => false,
+				_ => throw new NotImplementedException($"Python HasContent: {code.GetType().Name}"),
 			};
 		}
 

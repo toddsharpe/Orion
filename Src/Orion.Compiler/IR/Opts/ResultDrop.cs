@@ -32,7 +32,6 @@ namespace Orion.IR.Opts
 					continue;
 
 				messages.Trace($"Dropped result: {node.Value}");
-				dropped.Region = node.Value.Region;
 				node.Value = dropped;
 			}
 

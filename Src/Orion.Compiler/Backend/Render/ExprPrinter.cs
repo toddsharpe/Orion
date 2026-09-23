@@ -1,6 +1,8 @@
 ﻿using Orion.Backend.StIr;
 using Orion.IR;
 using Orion.Symbols;
+using System.Linq;
+using System;
 using TypeCode = Orion.Symbols.TypeCode;
 
 namespace Orion.Backend.Render
@@ -32,7 +34,7 @@ namespace Orion.Backend.Render
 			BinaryTacOp.BitOr => 3,
 			BinaryTacOp.And => 2,
 			BinaryTacOp.Or => 1,
-			_ => 0,
+			_ => throw new NotImplementedException($"ExprPrinter.Prec: {op}"),
 		};
 
 		private static bool IsComparison(BinaryTacOp op) => Prec(op) == 6;
@@ -51,21 +53,13 @@ namespace Orion.Backend.Render
 			return (IsComparison(op) ? p + 1 : p, p + 1);
 		}
 
-		//C++ and the CLR wrap in hardware; Python ints are unbounded and JS numbers are doubles.
-		private static bool IsFixedWidthInteger(TypeSymbol type) =>
-			type is PrimitiveTypeSymbol p && p.Code is
-				TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64 or
-				TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64;
-
-		//Only these can leave the range; divide, mod, bitwise and right shift cannot.
+		//Python ints are unbounded and JS numbers are doubles, where C++ and the CLR wrap in hardware; divide, mod, bitwise and right shift cannot leave the range.
 		internal static bool NeedsMask(BinaryTacOp op, TypeSymbol type) =>
-			IsFixedWidthInteger(type) &&
-			op is BinaryTacOp.Add or BinaryTacOp.Subtract or BinaryTacOp.Multiply or BinaryTacOp.ShiftLeft;
+			Language.IsInteger(type) && op is BinaryTacOp.Add or BinaryTacOp.Subtract or BinaryTacOp.Multiply or BinaryTacOp.ShiftLeft;
 
 		//`~x` and `-x` both leave the unsigned range, and ++/-- are an add in disguise.
 		internal static bool NeedsMask(UnaryTacOp op, TypeSymbol type) =>
-			IsFixedWidthInteger(type) &&
-			op is UnaryTacOp.Negate or UnaryTacOp.BitNot or UnaryTacOp.Increment or UnaryTacOp.Decrement;
+			Language.IsInteger(type) && op is UnaryTacOp.Negate or UnaryTacOp.BitNot or UnaryTacOp.Increment or UnaryTacOp.Decrement;
 
 		//Neither script backend has single-precision arithmetic, so an f32 result is rounded back to one.
 		internal static bool NeedsNarrow(BinaryTacOp op, TypeSymbol type) =>
@@ -76,6 +70,30 @@ namespace Orion.Backend.Render
 		internal static bool NeedsNarrow(UnaryTacOp op, TypeSymbol type) =>
 			type is PrimitiveTypeSymbol { Code: TypeCode.f32 } &&
 			op is UnaryTacOp.Increment or UnaryTacOp.Decrement;
+
+		//The type an expression has, or null where the node does not carry one. Read to decide a cast, so an unknown is answered by leaving the expression as it stands.
+		internal static TypeSymbol TypeOf(StExpr e)
+		{
+			switch (e)
+			{
+				case StLeaf l: return l.Symbol.Type;
+				case StBin b: return b.Type;
+				case StUn u: return u.Type;
+				case StCast c: return c.Target;
+				case StCall c: return c.Function.ReturnType;
+				case StIndex ix:
+					return ix.Container switch
+					{
+						PrimitiveTypeSymbol { Code: TypeCode.str } => Language.Primitives[TypeCode.u8],
+						BufferTypeSymbol b => b.Element,
+						_ => null,
+					};
+				//`Length` is synthesized by the compiler for buffer types, so it is in the field list too.
+				case StMember m:
+					return (m.Owner as CompositeTypeSymbol)?.Fields.FirstOrDefault(f => f.Name == m.Field)?.Type;
+				default: throw new NotImplementedException($"ExprPrinter.TypeOf: {e.GetType().Name}");
+			}
+		}
 
 		//A struct argument is copied where the backend lacks value semantics; arrays are views and an out param must alias, so both pass through.
 		internal static string CopyArgument(FunctionSymbol function, int index, string rendered)

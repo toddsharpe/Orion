@@ -24,7 +24,7 @@ namespace Orion.IR.Opts
 		}
 
 		//Measures live in the binder alone, so same-code primitives are one runtime type.
-		private static bool SameRuntime(TypeSymbol a, TypeSymbol b) =>
+		internal static bool SameRuntime(TypeSymbol a, TypeSymbol b) =>
 			a is PrimitiveTypeSymbol pa && b is PrimitiveTypeSymbol pb ? pa.Code == pb.Code : a == b;
 	}
 }

@@ -24,7 +24,7 @@ namespace Orion.Frontend
 			return max;
 		}
 
-		public static List<CompilerFile> GatherAsts(string entry, List<Message> messages, Func<string, string> read = null)
+		public static List<CompilerFile> GatherAsts(string entry, CompileSession session, List<Message> messages, Func<string, string> read = null)
 		{
 			bool Exists(string file) => read?.Invoke(file) != null || System.IO.File.Exists(file);
 
@@ -75,7 +75,7 @@ namespace Orion.Frontend
 				TranslationUnit unit = TranslationUnit.Create(success.Item1);
 
 				//Chosen here, before the `#using` walk: a dead branch's includes are never even gathered.
-				unit.Blocks = Conditionals.FoldBlocks(unit.Blocks, messages);
+				unit.Blocks = Conditionals.FoldBlocks(unit.Blocks, session, messages);
 
 				foreach (Using @using in unit.Blocks.OfType<Using>())
 				{
@@ -83,14 +83,14 @@ namespace Orion.Frontend
 					{
 						messages.Add(new Message(
 							$"#using \"{@using.Path}\" climbs out of the source tree. A path is named from the root " +
-							$"({(string.IsNullOrEmpty(Compiler.Session.Root) ? "none" : Compiler.Session.Root)}), so it holds no '..' -- write the path from there.",
+							$"({(string.IsNullOrEmpty(session.Root) ? "none" : session.Root)}), so it holds no '..' -- write the path from there.",
 							@using.Region, MessageType.Error));
 						continue;
 					}
 
 					List<string> tried = new List<string>();
 					string full = null;
-					foreach (string root in new[] { Compiler.Session.Root ?? string.Empty }.Concat(Compiler.Session.Includes))
+					foreach (string root in new[] { session.Root ?? string.Empty }.Concat(session.Includes))
 					{
 						string candidate = Path.GetFullPath(Path.Combine(root, @using.Path));
 						tried.Add(candidate);

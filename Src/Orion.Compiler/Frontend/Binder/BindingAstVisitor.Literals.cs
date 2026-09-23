@@ -238,12 +238,13 @@ namespace Orion.Frontend.Binder
 				? ResolveType(ctx, current, literal.TypeName, $"Literal {literal.TypeName.Name}", literal.Region)
 				: NamedType(ctx, current, literal.TypeName, literal.Region);
 
-			if (type is AliasTypeSymbol alias)
+			//A typedef or a measure stands for a primitive, so the literal boxes at that primitive's width.
+			if (type is PrimitiveTypeSymbol primitive)
 			{
 				if (literal is TypedIntLiteral suffixedInt)
-					suffixedInt.Code = alias.Code.ToString();
+					suffixedInt.Code = primitive.Code.ToString();
 				else if (literal is TypedFloatLiteral suffixedFloat)
-					suffixedFloat.Code = alias.Code.ToString();
+					suffixedFloat.Code = primitive.Code.ToString();
 			}
 
 			literal.Symbol = InternLiteral(current, literal.Boxed, type);

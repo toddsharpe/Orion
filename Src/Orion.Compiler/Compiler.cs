@@ -49,7 +49,7 @@ namespace Orion
 			new("Frontend", "Parser",
 				(ctx, m) =>
 				{
-					ctx.Files = Parsing.GatherAsts(ctx.Options.Input, m);
+					ctx.Files = Parsing.GatherAsts(ctx.Options.Input, ctx.Session, m);
 					foreach (CompilerFile file in ctx.Files)
 						m.Trace($"Parsed {file.Summary()}");
 				},
@@ -71,9 +71,9 @@ namespace Orion
 			new("Frontend", "Binding",
 				(ctx, m) =>
 				{
-					Binding.BindAst(ctx.Unit, ctx.Root, m);
-					List<SymbolTable> tables = [.. ctx.Root.Traverse()];
-					m.Trace($"Bound {Messages.Count(tables.SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Distinct().Count(), "function")}, {Messages.Count(tables.SelectMany(i => i.GetAll<StructTypeSymbol>()).Distinct().Count(), "struct")} and {Messages.Count(tables.SelectMany(i => i.GetAll<EnumTypeSymbol>()).Distinct().Count(), "enum")}");
+					Binding.BindAst(ctx.Unit, ctx.Root, ctx.Session, m);
+					List<Symbol> own = [.. ctx.Root.Traverse().SelectMany(i => i.GetAll()).Where(i => !GlobalTable.IsSurface(i)).Distinct()];
+					m.Trace($"Bound {Messages.Count(own.OfType<SourceFunctionSymbol>().Count(), "function")}, {Messages.Count(own.OfType<StructTypeSymbol>().Count(), "struct")} and {Messages.Count(own.OfType<EnumTypeSymbol>().Count(), "enum")}");
 				},
 				ctx => new TableState(ctx.Root)),
 
@@ -172,7 +172,7 @@ namespace Orion
 
 					Rewrites.StaticNames([.. ctx.Roots.SelectMany(i => i.BreadthFirst()).OfType<SourceFunctionSymbol>().Distinct()], m);
 
-					ExportSurface.Check(ctx.Root, m);
+					ExportTypes.Check(ctx.Root, m);
 				},
 				ctx => new ChecksState(ctx.Roots)),
 
@@ -201,7 +201,7 @@ namespace Orion
 				ctx => new TableState(ctx.Root)),
 
 			new("Backend", "Fuse",
-				(ctx, m) => Restructure(ctx, m, Fuse.Optimize),
+				(ctx, m) => Restructure(ctx, m, Fuse.Run),
 				ctx => new TableState(ctx.Root)),
 
 			new("Backend", "Guards",

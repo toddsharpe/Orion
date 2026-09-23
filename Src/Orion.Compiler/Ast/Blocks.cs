@@ -9,7 +9,7 @@ namespace Orion.Ast
 	public class Function : FileBlock
 	{
 		public bool IsBuild { get; set; }
-		//`#export`: surface something OUTSIDE this program calls, so reachability must not decide it is dead.
+		//`#export`: something OUTSIDE this program calls it, so reachability must not decide it is dead.
 		public bool IsExport { get; set; }
 		public TypeName ReturnType { get; set; }
 		public string Name { get; set; }
@@ -35,7 +35,7 @@ namespace Orion.Ast
 		//`struct Box<T>`: a template's parameters; empty for a concrete struct, which is the only kind that binds.
 		public List<string> TypeParameters { get; set; } = new List<string>();
 		public bool IsBuild { get; set; }
-		//`#export struct`: part of the surface, so the C++ header declares it and a consumer may name it.
+		//`#export struct`: exported, so the C++ header declares it and a consumer may name it.
 		public bool IsExport { get; set; }
 		public string Name { get; set; }
 		public List<StructField> Fields { get; set; }
@@ -47,7 +47,7 @@ namespace Orion.Ast
 	public class Enum : FileBlock
 	{
 		public bool IsBuild { get; set; }
-		//`#export enum`: part of the surface, so the C++ header declares it and a consumer may name it.
+		//`#export enum`: exported, so the C++ header declares it and a consumer may name it.
 		public bool IsExport { get; set; }
 		public string Name { get; set; }
 		public List<EnumMember> Members { get; set; }

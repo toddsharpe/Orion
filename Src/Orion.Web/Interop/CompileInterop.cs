@@ -148,7 +148,7 @@ namespace Orion.Web.Interop
 				return code;
 
 			string name = Path.GetFileNameWithoutExtension(headerName);
-			return Banner($"{name}.h", "the surface: what a consumer includes") + header +
+			return Banner($"{name}.h", "the exports: what a consumer includes") + header +
 				"\n" + Banner($"{name}.cpp", "the translation unit") + code;
 		}
 

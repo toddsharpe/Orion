@@ -9,11 +9,12 @@ namespace Orion.IR
 	//One instruction of the linear IR; records, so a goto finds its label by value.
 	public abstract record Tac()
 	{
-		public InputRegion Region
-		{
-			get => Compiler.Session != null && Compiler.Session.TacRegions.TryGetValue(this, out InputRegion region) ? region : null;
-			set => Compiler.Session?.TacRegions.AddOrUpdate(this, value);
-		}
+		public InputRegion Region { get; set; }
+
+		//Where a TAC came from is not what it is: equality, hashing and printing leave the region out.
+		public virtual bool Equals(Tac other) => other is not null && EqualityContract == other.EqualityContract;
+		public override int GetHashCode() => EqualityContract.GetHashCode();
+		protected virtual bool PrintMembers(System.Text.StringBuilder builder) => false;
 
 		internal (List<DataSymbol> Reads, List<DataSymbol> Writes) GetReadersWriters()
 		{

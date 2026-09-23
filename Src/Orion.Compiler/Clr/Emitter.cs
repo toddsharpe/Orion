@@ -267,8 +267,7 @@ namespace Orion.Clr
 						}
 						else
 						{
-							bool unsigned = (tac.Operand1.Type as PrimitiveTypeSymbol)?.Code
-								is TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64;
+							bool unsigned = Language.IsUnsigned(tac.Operand1.Type);
 
 							ilGen.Emit(tac.Op switch
 							{

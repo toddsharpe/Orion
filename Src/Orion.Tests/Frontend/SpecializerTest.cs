@@ -29,13 +29,13 @@ void Block(
     output = val;
 }");
 			List<Message> messages = new List<Message>();
-			Specializer.Extract(tu, messages);
+			Specializer.Extract(tu, Compiler.Session, messages);
 
 			Assert.IsFalse(messages.HasError());
 
 			//Removed from the unit -- a #param cannot bind -- and registered for `#create` to reach by name.
 			Assert.IsFalse(tu.Blocks.OfType<Function>().Any(f => f.Name == "Block"));
-			Assert.IsTrue(Specializer.Templates.ContainsKey("Block"));
+			Assert.IsTrue(Compiler.Session.Templates.ContainsKey("Block"));
 		}
 
 		//`#create` is the only way to reach a template, and it is Desugar that lowers it.
@@ -121,7 +121,7 @@ void Block(
 				["val"] = new IntLiteral { Value = 5 },
 			};
 
-			Function clone = Specializer.Instantiate(template, "Block_a", env);
+			Function clone = Specializer.Instantiate(template, "Block_a", env, Compiler.Session, new List<Message>());
 
 			Assert.AreEqual("Block_a", clone.Name);
 
@@ -224,12 +224,12 @@ void Report(#param str name, #param str source)
     }
 }");
 			List<Message> messages = new List<Message>();
-			Specializer.Extract(tu, messages);
+			Specializer.Extract(tu, Compiler.Session, messages);
 
 			Assert.IsFalse(messages.HasError());
 
 			//Nothing is lifted out of the template, and nothing new is added to the unit.
-			Assert.AreEqual(2, Specializer.Templates["Report"].Body.Count(Specializer.IsEscape));
+			Assert.AreEqual(2, Compiler.Session.Templates["Report"].Body.Count(Specializer.IsEscape));
 			Assert.AreEqual(0, tu.Blocks.OfType<Function>().Count());
 		}
 
@@ -247,7 +247,7 @@ void Nested(#param str name, #param str source)
     }
 }");
 			List<Message> messages = new List<Message>();
-			Specializer.Extract(tu, messages);
+			Specializer.Extract(tu, Compiler.Session, messages);
 
 			Assert.IsTrue(messages.HasError());
 			Assert.IsTrue(messages.Any(m => m.Type == MessageType.Error && m.Text.Contains("nest")));

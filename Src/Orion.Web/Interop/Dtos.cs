@@ -14,8 +14,8 @@ namespace Orion.Web.Interop
 	{
 		public bool Success { get; set; }
 		public string Code { get; set; }         // generated C++, Python, JavaScript or C#
-		public string BuildOutput { get; set; }  // build-time program stdout (Env.Output)
-		public string Log { get; set; }          // OnRecord pipeline trace
+		public string BuildOutput { get; set; }  // build-time program stdout (Session.Output)
+		public string Log { get; set; }          // OnPhase pipeline trace
 		public List<MessageDto> Messages { get; set; }
 		public List<PhaseTiming> Phases { get; set; }  // per-phase wall-clock, for the timing bar
 		public List<GraphDto> Graphs { get; set; }     // diagrams as Graphviz DOT, e.g. the call graph

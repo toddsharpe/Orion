@@ -53,10 +53,14 @@ namespace Orion.Symbols
 			_consts[name] = value;
 		}
 
+		//The nearest scope naming it decides, so a parameter or local hides a file-scope constant of the same name.
 		public bool TryGetConst(string name, out LiteralSymbol value)
 		{
 			if (_consts.TryGetValue(name, out value))
 				return true;
+
+			if (_named.TryGetValue(name, out List<Symbol> same) && same.Any(i => i is NamedDataSymbol))
+				return false;
 
 			return Parent != null && Parent.TryGetConst(name, out value);
 		}

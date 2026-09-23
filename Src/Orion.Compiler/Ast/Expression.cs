@@ -12,7 +12,7 @@ namespace Orion.Ast
 		//Bound symbol, set by Binding; public getter so out-of-assembly tooling (the language server's token classifier) can read it, and only the binder writes it.
 		public DataSymbol Symbol { get; internal set; }
 
-		//Every operator the grammar produces has an AstOp -- one missing here lowers to Invalid and is reported; a `${op}` hole names its operator as source spells it.
+		//A `${op}` hole names its operator as source spells it.
 		internal static readonly Dictionary<string, AstOp> NamedOps = new Dictionary<string, AstOp>
 		{
 			{ "+", AstOp.Add }, { "-", AstOp.Subtract }, { "*", AstOp.Multiply },
@@ -25,6 +25,7 @@ namespace Orion.Ast
 			{ "<<", AstOp.ShiftLeft }, { ">>", AstOp.ShiftRight },
 		};
 
+		//Every case of the grammar's closed Op union, so every operator it produces has an AstOp.
 		internal static readonly Dictionary<Op, AstOp> AstOps = new Dictionary<Op, AstOp>
 		{
 			{ Op.Add, AstOp.Add },
@@ -94,14 +95,13 @@ namespace Orion.Ast
 					Operand2 = Create(hole.Item3.Value),
 					Region = InputRegion.Create(hole.Item1.Start, hole.Item3.End)
 				},
-				Expr.InfixOp infix when AstOps.ContainsKey(infix.Item2) => new BinaryOp
+				Expr.InfixOp infix => new BinaryOp
 				{
 					Operand1 = Create(infix.Item1.Value),
 					Op = AstOps[infix.Item2],
 					Operand2 = Create(infix.Item3.Value),
 					Region = InputRegion.Create(infix.Item1.Start, infix.Item3.End)
 				},
-				Expr.InfixOp infix => Unsupported(infix.Item2, InputRegion.Create(infix.Item1.Start, infix.Item3.End)),
 				//`-1.5` is one number: the grammar reads the sign as a prefix operator, folded back here so everywhere wanting a LITERAL accepts a negative one.
 				Expr.PrefixOp prefix when prefix.Item1 == Op.Subtract && prefix.Item2.Value is Expr.Value operand && Negate(Literal.Create(operand.Item.Value)) is Literal negated =>
 					new Value
@@ -109,20 +109,18 @@ namespace Orion.Ast
 						Literal = negated,
 						Region = InputRegion.Create(prefix.Item2.Start, prefix.Item2.End)
 					},
-				Expr.PrefixOp prefix when AstOps.ContainsKey(prefix.Item1) => new UnaryOp
+				Expr.PrefixOp prefix => new UnaryOp
 				{
 					Operand1 = Create(prefix.Item2.Value),
 					Op = AstOps[prefix.Item1],
 					Region = InputRegion.Create(prefix.Item2.Start, prefix.Item2.End)
 				},
-				Expr.PrefixOp prefix => Unsupported(prefix.Item1, InputRegion.Create(prefix.Item2.Start, prefix.Item2.End)),
-				Expr.PostfixOp postfix when AstOps.ContainsKey(postfix.Item2) => new UnaryOp
+				Expr.PostfixOp postfix => new PostfixOp
 				{
 					Operand1 = Create(postfix.Item1.Value),
 					Op = AstOps[postfix.Item2],
 					Region = InputRegion.Create(postfix.Item1.Start, postfix.Item1.End)
 				},
-				Expr.PostfixOp postfix => Unsupported(postfix.Item2, InputRegion.Create(postfix.Item1.Start, postfix.Item1.End)),
 				Expr.Call call => CreateCall(call),
 				Expr.Src src => new SrcExpr
 				{
@@ -211,12 +209,6 @@ namespace Orion.Ast
 				},
 				_ => new Invalid { Reason = $"{expr.GetType().Name} expressions are not supported", Region = InputRegion.None }
 			};
-		}
-
-		//An operator the grammar parses but no backend lowers -- the bitwise and shift set.
-		private static Expression Unsupported(Op op, InputRegion region)
-		{
-			return new Invalid { Reason = $"operator {op} is not supported", Region = region };
 		}
 
 		//`[a, b]:T`: all-scalar elements fold to a constant; anything else, and `:List<T>` always, stays an expression -- array versus List is decided in Frontend.Desugar.
@@ -410,11 +402,17 @@ namespace Orion.Ast
 		public string SymbolName { get; set; }
 	}
 
-	//`-x`, `~x`, `x++`, `x--`.
+	//`-x`, `~x`, `++x`, `--x`: an increment's value is the operand after its step.
 	public class UnaryOp : Expression
 	{
 		internal Expression Operand1 { get; set; }
 		public AstOp Op { get; set; }
+	}
+
+	//`x++`, `x--`: the value is the operand from before its step, and Stepped holds the value written back.
+	public class PostfixOp : UnaryOp
+	{
+		internal Symbols.TempDataSymbol Stepped { get; set; }
 	}
 
 	//`a <op> b`.
@@ -528,7 +526,7 @@ namespace Orion.Ast
 		internal string Reason { get; set; }
 	}
 
-	//`$(expr)` in a #code: a build-time value, evaluated in the ENCLOSING scope and spliced into the AST.
+	//`${expr}` in a #code: a build-time value, evaluated in the ENCLOSING scope and spliced into the AST.
 	public class Hole : Expression
 	{
 		internal Expression Value { get; set; }

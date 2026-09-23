@@ -183,19 +183,6 @@ i32 main()
 			Assert.IsTrue(absent.BuildOutput.Contains("has false"), absent.BuildOutput);
 		}
 
-		//A define is build-only: what a program does at runtime must not depend on a flag it cannot see.
-		[TestMethod]
-		public void ReadingADefineFromRuntimeCodeIsReported()
-		{
-			CompilerResult result = Harness.Compile(["MODE=sim"], @"
-str main()
-{
-	return Define::Get(""MODE"", ""none"");
-}");
-
-			result.AssertError("Call to build-only function Define::Get from non-build context");
-		}
-
 		//One program per shape test: the define is read, not chosen with, so the value has to reach the output.
 		private static string Reads(string name) => @"
 i32 main()

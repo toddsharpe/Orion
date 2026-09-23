@@ -40,7 +40,6 @@ namespace Orion.Tests.Frontend
 			new FoldEnv { Values = map.ToDictionary(i => i.Name, i => i.Value) };
 
 		private static Literal Bool(bool value) => new BoolLiteral { Value = value };
-		private static Literal Str(string value) => new StringLiteral { Value = value };
 
 		[TestMethod]
 		public void ParamValueChoosesTheBranch()
@@ -214,7 +213,7 @@ namespace Orion.Tests.Frontend
 		{
 			(List<Statement> body, List<Message> _) = Fold(
 				"#if (Type::IsStruct(t)) { taken = 1; } else { untaken = 2; }",
-				Values(("t", Str("Frame"))),
+				Values(("t", new StringLiteral { Value = "Frame" })),
 				"struct Frame { i32 Seq; }");
 
 			CollectionAssert.AreEqual(new List<string> { "taken" }, Names(body));

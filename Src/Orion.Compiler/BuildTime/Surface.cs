@@ -76,7 +76,7 @@ namespace Orion.BuildTime
 		}
 
 		//Open generic builtin methods (List::New<T>, ...) keyed by name; instantiated per call.
-		internal static readonly Dictionary<string, MethodInfo> GenericFunctions =
+		public static readonly Dictionary<string, MethodInfo> GenericFunctions =
 			Surfaces.SelectMany(s => s.Type.GetMethods(BindingFlags.Static | BindingFlags.Public)
 					.Where(i => i.IsGenericMethodDefinition)
 					.Select(i => (Name: s.Namespace == null ? i.Name : $"{s.Namespace}::{i.Name}", Method: i)))
@@ -88,14 +88,14 @@ namespace Orion.BuildTime
 		private static readonly HashSet<string> PerType = ["pack_le", "pack_be", "unpack_le", "unpack_be"];
 
 		//A generic builtin that emits `name_T`: not every T has one, so the binder checks the one picked.
-		internal static bool EmitsPerType(string name) => PerType.Contains(name);
+		public static bool EmitsPerType(string name) => PerType.Contains(name);
 
 		//The stringify builtins (i32_str, ...) are what to_str and interpolation lower to, not a user-facing API: naming one restates a type the compiler knows.
 		private static readonly HashSet<string> StrBuiltins =
 			[.. System.Enum.GetNames<TypeCode>().Select(i => $"{i}_str")];
 
 		//The math intrinsics, dispatched on their explicit type arguments.
-		internal static readonly Dictionary<string, TypeCode[]> MathGenerics = new Dictionary<string, TypeCode[]>
+		public static readonly Dictionary<string, TypeCode[]> MathGenerics = new Dictionary<string, TypeCode[]>
 		{
 			{ "sqrt", [TypeCode.f32, TypeCode.f64] },
 			{ "fabs", [TypeCode.f32, TypeCode.f64] },
@@ -130,7 +130,7 @@ namespace Orion.BuildTime
 			{ "atan2", [TypeCode.f32, TypeCode.f64] },
 			{ "pow", [TypeCode.f32, TypeCode.f64] },
 
-			//u32 only: a u64 does not survive a JavaScript number, so a 64-bit form would not agree.
+			//u32 only: no runtime implements a 64-bit form.
 			{ "popcount", [TypeCode.u32] },
 			{ "clz", [TypeCode.u32] },
 			{ "ctz", [TypeCode.u32] },
@@ -237,6 +237,10 @@ namespace Orion.BuildTime
 					if (method.IsGenericMethodDefinition)
 						continue;
 
+					//A property's accessor is host state such as SolverBuiltins.LastSolved, not a function Orion calls.
+					if (method.IsSpecialName)
+						continue;
+
 					Add(global, method, ns);
 				}
 			}
@@ -263,7 +267,7 @@ namespace Orion.BuildTime
 		}
 
 		//[BuildOnly] on the method or on its class: either keeps a builtin out of runtime code.
-		private static bool BuildOnly(MethodInfo method) =>
+		public static bool BuildOnly(MethodInfo method) =>
 			method.IsDefined(typeof(BuildOnlyAttribute), false) || method.DeclaringType.IsDefined(typeof(BuildOnlyAttribute), false);
 
 		//A build collection -- a List or a Map -- as opposed to any other generic builtin.

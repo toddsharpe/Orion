@@ -8,7 +8,7 @@ using System;
 
 namespace Orion.Commands
 {
-	//`orion test`: sweep `src_dirs` for `.src` files and run their `#test`s as ONE program, so each runs once.
+	//`orion test`: sweep the source root for `.src` files (`SrcRoot.Sources`) and run their `#test`s as ONE program, so each runs once.
 	internal static class Test
 	{
 		private static readonly Option<string> SrcRootOption = new Option<string>("--src-root", "-s") { Description = "The tree to sweep; discovered from the working directory when unset." };

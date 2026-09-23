@@ -10,42 +10,89 @@ namespace Orion.Backend.StIr
 	//The Backend/Fuse pass: inlines single-use pure temps into their one use, with flush-before-clobber.
 	internal static class Fuse
 	{
-		internal static StCtrl Optimize(StCtrl root)
+		internal static StCtrl Run(StCtrl root)
 		{
 			(HashSet<DataSymbol> cands, HashSet<DataSymbol> single) = Candidates(root);
 			return Apply(root, cands, single);
 		}
 
 		private static StCtrl Apply(StCtrl c, HashSet<DataSymbol> cands, HashSet<DataSymbol> single)
-			=> FuseSeq(c is StSeq s ? s.Items : new List<StCtrl> { c }, cands, single);
+			=> new Sequence(cands, single).Run(c is StSeq s ? s.Items : new List<StCtrl> { c });
 
-		//Defer candidate temps, inline them at their use, and flush any that can't safely move.
-		private static StCtrl FuseSeq(List<StCtrl> items, HashSet<DataSymbol> cands, HashSet<DataSymbol> single)
+		//One straight-line sequence being fused: the temps it has deferred, the block it is filling, and the items it has closed.
+		private sealed class Sequence(HashSet<DataSymbol> cands, HashSet<DataSymbol> single)
 		{
 			//The deferred temps in definition order, so a flush writes each before the ones that read it.
-			List<(DataSymbol Symbol, StExpr Value)> deferred = new List<(DataSymbol, StExpr)>();
-			List<StCtrl> outItems = new List<StCtrl>();
-			List<StStmt> block = new List<StStmt>();
+			private readonly List<(DataSymbol Symbol, StExpr Value)> _deferred = new List<(DataSymbol, StExpr)>();
+			private List<StStmt> _block = new List<StStmt>();
+			private readonly List<StCtrl> _items = new List<StCtrl>();
 
-			bool IsDeferred(DataSymbol t) => deferred.Any(d => d.Symbol == t);
-			StExpr Take(DataSymbol t)
+			//Defer candidate temps, inline them at their use, and flush any that can't safely move.
+			internal StCtrl Run(List<StCtrl> items)
 			{
-				int index = deferred.FindIndex(d => d.Symbol == t);
-				StExpr def = deferred[index].Value;
-				deferred.RemoveAt(index);
+				foreach (StCtrl item in items)
+				{
+					if (item is StBlock b)
+					{
+						foreach (StStmt s in b.Stmts)
+							ProcessStmt(s);
+						continue;
+					}
+
+					//Built before the flush: an if-condition and a return value are evaluated once, immediately, so deferred temps inline into them; the rest fuse inside their children on their own state.
+					StCtrl built = item switch
+					{
+						StIf f => new StIf(Pull(f.Cond), f.Negate, Apply(f.Then, cands, single), f.Else == null ? null : Apply(f.Else, cands, single)),
+						StReturn r => ReturnValue(r) is StExpr value ? r with { Value = value } : r,
+						//A nested sequence fuses across its items, not one at a time.
+						StSeq seq => Apply(seq, cands, single),
+						//Loop conditions re-evaluate and clause and case values are already leaves, so the flush precedes them and nothing inlines.
+						_ => item.RewriteChildren(i => Apply(i, cands, single)),
+					};
+					FlushAll();
+					CloseBlock();
+					_items.Add(built);
+				}
+				FlushAll();
+				CloseBlock();
+				return _items.Count == 1 ? _items[0] : new StSeq(_items);
+			}
+
+			private bool IsDeferred(DataSymbol t) => _deferred.Any(d => d.Symbol == t);
+
+			private StExpr Take(DataSymbol t)
+			{
+				int index = _deferred.FindIndex(d => d.Symbol == t);
+				StExpr def = _deferred[index].Value;
+				_deferred.RemoveAt(index);
 				return def;
 			}
 
 			//Substitute deferred temps into an expression, consuming each as it is used.
-			StExpr Pull(StExpr e) => e.Rewrite(x =>
+			private StExpr Pull(StExpr e) => e.Rewrite(x =>
 				x is StLeaf l && IsDeferred(l.Symbol) ? PullDef(l.Symbol) : x);
-			StExpr PullDef(DataSymbol t) => Pull(Take(t));
-			void Flush(DataSymbol t) => block.Add(new StAssign(t, Pull(Take(t))));
-			void FlushAll() { foreach ((DataSymbol t, _) in deferred.ToList()) Flush(t); }
-			void CloseBlock() { if (block.Count > 0) { outItems.Add(new StBlock(block)); block = new List<StStmt>(); } }
+
+			private StExpr PullDef(DataSymbol t) => Pull(Take(t));
+
+			private void Flush(DataSymbol t) => _block.Add(new StAssign(t, Pull(Take(t))));
+
+			private void FlushAll()
+			{
+				foreach ((DataSymbol t, _) in _deferred.ToList())
+					Flush(t);
+			}
+
+			private void CloseBlock()
+			{
+				if (_block.Count > 0)
+				{
+					_items.Add(new StBlock(_block));
+					_block = new List<StStmt>();
+				}
+			}
 
 			//A single-use temp consumed by the return inlines into its expression (the raw path stays for the rest).
-			StExpr ReturnValue(StReturn r)
+			private StExpr ReturnValue(StReturn r)
 			{
 				if (r.Tac is not ReturnSymTac { Symbol: TempDataSymbol t })
 					return null;
@@ -56,24 +103,24 @@ namespace Orion.Backend.StIr
 			}
 
 			//Fold the immediately preceding definition in while its temp is the value's only non-literal operand.
-			StExpr PopTail(StExpr value)
+			private StExpr PopTail(StExpr value)
 			{
-				while (block.Count > 0 && block[^1] is StAssign { Target: TempDataSymbol t } tail
+				while (_block.Count > 0 && _block[^1] is StAssign { Target: TempDataSymbol t } tail
 					&& single.Contains(t) && (tail.Value is StCall || !Copies(t)))
 				{
 					List<DataSymbol> operands = ExprLeaves(value).ToList();
 					if (operands.Count != 1 || operands[0] != t)
 						break;
 					value = value.Rewrite(x => x is StLeaf l && l.Symbol == t ? tail.Value : x);
-					block.RemoveAt(block.Count - 1);
+					_block.RemoveAt(_block.Count - 1);
 				}
 				return value;
 			}
 
 			//Inline the immediately preceding single-use call temp into this statement, the one position where nothing can come between the call and its use.
-			StStmt Adjacent(StStmt s)
+			private StStmt Adjacent(StStmt s)
 			{
-				if (block.Count == 0 || block[^1] is not StAssign { Target: TempDataSymbol t } tail
+				if (_block.Count == 0 || _block[^1] is not StAssign { Target: TempDataSymbol t } tail
 					|| !single.Contains(t) || Copies(t) || !HasImpureCall(tail.Value))
 					return s;
 
@@ -93,7 +140,7 @@ namespace Orion.Backend.StIr
 					return s;
 
 				StExpr fused = value.Rewrite(x => x is StLeaf l && l.Symbol == t ? tail.Value : x);
-				block.RemoveAt(block.Count - 1);
+				_block.RemoveAt(_block.Count - 1);
 				return s switch
 				{
 					StAssign a => new StAssign(a.Target, fused),
@@ -102,11 +149,12 @@ namespace Orion.Backend.StIr
 				};
 			}
 
-			void ProcessStmt(StStmt s)
+			//Every flush lands in the block before the statement does, so a def always runs ahead of the write that clobbers it.
+			private void ProcessStmt(StStmt s)
 			{
 				if (s is StAssign a && cands.Contains(a.Target))
 				{
-					deferred.Add((a.Target, a.Value));
+					_deferred.Add((a.Target, a.Value));
 					return;
 				}
 
@@ -114,13 +162,13 @@ namespace Orion.Backend.StIr
 				HashSet<string> writeRoots = StmtWrites(s).Select(RootName).Where(n => n != null).ToHashSet();
 				HashSet<DataSymbol> reads = StmtReads(s).ToHashSet();
 				if (writeRoots.Count > 0)
-					foreach ((DataSymbol t, StExpr def) in deferred.ToList())
+					foreach ((DataSymbol t, StExpr def) in _deferred.ToList())
 						if (!reads.Contains(t) && ExprLeaves(def).Any(x => writeRoots.Contains(RootName(x))))
 							Flush(t);
 
 				//A callee may write state no argument names, so an impure call flushes every memory-reading def.
 				if (Impure(s))
-					foreach ((DataSymbol t, StExpr def) in deferred.ToList())
+					foreach ((DataSymbol t, StExpr def) in _deferred.ToList())
 						if (!reads.Contains(t) && ReadsMemory(def))
 							Flush(t);
 
@@ -129,7 +177,7 @@ namespace Orion.Backend.StIr
 					//Can't inline an expression into a raw tac's operands -- materialize any temps it reads.
 					foreach (DataSymbol x in reads.ToList())
 						if (IsDeferred(x)) Flush(x);
-					block.Add(s);
+					_block.Add(s);
 				}
 				else
 				{
@@ -138,7 +186,7 @@ namespace Orion.Backend.StIr
 						foreach (DataSymbol x in TargetReads(target.Target).ToList())
 							if (IsDeferred(x)) Flush(x);
 
-					block.Add(Adjacent(s switch
+					_block.Add(Adjacent(s switch
 					{
 						StAssign asg => new StAssign(asg.Target, Pull(asg.Value)),
 						StEval ev => new StEval(Pull(ev.Value)),
@@ -146,30 +194,6 @@ namespace Orion.Backend.StIr
 					}));
 				}
 			}
-
-			foreach (StCtrl item in items)
-			{
-				if (item is StBlock b)
-				{
-					foreach (StStmt s in b.Stmts) ProcessStmt(s);
-					continue;
-				}
-
-				//Built before the flush: an if-condition and a return value are evaluated once, immediately, so deferred temps inline into them; the rest fuse inside their children on their own state.
-				StCtrl built = item switch
-				{
-					StIf f => new StIf(Pull(f.Cond), f.Negate, Apply(f.Then, cands, single), f.Else == null ? null : Apply(f.Else, cands, single)),
-					StReturn r => ReturnValue(r) is StExpr value ? r with { Value = value } : r,
-					//A nested sequence fuses across its items, not one at a time.
-					StSeq seq => Apply(seq, cands, single),
-					//Loop conditions re-evaluate and clause and case values are already leaves, so the flush precedes them and nothing inlines.
-					_ => item.RewriteChildren(i => Apply(i, cands, single)),
-				};
-				FlushAll(); CloseBlock();
-				outItems.Add(built);
-			}
-			FlushAll(); CloseBlock();
-			return outItems.Count == 1 ? outItems[0] : new StSeq(outItems);
 		}
 
 		//--- Candidate selection: single-use temps; `cands` = the pure defs, safe to defer past other statements ---
@@ -265,12 +289,8 @@ namespace Orion.Backend.StIr
 		};
 
 		//An array/field assignment target is an address, not a value: `a[i] = v` reads both `a` and `i`.
-		private static IEnumerable<DataSymbol> TargetReads(DataSymbol target) => target switch
-		{
-			ArrayElementSymbol a => TacLeaves(a.Array).Concat(TacLeaves(a.Operand)),
-			FieldDataSymbol f => TacLeaves(f.Instance),
-			_ => Enumerable.Empty<DataSymbol>(),
-		};
+		private static IEnumerable<DataSymbol> TargetReads(DataSymbol target) =>
+			target is ArrayElementSymbol or FieldDataSymbol ? TacLeaves(target) : Enumerable.Empty<DataSymbol>();
 
 		private static IEnumerable<DataSymbol> CallWrites(StExpr e) =>
 			e.DescendantsAndSelf().OfType<StCall>().SelectMany(c => c.Args).SelectMany(ExprLeaves);
@@ -293,27 +313,18 @@ namespace Orion.Backend.StIr
 			_ => new[] { s },
 		};
 
-		private static IEnumerable<DataSymbol> TacReads(Tac tac)
+		private static IEnumerable<DataSymbol> TacReads(Tac tac) => tac switch
 		{
-			IEnumerable<DataSymbol> TargetAddr(DataSymbol r) => r switch
-			{
-				ArrayElementSymbol a => TacLeaves(a.Array).Concat(TacLeaves(a.Operand)),
-				FieldDataSymbol f => TacLeaves(f.Instance),
-				_ => Enumerable.Empty<DataSymbol>(),
-			};
-			return tac switch
-			{
-				AssignTac t => TacLeaves(t.Operand1).Concat(TargetAddr(t.Result)),
-				BinaryTac t => TacLeaves(t.Operand1).Concat(TacLeaves(t.Operand2)),
-				UnaryTac t => TacLeaves(t.Operand1),
-				CallTac t => t.Arguments.SelectMany(TacLeaves),
-				IndirectCallTac t => t.Arguments.SelectMany(TacLeaves).Append((DataSymbol)t.Target),
-				MultiReturnTac t => t.Symbols.SelectMany(TacLeaves),
-				ReturnSymTac t => TacLeaves(t.Symbol),
-				ConditionalTac t => TacLeaves(t.Condition),
-				_ => Enumerable.Empty<DataSymbol>(),
-			};
-		}
+			AssignTac t => TacLeaves(t.Operand1).Concat(TargetReads(t.Result)),
+			BinaryTac t => TacLeaves(t.Operand1).Concat(TacLeaves(t.Operand2)),
+			UnaryTac t => TacLeaves(t.Operand1),
+			CallTac t => t.Arguments.SelectMany(TacLeaves),
+			IndirectCallTac t => t.Arguments.SelectMany(TacLeaves).Append((DataSymbol)t.Target),
+			MultiReturnTac t => t.Symbols.SelectMany(TacLeaves),
+			ReturnSymTac t => TacLeaves(t.Symbol),
+			ConditionalTac t => TacLeaves(t.Condition),
+			_ => Enumerable.Empty<DataSymbol>(),
+		};
 
 		private static IEnumerable<DataSymbol> TacWrites(Tac tac) => tac switch
 		{

@@ -9,7 +9,7 @@ namespace Orion.Frontend.Binder
 	{
 		internal readonly List<Message> Messages;
 		internal readonly LexicalScoper Scoper;
-		internal readonly CompileSession Session = Compiler.Session;
+		internal readonly CompileSession Session;
 		internal int LoopDepth;
 		internal int SwitchDepth;
 		internal int BuildCallDepth;
@@ -19,8 +19,9 @@ namespace Orion.Frontend.Binder
 
 		private int _temps;
 
-		internal BindContext(List<Message> messages, LexicalScoper scoper, int temps = 0)
+		internal BindContext(CompileSession session, List<Message> messages, LexicalScoper scoper, int temps = 0)
 		{
+			Session = session;
 			Messages = messages;
 			Scoper = scoper;
 			_temps = temps;

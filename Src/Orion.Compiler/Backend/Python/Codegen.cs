@@ -15,12 +15,11 @@ namespace Orion.Backend.Python
 	//Renders the program as Python.
 	internal class Codegen : ModuleBackend
 	{
-		//The three spellings Python disagrees on; integer divide is `//`, with `/` chosen per-type below.
+		//The two operators Python spells as words; an integer `/` or `%` is a runtime call, below.
 		private static readonly Dictionary<BinaryTacOp, string> BinaryOps = new Dictionary<BinaryTacOp, string>(Spelling.Binary)
 		{
 			[BinaryTacOp.And] = "and",
 			[BinaryTacOp.Or] = "or",
-			[BinaryTacOp.Divide] = "//",
 		};
 
 		private static readonly Dictionary<TypeCode, string> TypeHints = new Dictionary<TypeCode, string>
@@ -73,7 +72,7 @@ namespace Orion.Backend.Python
 
 			return reachable.Select(i =>
 			{
-				List<Code> rendered = Lowered.Run(i.St);
+				List<Code> rendered = Statements.Run(i.St);
 
 				HashSet<string> own =
 				[
@@ -103,48 +102,49 @@ namespace Orion.Backend.Python
 			}).ToList();
 		}
 
-		private sealed class Lowering : ScriptPrinter
+		private sealed class Printer : ScriptPrinter
 		{
 			protected override string Forever => "True";
 			protected override string End => string.Empty;
-			protected override string Not(StExpr condition) => $"not {Px(condition, ExprPrinter.UnaryPrec)}";
-			protected override string Expr(StExpr e) => Px(e);
+			protected override string Not(StExpr condition) => $"not {PrintExpr(condition, ExprPrinter.UnaryPrec)}";
+			protected override string Expr(StExpr e) => PrintExpr(e);
 			protected override string Name(DataSymbol symbol) => Python(symbol);
 			protected override string Tuple(string items) => items;
 			protected override string Discard => "_";
 			protected override string Func(string emitName) => Python(emitName);
 		}
 
-		private static readonly Lowering Lowered = new Lowering();
+		private static readonly Printer Statements = new Printer();
 
 		//`not` binds looser than a comparison and tighter than `and`, unlike C's `!`.
 		private const int NotPrec = 3;
 
-		private static string Px(StExpr e) => Px(e, 0);
+		private static string PrintExpr(StExpr e) => PrintExpr(e, 0);
 
-		private static string Px(StExpr e, int minPrec)
+		private static string PrintExpr(StExpr e, int minPrec)
 		{
 			switch (e)
 			{
 				case StLeaf l: return Python(l.Symbol);
 
 				case StIndex ix when ix.Container is PrimitiveTypeSymbol { Code: TypeCode.str }:
-					return $"str_at({Px(ix.Array)}, {Px(ix.Index)})";
+					return $"str_at({PrintExpr(ix.Array)}, {PrintExpr(ix.Index)})";
 
-				case StIndex ix: return $"{Px(ix.Array)}[{Px(ix.Index)}]";
-				case StMember m: return $"{Px(m.Instance)}.{m.Field}";
+				case StIndex ix: return $"{PrintExpr(ix.Array)}[{PrintExpr(ix.Index)}]";
+				case StMember m: return $"{PrintExpr(m.Instance)}.{m.Field}";
 				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner:
 				{
-					string s = $"not {Px(inner, ExprPrinter.UnaryPrec)}";
+					string s = $"not {PrintExpr(inner, ExprPrinter.UnaryPrec)}";
 					return NotPrec < minPrec ? $"({s})" : s;
 				}
+				//Python's `//` and `%` floor where C truncates toward zero, so an integer quotient or remainder is int_div or int_mod.
+				case StBin b when b.Op is BinaryTacOp.Divide or BinaryTacOp.Mod && Language.IsInteger(b.Type):
+					return $"{(b.Op == BinaryTacOp.Divide ? "int_div" : "int_mod")}({PrintExpr(b.Left)}, {PrintExpr(b.Right)})";
 				case StBin b:
 				{
 					int p = ExprPrinter.Prec(b.Op);
 					(int lp, int rp) = ExprPrinter.OperandPrec(b.Op);
-					//Float division is true division; everything else reads the table.
-					string op = b.Op == BinaryTacOp.Divide && b.Type is PrimitiveTypeSymbol { Code: TypeCode.f32 or TypeCode.f64 } ? "/" : BinaryOps[b.Op];
-					string s = $"{Px(b.Left, lp)} {op} {Px(b.Right, rp)}";
+					string s = $"{PrintExpr(b.Left, lp)} {BinaryOps[b.Op]} {PrintExpr(b.Right, rp)}";
 					//The cast wrapper brings its own parentheses, so the precedence guard is not needed on top.
 					if (ExprPrinter.NeedsMask(b.Op, b.Type) || ExprPrinter.NeedsNarrow(b.Op, b.Type))
 						return Cast(b.Type, s);
@@ -152,7 +152,7 @@ namespace Orion.Backend.Python
 				}
 				case StUn u:
 				{
-					string operand = Px(u.Operand, ExprPrinter.UnaryPrec);
+					string operand = PrintExpr(u.Operand, ExprPrinter.UnaryPrec);
 					string s = u.Op switch
 					{
 						UnaryTacOp.BitNot => $"~{operand}",
@@ -161,11 +161,11 @@ namespace Orion.Backend.Python
 					};
 					return ExprPrinter.NeedsMask(u.Op, u.Type) || ExprPrinter.NeedsNarrow(u.Op, u.Type) ? Cast(u.Type, s) : s;
 				}
-				case StCast c: return Cast(c.Target, Px(c.Value));
+				case StCast c: return Cast(c.Target, PrintExpr(c.Value));
 				//A wired block reads its ports off the state, so its call carries exactly that.
 				case StCall c when Netlist.Wired(c.Function): return $"{Language.Mangled(c.Function.EmitName)}({Solver.StateName})";
-				case StCall c: return $"{Language.Mangled(c.Function.EmitName)}({string.Join(", ", c.Args.Select((a, i) => ExprPrinter.CopyArgument(c.Function, i, Px(a))))})";
-				default: throw new NotImplementedException($"Python Px: {e.GetType().Name}");
+				case StCall c: return $"{Language.Mangled(c.Function.EmitName)}({string.Join(", ", c.Args.Select((a, i) => ExprPrinter.CopyArgument(c.Function, i, PrintExpr(a))))})";
+				default: throw new NotImplementedException($"Python PrintExpr: {e.GetType().Name}");
 			}
 		}
 
@@ -221,7 +221,7 @@ namespace Orion.Backend.Python
 						case PrimitiveTypeSymbol p when p.Code == TypeCode.str:
 							return Spelling.Quote(lit.Value as string, Spelling.Controls.Hex);
 
-						case PrimitiveTypeSymbol p when p.Code == TypeCode.f32 || p.Code == TypeCode.f64:
+						case PrimitiveTypeSymbol p when Language.IsFloat(p):
 							return Spelling.Float(Convert.ToDouble(lit.Value));
 
 						case PrimitiveTypeSymbol p:

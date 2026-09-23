@@ -272,6 +272,14 @@ def cast_u32(v) -> int:
 def cast_u64(v) -> int:
 	return _wrap(int(v), 64, False)
 
+#Integer `/` and `%` truncate toward zero, as C's do; Python's `//` and `%` floor, which differs once an operand is negative.
+def int_div(a: int, b: int) -> int:
+	q = abs(a) // abs(b)
+	return q if (a < 0) == (b < 0) else -q
+
+def int_mod(a: int, b: int) -> int:
+	return a - b * int_div(a, b)
+
 #Python has one float type, so f32 rounds through a prepared single; every f32 operation lands here, so the format is parsed once.
 _single = struct.Struct("f")
 def cast_f32(v) -> float:

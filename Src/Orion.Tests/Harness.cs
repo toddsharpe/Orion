@@ -24,7 +24,7 @@ namespace Orion.Tests
 		internal static CompilerResult CompileTesting(string main, params (string Name, string Contents)[] files) =>
 			CompileTo(BackendLanguage.Cpp, main, null, files, null, false, true);
 
-		//As above with the C++ surface header: the CLI names it after the output, so a test asking for one has to say what it is called.
+		//As above with the C++ header: the CLI names it after the output, so a test asking for one has to say what it is called.
 		internal static CompilerResult CompileWithHeader(string header, string main, params (string Name, string Contents)[] files) =>
 			CompileTo(BackendLanguage.Cpp, main, header, files);
 

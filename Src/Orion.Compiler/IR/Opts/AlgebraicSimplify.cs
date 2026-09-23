@@ -2,7 +2,6 @@ using Orion.Diagnostics;
 using Orion.Symbols;
 using System.Collections.Generic;
 using System;
-using TypeCode = Orion.Symbols.TypeCode;
 
 namespace Orion.IR.Opts
 {
@@ -17,10 +16,10 @@ namespace Orion.IR.Opts
 			{
 				if (node.Value is not BinaryTac bin)
 					continue;
-				if (bin.Result.Type is not PrimitiveTypeSymbol rp || !(IsInt(rp.Code) || IsFloat(rp.Code)))
+				if (!Language.IsNumeric(bin.Result.Type))
 					continue;
 
-				DataSymbol repl = Reduce(bin, IsInt(rp.Code));
+				DataSymbol repl = Reduce(bin, Language.IsInteger(bin.Result.Type));
 				if (repl == null)
 					continue;
 
@@ -30,16 +29,11 @@ namespace Orion.IR.Opts
 			}
 		}
 
-		private static bool IsInt(TypeCode c) => c is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64
-			or TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64;
-
-		private static bool IsFloat(TypeCode c) => c is TypeCode.f32 or TypeCode.f64;
-
 		//A numeric literal's value as a double, enough to test it against 0 and 1.
 		private static bool NumLit(DataSymbol s, out double v)
 		{
 			v = 0;
-			if (s is LiteralSymbol l && l.Type is PrimitiveTypeSymbol p && (IsInt(p.Code) || IsFloat(p.Code)))
+			if (s is LiteralSymbol l && Language.IsNumeric(l.Type))
 			{
 				v = Convert.ToDouble(l.Value);
 				return true;

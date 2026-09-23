@@ -23,9 +23,6 @@ namespace Orion.Frontend
 	//What the declarations say about a type. Read from the AST, so it is answerable before Binding.
 	public sealed class TypeFacts
 	{
-		//The compile's facts, built once from the unit; a fold site puts this in its FoldEnv.
-		public static TypeFacts Current { get => Compiler.Session.TypeFacts; set => Compiler.Session.TypeFacts = value; }
-
 		private readonly Dictionary<string, HashSet<string>> _structs = new Dictionary<string, HashSet<string>>();
 		private readonly Dictionary<string, HashSet<string>> _enums = new Dictionary<string, HashSet<string>>();
 		private readonly HashSet<string> _aliases = new HashSet<string>();

@@ -17,11 +17,16 @@ namespace Orion
 		//`Function::Get` -> `Function_Get`, for the places that need an ordinary identifier.
 		public static string Mangled(string name) => name.Replace("::", "_");
 
+		//The integer and float families, each spelled once; an alias or a measured type is in the family of the code it carries.
+		internal static bool IsSigned(TypeCode code) => code is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64;
+		internal static bool IsSigned(TypeSymbol type) => type is PrimitiveTypeSymbol p && IsSigned(p.Code);
+		internal static bool IsUnsigned(TypeSymbol type) => type is PrimitiveTypeSymbol { Code: TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64 };
+		internal static bool IsInteger(TypeSymbol type) => IsSigned(type) || IsUnsigned(type);
+		internal static bool IsFloat(TypeSymbol type) => type is PrimitiveTypeSymbol { Code: TypeCode.f32 or TypeCode.f64 };
+		internal static bool IsNumeric(TypeSymbol type) => IsInteger(type) || IsFloat(type);
+
 		//The types a cast accepts: the numeric widths, and an enum, which is an integer with named values. bool and str have no width.
-		internal static bool IsCastable(TypeSymbol type) =>
-			type is EnumTypeSymbol
-				|| (type as PrimitiveTypeSymbol)?.Code is TypeCode.i8 or TypeCode.i16 or TypeCode.i32 or TypeCode.i64
-					or TypeCode.u8 or TypeCode.u16 or TypeCode.u32 or TypeCode.u64 or TypeCode.f32 or TypeCode.f64;
+		internal static bool IsCastable(TypeSymbol type) => type is EnumTypeSymbol || IsNumeric(type);
 
 		//The one spelling of "returns nothing"; an alias of void matches too, since AliasTypeSymbol is a PrimitiveTypeSymbol carrying its code.
 		internal static bool IsVoid(TypeSymbol type) => type is PrimitiveTypeSymbol { Code: TypeCode.@void };

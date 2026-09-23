@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace Orion.Backend.Render
 {
-	//The StCtrl-to-Code walk all four targets share; a target supplies the surface tokens and how a whole value is stored.
+	//The StCtrl-to-Code walk all four targets share; a subclass supplies the target's tokens and how a whole value is stored.
 	internal abstract class StmtPrinter
 	{
 		protected abstract string Forever { get; }

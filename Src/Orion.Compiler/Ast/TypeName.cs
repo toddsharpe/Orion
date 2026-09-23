@@ -22,7 +22,7 @@ namespace Orion.Ast
 		public string GenericType { get; set; }
 		internal bool IsGeneric => Generics != null;
 		internal List<TypeName> Generics { get; set; }
-		//`pack<$(t)>`: a build-time Type value standing where a type goes, until CodeBuiltins fills it in.
+		//`pack<${t}>`: a build-time Type value standing where a type goes, until CodeBuiltins fills it in.
 		internal Expression Hole { get; set; }
 		//`f64<m/s>`: the measure as the parser canonicalized it, and the primitive carrying it.
 		public string Measure { get; set; }

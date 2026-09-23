@@ -23,7 +23,7 @@ namespace Orion.Tests.IR
 			List<Message> messages = new List<Message>();
 			Desugar.Run(tu, messages);
 			SymbolTable root = GlobalTable.Create();
-			Binding.BindAst(tu, root, messages);
+			Binding.BindAst(tu, root, Compiler.Session, messages);
 			Assert.IsFalse(messages.Any(i => i.Type == MessageType.Error), string.Join("\n", messages.Select(i => i.Text)));
 
 			Function main = tu.Blocks.OfType<Function>().Single();

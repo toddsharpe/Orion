@@ -106,7 +106,7 @@ namespace Orion.IR
 				Subscript x => Tacs(x, ctx),
 				MemberAccess x => Tacs(x, ctx),
 				ArrayExpr x => Tacs(x, ctx),
-				StructExpr x => Tacs(x, ctx),
+				StructExpr x => Tacs(x, null, ctx),
 				ArgsExpr x => Tacs(x, ctx),
 				BinaryOp x => Tacs(x, ctx),
 				UnaryOp x => Tacs(x, ctx),
@@ -118,23 +118,23 @@ namespace Orion.IR
 				Assign x => Tacs(x, ctx),
 				Construct x => Tacs(x, ctx),
 
-				Assignment x => Tacs(x, ctx),
+				Assignment x => Tacs(x.Init, ctx),
 				ConstDef x => Tacs(x, ctx),
-				Ast.Exec x => Tacs(x, ctx),
+				Ast.Exec x => Tacs(x.Expression, ctx),
 				If x => Tacs(x, ctx),
 				IfElse x => Tacs(x, ctx),
 				For x => Tacs(x, ctx),
 				While x => Tacs(x, ctx),
 				DoWhile x => Tacs(x, ctx),
 				Ast.Switch x => Tacs(x, ctx),
-				Break x => Tacs(x, ctx),
-				Continue x => Tacs(x, ctx),
-				Return x => Tacs(x, ctx),
+				Break => ctx.Loops.Count > 0 ? [new GotoTac(ctx.Loops.Peek().Break)] : [],
+				Continue => ctx.Loops.Count > 0 && ctx.Loops.Peek().Continue != null ? [new GotoTac(ctx.Loops.Peek().Continue)] : [],
+				Return x => Tacs(x.Ret, ctx),
 				Scope x => Tacs(x, ctx),
-				Group x => Tacs(x, ctx),
+				Group x => [.. x.Statements.SelectMany(i => Tacs(i, ctx))],
 
 				ReturnExpr x => Tacs(x, ctx),
-				ReturnVoid x => Tacs(x, ctx),
+				ReturnVoid => [new ReturnVoidTac()],
 
 				Parameter or Struct or Enum or Const or Using => [],
 
@@ -232,43 +232,36 @@ namespace Orion.IR
 			];
 		}
 
+		//Each element is stored as soon as it is evaluated, which keeps a call's temp beside its store; no element can read the aggregate being built, a temp or a declaration.
 		private static List<Tac> Tacs(ArrayExpr expr, LowerContext ctx)
 		{
 			Trace.Assert(expr.Symbol != null);
 
-			List<Tac> elements = [.. expr.Elements.SelectMany(i => Tacs(i, ctx))];
-
 			return
 			[
-				.. elements,
-				.. expr.Elements.Select((item, idx) => new AssignTac(expr.Destinations[idx], item.Symbol)),
+				.. expr.Elements.SelectMany((item, idx) => Tacs(item, ctx).Append(new AssignTac(expr.Destinations[idx], item.Symbol))),
 				new DataTac(expr.Symbol)
 			];
 		}
-
-		private static List<Tac> Tacs(StructExpr expr, LowerContext ctx) => Tacs(expr, null, ctx);
 
 		private static List<Tac> Tacs(StructExpr expr, DataSymbol destination, LowerContext ctx)
 		{
 			DataSymbol into = destination ?? expr.Symbol;
 			Trace.Assert(into != null);
 
-			List<Tac> fields = [.. expr.Fields.SelectMany(i => Tacs(i.Value, ctx))];
-
 			StructTypeSymbol structType = into.Type as StructTypeSymbol;
 			NamedDataSymbol instance = into as NamedDataSymbol;
 
 			return
 			[
-				.. fields,
 				new NewTac(instance),
-				.. expr.Fields.Select(i =>
+				.. expr.Fields.SelectMany(i =>
 				{
 					TypeSymbol destType = structType.Fields.Single(j => i.Key == j.Name).Type;
 					FieldDataSymbol dest = new FieldDataSymbol(i.Key, destType, instance);
 					dest.Hosted = structType.Hosted.GetField(i.Key);
 
-					return new AssignTac(dest, i.Value.Symbol);
+					return Tacs(i.Value, ctx).Append(new AssignTac(dest, i.Value.Symbol));
 				}),
 				new DataTac(into)
 			];
@@ -278,19 +271,11 @@ namespace Orion.IR
 		{
 			Trace.Assert(expr.Symbol != null);
 
-			List<Tac> fields = [.. expr.Fields.SelectMany(i => Tacs(i.Value, ctx))];
-
-			ArgsTypeSymbol structType = expr.Symbol.Type as ArgsTypeSymbol;
 			NamedDataSymbol instance = expr.Symbol as NamedDataSymbol;
 
 			return
 			[
-				.. fields,
-				.. expr.Fields.Select(i =>
-				{
-					FieldDataSymbol dest = new FieldDataSymbol(i.Key, i.Value.Symbol.Type, instance);
-					return new AssignTac(dest, i.Value.Symbol);
-				}),
+				.. expr.Fields.SelectMany(i => Tacs(i.Value, ctx).Append(new AssignTac(new FieldDataSymbol(i.Key, i.Value.Symbol.Type, instance), i.Value.Symbol))),
 				new DataTac(expr.Symbol)
 			];
 		}
@@ -356,22 +341,15 @@ namespace Orion.IR
 
 			switch (expr.Op)
 			{
+				//The stepped value is written back by an assignment, which every store target takes; a postfix expression's value is the operand from before the step.
 				case AstOp.Increment:
 				case AstOp.Decrement:
 				{
-					Tac tempTac = new AssignTac(expr.Symbol as NamedDataSymbol, expr.Operand1.Symbol);
+					NamedDataSymbol target = expr.Operand1.Symbol as NamedDataSymbol;
+					if (expr is PostfixOp postfix)
+						return [.. operand, new AssignTac(postfix.Symbol as NamedDataSymbol, target), new UnaryTac(UnaryOps[expr.Op], postfix.Stepped, target), new AssignTac(target, postfix.Stepped)];
 
-					Tac tac = new UnaryTac(UnaryOps[expr.Op], expr.Symbol as NamedDataSymbol, expr.Operand1.Symbol);
-
-					Tac writebackTac = new AssignTac(expr.Operand1.Symbol as NamedDataSymbol, expr.Symbol);
-
-					return
-						[
-							.. operand,
-							tempTac,
-							tac,
-							writebackTac
-						];
+					return [.. operand, new UnaryTac(UnaryOps[expr.Op], expr.Symbol as NamedDataSymbol, target), new AssignTac(target, expr.Symbol)];
 				}
 
 				case AstOp.Subtract:
@@ -499,8 +477,6 @@ namespace Orion.IR
 				];
 		}
 
-		private static List<Tac> Tacs(Assignment statement, LowerContext ctx) => Tacs(statement.Init, ctx);
-
 		private static List<Tac> Tacs(ConstDef statement, LowerContext ctx)
 		{
 			Trace.Assert(statement.Symbol != null);
@@ -513,8 +489,6 @@ namespace Orion.IR
 					new AssignTac(statement.Symbol, statement.Value.Symbol, true)
 				];
 		}
-
-		private static List<Tac> Tacs(Ast.Exec statement, LowerContext ctx) => Tacs(statement.Expression, ctx);
 
 		private static List<Tac> Tacs(If statement, LowerContext ctx)
 		{
@@ -645,8 +619,6 @@ namespace Orion.IR
 			];
 		}
 
-		private static List<Tac> Tacs(Return statement, LowerContext ctx) => Tacs(statement.Ret, ctx);
-
 		private static List<Tac> Tacs(Ast.Switch statement, LowerContext ctx)
 		{
 			LabelTac end = ctx.NewLabel();
@@ -683,12 +655,6 @@ namespace Orion.IR
 			return tacs;
 		}
 
-		private static List<Tac> Tacs(Break statement, LowerContext ctx) =>
-			ctx.Loops.Count > 0 ? [new GotoTac(ctx.Loops.Peek().Break)] : [];
-
-		private static List<Tac> Tacs(Continue statement, LowerContext ctx) =>
-			ctx.Loops.Count > 0 && ctx.Loops.Peek().Continue != null ? [new GotoTac(ctx.Loops.Peek().Continue)] : [];
-
 		private static List<Tac> Tacs(Scope statement, LowerContext ctx)
 		{
 			return [
@@ -715,9 +681,6 @@ namespace Orion.IR
 				];
 		}
 
-		private static List<Tac> Tacs(Group statement, LowerContext ctx) =>
-			[.. statement.Statements.SelectMany(i => Tacs(i, ctx))];
-
 		private static List<Tac> Tacs(ReturnExpr ret, LowerContext ctx)
 		{
 			Trace.Assert(ret.Value.Symbol != null);
@@ -730,7 +693,5 @@ namespace Orion.IR
 					new ReturnSymTac(ret.Value.Symbol)
 				];
 		}
-
-		private static List<Tac> Tacs(ReturnVoid ret, LowerContext ctx) => [new ReturnVoidTac()];
 	}
 }

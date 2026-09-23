@@ -46,14 +46,14 @@ namespace Orion.Backend.Passes
 			return dropped.Count;
 		}
 
-		internal static bool Surfaced(IEnumerable<FunctionSymbol> functions) =>
+		internal static bool AnyExported(IEnumerable<FunctionSymbol> functions) =>
 			functions.OfType<SourceFunctionSymbol>().Any(i => i.IsExport && !i.IsScaffolding);
 
 		private static HashSet<FunctionSymbol> Reachable(SymbolTable root)
 		{
 			List<FunctionSymbol> functions = [.. root.Traverse().SelectMany(i => i.GetAll<FunctionSymbol>()).Distinct()];
 
-			if (!Surfaced(functions))
+			if (!AnyExported(functions))
 				return [.. functions];
 
 			HashSet<FunctionSymbol> seen = [.. functions.OfType<SourceFunctionSymbol>().Where(i => i.IsExport)];

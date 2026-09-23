@@ -54,7 +54,7 @@ namespace Orion
 		//The header's companion holding the exported types alone, so two programs' types can share a translation unit; null with no header.
 		public string TypesName { get; set; }
 
-		//The output's basename: what the C# backend names its class for, so `Services.cs` holds `class Services`. Null is `Program`.
+		//The output's basename, which names the C# backend's namespace: a library written to `Services.cs` is `Services.Program`. Null, or a runtime `main`, is namespace `Program`.
 		public string ProgramName { get; set; }
 	}
 
@@ -139,7 +139,7 @@ namespace Orion
 		}
 
 		//An analysis carries only the unit and the root the pre-pass rows touch, on the session its caller started.
-		public Compilation(TranslationUnit unit, SymbolTable root) : this(new CompilerOptions(), Compiler.Session)
+		public Compilation(TranslationUnit unit, SymbolTable root, CompileSession session) : this(new CompilerOptions(), session)
 		{
 			Unit = unit;
 			Root = root;

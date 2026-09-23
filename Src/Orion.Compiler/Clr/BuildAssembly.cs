@@ -107,7 +107,7 @@ namespace Orion.Clr
 			return func.Builder.GetILGenerator();
 		}
 
-		//The type before any field: a builder is already a Type, so a field may name it. See Docs/Compiler.md.
+		//The type before any field: every struct is begun before any is completed, and a builder is already a Type, so a field may name a struct declared after its own.
 		public static void Begin(StructTypeSymbol @struct)
 		{
 			//A class, not a ValueType: the copy below is what gives value semantics. See Docs/Language.md.
@@ -264,7 +264,7 @@ namespace Orion.Clr
 			return type.CreateType();
 		}
 
-		//Every writable parameter takes a reference, including types already CLR references: a field or element write would reach the caller anyway, but assigning the parameter WHOLE rebinds the local, and the assignment site cannot tell the two apart (Docs/BuildTime.md).
+		//Every writable parameter takes a reference, including types already CLR references: a field or element write would reach the caller anyway, but assigning the parameter WHOLE rebinds the local, and the assignment site cannot tell the two apart.
 		public static bool IsByRef(ParamDataSymbol parameter) => parameter.Direction.IsWritable();
 
 		public static MethodBuilder Define(SourceFunctionSymbol func)

@@ -201,7 +201,7 @@ namespace Orion.Frontend.Binder
 				if (name == null)
 					continue;
 
-				if (!current.TryGetConst(name, out LiteralSymbol constant) || !IsIntegerType(constant.Type))
+				if (!current.TryGetConst(name, out LiteralSymbol constant) || !Language.IsInteger(constant.Type))
 				{
 					ctx.Messages.Add(new Message(
 						$"{Where(ctx)}: {what} extent `{name}` does not name an integer constant; " +

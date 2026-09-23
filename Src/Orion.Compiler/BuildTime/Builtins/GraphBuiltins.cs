@@ -3,6 +3,7 @@ using Orion.Diagrams;
 namespace Orion.BuildTime.Builtins
 {
 	//The Graph:: builtins: build a diagram node by node, then render it as Graphviz DOT for Output::Write.
+	[BuildOnly]
 	public static class GraphBuiltins
 	{
 		public static Graph New(string name, bool leftToRight = false)

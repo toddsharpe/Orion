@@ -14,11 +14,11 @@ namespace Orion.Frontend
 			"An #if condition may name a -D define, a #param of a block, a type parameter of a generic, or a literal.";
 
 		//Folds every plain body against the -D defines; a template's body waits for the values its own site supplies.
-		public static void Run(TranslationUnit tu, List<Message> messages)
+		public static void Run(TranslationUnit tu, CompileSession session, List<Message> messages)
 		{
-			//Built once per compile and published: the Monomorphizer's folds and every build-time fold read the same facts.
-			TypeFacts.Current = TypeFacts.From(tu);
-			FoldEnv env = new FoldEnv { Values = Defines(), Facts = TypeFacts.Current, UndefinedIsFalse = true };
+			//Built once per compile and kept on the session: the Monomorphizer's folds and every build-time fold read the same facts.
+			session.TypeFacts = TypeFacts.From(tu);
+			FoldEnv env = new FoldEnv { Values = Defines(session), Facts = session.TypeFacts, UndefinedIsFalse = true };
 
 			foreach (Function function in tu.Blocks.OfType<Function>())
 			{
@@ -30,14 +30,8 @@ namespace Orion.Frontend
 		}
 
 		//The compile's -D defines as literals, parsed once per session; a bare define is `true`.
-		public static Dictionary<string, Literal> Defines()
-		{
-			CompileSession session = Compiler.Session;
-			if (session == null)
-				return new Dictionary<string, Literal>();
-
-			return session.ParsedDefines ??= Parse(session.Defines);
-		}
+		public static Dictionary<string, Literal> Defines(CompileSession session) =>
+			session.ParsedDefines ??= Parse(session.Defines);
 
 		private static Dictionary<string, Literal> Parse(IEnumerable<string> raw)
 		{
@@ -109,12 +103,12 @@ namespace Orion.Frontend
 		}
 
 		//Chooses every file-scope #if against the -D defines alone: the facts come from the very blocks being chosen.
-		public static List<FileBlock> FoldBlocks(List<FileBlock> blocks, List<Message> messages)
+		public static List<FileBlock> FoldBlocks(List<FileBlock> blocks, CompileSession session, List<Message> messages)
 		{
 			if (!blocks.OfType<StaticIfBlock>().Any())
 				return blocks;
 
-			FoldEnv env = new FoldEnv { Values = Defines(), UndefinedIsFalse = true };
+			FoldEnv env = new FoldEnv { Values = Defines(session), UndefinedIsFalse = true };
 			List<FileBlock> folded = new List<FileBlock>();
 			foreach (FileBlock block in blocks)
 			{
@@ -126,7 +120,7 @@ namespace Orion.Frontend
 
 				bool? taken = Taken(sif.Clause, sif.Region, env, messages);
 				List<FileBlock> chosen = taken == null ? [] : taken.Value ? sif.Body : sif.ElseBody;
-				folded.AddRange(FoldBlocks(chosen, messages));
+				folded.AddRange(FoldBlocks(chosen, session, messages));
 			}
 
 			return folded;

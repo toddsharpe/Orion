@@ -57,9 +57,6 @@ namespace Orion.IR.Opts
 				}
 			}
 
-			static IEnumerable<NamedDataSymbol> Writes(Tac t) =>
-				t.GetReadersWriters().Writes.OfType<NamedDataSymbol>();
-
 			Dictionary<string, NamedDataSymbol> avail = new Dictionary<string, NamedDataSymbol>();
 
 			void Invalidate(NamedDataSymbol w)
@@ -98,7 +95,7 @@ namespace Orion.IR.Opts
 					replaced = true;
 				}
 
-				List<NamedDataSymbol> writes = Writes(node.Value).ToList();
+				List<NamedDataSymbol> writes = [.. node.Value.GetReadersWriters().Writes.OfType<NamedDataSymbol>()];
 				foreach (NamedDataSymbol w in writes)
 					Invalidate(w);
 

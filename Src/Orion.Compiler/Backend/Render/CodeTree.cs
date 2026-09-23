@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Orion.Backend.Render
 {
-	//Traversal and rewrite over the lowered backend tree; immutable records, so a rewrite rebuilds.
+	//Traversal and rewrite over the rendered Code tree; immutable records, so a rewrite rebuilds.
 	internal static class CodeTree
 	{
 		internal static IEnumerable<Code> Children(this Code node) => node switch
@@ -41,17 +41,14 @@ namespace Orion.Backend.Render
 			DoLoopCode x => [x.Condition],
 			ForCode x => [x.Init, x.Condition, x.Step],
 			SwitchCode x => new[] { x.Clause }.Concat((x.Cases ?? []).Select(i => i.Value)),
-			_ => Enumerable.Empty<string>()
+			_ => throw new NotImplementedException($"CodeTree.OwnText: {node.GetType().Name}")
 		};
 
 		//Rewrite is bottom-up, rebuilding each node whose children changed.
-		internal static Code Rewrite(this Code node, Func<Code, Code> f) => f(RewriteChildren(node, f));
+		internal static Code Rewrite(this Code node, Func<Code, Code> f) => f(WithBodies(node, body => body.Rewrite(f)));
 
 		internal static List<Code> Rewrite(this List<Code> body, Func<Code, Code> f) =>
 			body?.Select(i => i.Rewrite(f)).ToList();
-
-		private static Code RewriteChildren(Code node, Func<Code, Code> f) =>
-			WithBodies(node, body => body.Rewrite(f));
 
 		//The node rebuilt with f over each body it holds, its own text untouched; a leaf and a null body come back as they are.
 		internal static Code WithBodies(Code node, Func<List<Code>, List<Code>> f)
@@ -66,7 +63,8 @@ namespace Orion.Backend.Render
 				DoLoopCode x => new DoLoopCode(Map(x.Body), x.Condition),
 				ForCode x => new ForCode(x.Init, x.Condition, x.Step, Map(x.Body)),
 				SwitchCode x => x with { Cases = x.Cases?.Select(i => i with { Body = Map(i.Body) }).ToList(), Default = Map(x.Default) },
-				_ => node
+				Line or CodeBlock => node,
+				_ => throw new NotImplementedException($"CodeTree.WithBodies: {node.GetType().Name}")
 			};
 		}
 	}

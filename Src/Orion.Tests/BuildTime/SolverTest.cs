@@ -17,8 +17,10 @@ namespace Orion.Tests.BuildTime
 		private static ParamDataSymbol Out(string net) => new ParamDataSymbol(net, I32, ParamDirection.Out) { Net = net };
 		private static ParamDataSymbol In(string name, string net) => new ParamDataSymbol(name, I32, ParamDirection.In) { Net = net };
 
+		//A wiring report reads its region from the session's build context, so each test starts one.
 		private static List<Message> Solve(params SourceFunctionSymbol[] blocks)
 		{
+			Compiler.StartSession();
 			List<Message> messages = new List<Message>();
 			new Solver(new List<SourceFunctionSymbol>(blocks), null).Solve(messages);
 			return messages;

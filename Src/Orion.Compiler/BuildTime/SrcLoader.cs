@@ -116,7 +116,7 @@ namespace Orion.BuildTime
 			TranslationUnit unit = new TranslationUnit { Blocks = blocks };
 
 			//The chain may declare generics: templates extract and calls instantiate before binding, as the compiler's table does.
-			Monomorphizer.ExpandIsolated(unit, messages);
+			Monomorphizer.ExpandIsolated(unit, Compiler.Session, messages);
 
 			//After expansion, so an instantiation the outer compile already bound is reused rather than redeclared.
 			unit.Blocks = unit.Blocks.Where(b => !Bound(root, b)).ToList();
@@ -144,9 +144,9 @@ namespace Orion.BuildTime
 
 		private static bool Gather(string entry, List<FileBlock> blocks, List<Message> messages)
 		{
-			foreach (CompilerFile file in Parsing.GatherAsts(entry, messages))
+			foreach (CompilerFile file in Parsing.GatherAsts(entry, Compiler.Session, messages))
 			{
-				Desugar.Run(file.Ast, messages);
+				Desugar.Run(file.Ast, Compiler.Session, messages);
 				blocks.AddRange(file.Ast.Blocks);
 			}
 

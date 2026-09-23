@@ -1,6 +1,6 @@
 namespace Orion.Tests.Backend
 {
-	//What `#export` puts in the C++ surface header and keeps out; Tests/Headers proves it by compiling a consumer, and this covers the same rules on a machine with no C++ toolchain.
+	//What `#export` puts in the C++ header and keeps out; Tests/Headers proves it by compiling a consumer, and this covers the same rules on a machine with no C++ toolchain.
 	[TestClass]
 	public class CppHeaderTest
 	{
@@ -15,7 +15,7 @@ namespace Orion.Tests.Backend
 		private static bool Defines(string text, string name) =>
 			System.Text.RegularExpressions.Regex.IsMatch(text, $@"struct {name}\r?\n\{{");
 
-		private const string Surface = @"
+		private const string Exports = @"
 #export enum Phase
 {
 	Idle,
@@ -57,9 +57,9 @@ i32 helper(i32 n)
 ";
 
 		[TestMethod]
-		public void TheHeaderCarriesTheExportedSurface()
+		public void TheHeaderCarriesTheExports()
 		{
-			CompilerResult result = Compile(Surface);
+			CompilerResult result = Compile(Exports);
 			result.AssertNoErrors();
 
 			//The header names its types companion and nothing else of the runtime: the companion carries the umbrella.
@@ -78,7 +78,7 @@ i32 helper(i32 n)
 		[TestMethod]
 		public void TheTypesCarryTheExportedTypesAlone()
 		{
-			CompilerResult result = Compile(Surface);
+			CompilerResult result = Compile(Exports);
 			result.AssertNoErrors();
 
 			StringAssert.Contains(result.TypesOutput, "#include <Orion.h>", "the umbrella include is missing.");
@@ -91,7 +91,7 @@ i32 helper(i32 n)
 		[TestMethod]
 		public void TheHeaderKeepsInternalsOut()
 		{
-			CompilerResult result = Compile(Surface);
+			CompilerResult result = Compile(Exports);
 			result.AssertNoErrors();
 
 			Assert.IsFalse(result.HeaderOutput.Contains("Scratch"), "an unexported struct reached the header.");
@@ -102,7 +102,7 @@ i32 helper(i32 n)
 		[TestMethod]
 		public void TheTranslationUnitIncludesTheHeaderRatherThanRepeatingIt()
 		{
-			CompilerResult result = Compile(Surface);
+			CompilerResult result = Compile(Exports);
 			result.AssertNoErrors();
 
 			StringAssert.Contains(result.CodeOutput, $"#include \"{HeaderName}\"", "the .cpp does not include its own header.");
@@ -115,9 +115,9 @@ i32 helper(i32 n)
 			StringAssert.Contains(result.CodeOutput, "Reading latest(i32 seed)", "the .cpp lost the definition itself.");
 		}
 
-		//A program that never said what its surface is has nothing for a consumer to include.
+		//A program that exports nothing has nothing for a consumer to include.
 		[TestMethod]
-		public void AProgramWithNoSurfaceGetsNoHeader()
+		public void AProgramWithNoExportsGetsNoHeader()
 		{
 			CompilerResult result = Compile(@"
 i32 main()

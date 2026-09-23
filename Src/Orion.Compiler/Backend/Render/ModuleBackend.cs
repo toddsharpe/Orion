@@ -26,6 +26,7 @@ namespace Orion.Backend.Render
 
 		protected abstract string Zero(TypeSymbol type);
 
+		//A function's handle, one per function, emitted whether or not `--rtti` is set.
 		protected abstract Declaration Rtti(SourceFunctionSymbol function);
 
 		protected abstract List<Function> CreateFunctions(SymbolTable root, List<SourceFunctionSymbol> reachable);
