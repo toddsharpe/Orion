@@ -49,7 +49,7 @@ namespace Orion.Frontend
 					.ToDictionary(i => i.Name),
 				SizeConsts = tu.Blocks.OfType<Const>()
 					.Where(i => i.Value is IntLiteral or TypedIntLiteral)
-					.Select(i => (i.Name, Value: Convert.ToInt64(i.Value.Boxed)))
+					.Select(i => (i.Name, Value: i.Value is IntLiteral bare ? bare.Value : ((TypedIntLiteral)i.Value).Value))
 					.Where(i => i.Value >= 0 && i.Value <= int.MaxValue)
 					.GroupBy(i => i.Name)
 					.ToDictionary(i => i.Key, i => (int)i.First().Value),
