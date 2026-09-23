@@ -51,6 +51,8 @@ namespace Orion.Frontend.Binder
 
 				if (code != null && code != elementType.Name)
 					ctx.Messages.Add(new Message($"{Where(ctx)}: Array element is {code} but the array is {elementType.Name}; the array's suffix types its elements.", literal.Region, MessageType.Error));
+				else if (elementType is PrimitiveTypeSymbol primitive && Misfit(element, primitive) is string misfit)
+					ctx.Messages.Add(new Message($"{Where(ctx)}: {misfit}", element.Region ?? literal.Region, MessageType.Error));
 			}
 
 			object unboxed = elementType switch
@@ -63,10 +65,10 @@ namespace Orion.Frontend.Binder
 				PrimitiveTypeSymbol { Code: TypeCode.i8 } => array.Select(i => unchecked((sbyte)Integer(i))).ToArray(),
 				PrimitiveTypeSymbol { Code: TypeCode.i16 } => array.Select(i => unchecked((short)Integer(i))).ToArray(),
 				PrimitiveTypeSymbol { Code: TypeCode.i32 } => array.Select(i => unchecked((int)Integer(i))).ToArray(),
-				PrimitiveTypeSymbol { Code: TypeCode.i64 } => array.Select(Integer).ToArray(),
+				PrimitiveTypeSymbol { Code: TypeCode.i64 } => array.Select(i => (long)Integer(i)).ToArray(),
 
-				PrimitiveTypeSymbol { Code: TypeCode.f32 } => array.Select(i => Convert.ToSingle(i.Boxed)).ToArray(),
-				PrimitiveTypeSymbol { Code: TypeCode.f64 } => array.Select(i => Convert.ToDouble(i.Boxed)).ToArray(),
+				PrimitiveTypeSymbol { Code: TypeCode.f32 } => array.Select(i => (float)Real(i)).ToArray(),
+				PrimitiveTypeSymbol { Code: TypeCode.f64 } => array.Select(Real).ToArray(),
 
 				PrimitiveTypeSymbol { Code: TypeCode.str } => array.Select(i => (string)i.Boxed).ToArray(),
 				StructTypeSymbol s => StructElements(ctx, array, s),
@@ -77,11 +79,16 @@ namespace Orion.Frontend.Binder
 			literal.Symbol = InternLiteral(current, nested, type, nested.Length);
 		}
 
-		private static long Integer(Literal literal)
+		//An element's number as written, since the array's suffix, not i32, is the type a bare element takes.
+		private static Int128 Integer(Literal literal) => literal switch
 		{
-			object value = literal.Boxed;
-			return value is ulong big ? unchecked((long)big) : Convert.ToInt64(value);
-		}
+			IntLiteral i => i.Value,
+			TypedIntLiteral i => i.Value,
+			_ => (Int128)Convert.ToDouble(literal.Boxed),
+		};
+
+		private static double Real(Literal literal) =>
+			literal is IntLiteral or TypedIntLiteral ? (double)Integer(literal) : Convert.ToDouble(literal.Boxed);
 
 		//The element type as written: the bracket form's element, else the name itself.
 		private static string WrittenElement(TypeName typeName) => typeName.IsArray ? typeName.ElementType : typeName.Name;
@@ -232,6 +239,13 @@ namespace Orion.Frontend.Binder
 
 		public static void VisitScalar(BindContext ctx, Literal literal)
 		{
+			TypeSymbol type = ScalarType(ctx, literal);
+			literal.Symbol = InternLiteral(ctx.Scoper.Peek(), literal.Boxed, type);
+		}
+
+		//A scalar literal's type, with a message when the value is not one the type holds.
+		private static TypeSymbol ScalarType(BindContext ctx, Literal literal)
+		{
 			SymbolTable current = ctx.Scoper.Peek();
 
 			TypeSymbol type = literal.TypeName.Measure != null
@@ -241,13 +255,50 @@ namespace Orion.Frontend.Binder
 			//A typedef or a measure stands for a primitive, so the literal boxes at that primitive's width.
 			if (type is PrimitiveTypeSymbol primitive)
 			{
+				if (Misfit(literal, primitive) is string misfit)
+					ctx.Messages.Add(new Message($"{Where(ctx)}: {misfit}", literal.Region, MessageType.Error));
+
 				if (literal is TypedIntLiteral suffixedInt)
 					suffixedInt.Code = primitive.Code.ToString();
 				else if (literal is TypedFloatLiteral suffixedFloat)
 					suffixedFloat.Code = primitive.Code.ToString();
 			}
 
-			literal.Symbol = InternLiteral(current, literal.Boxed, type);
+			return type;
+		}
+
+		//Why a number is not a value of its primitive, or null when it is: an integer past the width, a fraction in an integer, or a float past f32's largest.
+		private static string Misfit(Literal literal, PrimitiveTypeSymbol type)
+		{
+			double? real = literal switch { FloatLiteral f => f.Value, TypedFloatLiteral f => f.Value, _ => null };
+			Int128? whole = literal switch { IntLiteral i => i.Value, TypedIntLiteral i => i.Value, _ => null };
+
+			if (type.Code == TypeCode.f32 && real is double r && float.IsInfinity((float)r))
+				return $"{literal} does not fit in f32, whose largest value is {float.MaxValue}.";
+
+			if (!Language.IsInteger(type) || (whole == null && real == null))
+				return null;
+
+			if (real is double fraction && Math.Floor(fraction) != fraction)
+				return $"{literal} is not a whole number, and {type.Code} holds only whole numbers.";
+
+			Int128 value = whole ?? (Int128)real.Value;
+			(Int128 Min, Int128 Max) range = type.Code switch
+			{
+				TypeCode.i8 => (sbyte.MinValue, sbyte.MaxValue),
+				TypeCode.i16 => (short.MinValue, short.MaxValue),
+				TypeCode.i32 => (int.MinValue, int.MaxValue),
+				TypeCode.i64 => (long.MinValue, long.MaxValue),
+				TypeCode.u8 => (0, byte.MaxValue),
+				TypeCode.u16 => (0, ushort.MaxValue),
+				TypeCode.u32 => (0, uint.MaxValue),
+				_ => (0, ulong.MaxValue),
+			};
+			if (value >= range.Min && value <= range.Max)
+				return null;
+
+			string hint = literal is IntLiteral && type.Code == TypeCode.i32 ? " An unsuffixed integer is an i32, so a wider value needs a suffix such as :i64." : string.Empty;
+			return $"{literal} does not fit in {type.Code}, which holds {range.Min} to {range.Max}.{hint}";
 		}
 	}
 }

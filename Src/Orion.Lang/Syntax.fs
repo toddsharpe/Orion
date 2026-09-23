@@ -58,14 +58,14 @@ module Syntax =
         //#build const Digest d = f() - a build-time symbol, so it never reaches the backend.
         | Build
 
-    //A scalar constant. Aggregates are expressions, so the binder decides if they are constant.
+    //A scalar constant, an integer held exactly so the binder can refuse one its type cannot hold. Aggregates are expressions, so the binder decides if they are constant.
     type Literal =
         //"hello"
         | String of string
         //42
-        | Int of int
+        | Int of System.Int128
         //128:i64
-        | TypedInt of int64 * string
+        | TypedInt of System.Int128 * string
         //1.5
         | Float of float
         //1.5:f32

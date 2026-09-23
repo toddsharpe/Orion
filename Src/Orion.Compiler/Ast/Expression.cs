@@ -73,7 +73,7 @@ namespace Orion.Ast
 				},
 				Expr.Value value => new Value
 				{
-					Literal = Literal.Create(value.Item.Value),
+					Literal = Literal.Create(value.Item),
 					Region = InputRegion.Create(value.Item.Start, value.Item.End)
 				},
 				Expr.IdentifierName v => new Variable
@@ -103,7 +103,7 @@ namespace Orion.Ast
 					Region = InputRegion.Create(infix.Item1.Start, infix.Item3.End)
 				},
 				//`-1.5` is one number: the grammar reads the sign as a prefix operator, folded back here so everywhere wanting a LITERAL accepts a negative one.
-				Expr.PrefixOp prefix when prefix.Item1 == Op.Subtract && prefix.Item2.Value is Expr.Value operand && Negate(Literal.Create(operand.Item.Value)) is Literal negated =>
+				Expr.PrefixOp prefix when prefix.Item1 == Op.Subtract && prefix.Item2.Value is Expr.Value operand && Negate(Literal.Create(operand.Item)) is Literal negated =>
 					new Value
 					{
 						Literal = negated,

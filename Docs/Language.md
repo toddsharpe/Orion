@@ -27,8 +27,9 @@ File scope holds `#using`, `struct`, `enum`, `typedef`, `#measure`, `const`, `ex
 - `Func<A,R>`, `Action<A>`: a function as a value. `f64<m/s^2>`: a number carrying a measure.
 
 `List<T>`, `Map<K,V>`, `Type`, `Code`, `Function`, `Instance`, `Port`, `File`, `Graph`, `Solver` and
-`args` are build-only. Integers **wrap** at their width on every backend; floats are IEEE. A `str` is
-bytes: `s[i]` reads a `u8`, and `s[i] = c` assigns the string back.
+`args` are build-only. Integers **wrap** at their width on every backend, but a literal or constant
+its type cannot hold is an error; floats are IEEE. A `str` is bytes: `s[i]` reads a `u8`, and
+`s[i] = c` assigns the string back.
 
 ## Literals
 
@@ -104,8 +105,8 @@ struct or enum in the C++ header; `#build` keeps it to the build stage.
 ## Names and constants
 
 A nearer name hides a farther one: a parameter or local named like a file-scope `const` hides it. A
-file-scope `const` folds while binding from literals, earlier constants and operators; a result its
-type cannot hold is an error, not a wrap. One that calls a function is built instead.
+file-scope `const` folds while binding from literals, earlier constants and operators. One that calls
+a function is built instead.
 
 ## Built-in functions
 
