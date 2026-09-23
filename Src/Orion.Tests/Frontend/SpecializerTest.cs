@@ -202,6 +202,10 @@ void Block(
 			Assert.AreEqual("u32", unsigned.Code);
 			Assert.AreEqual((uint)7, unsigned.Boxed);
 
+			//A u64 past Int64.MaxValue folds whole, where converting it through an Int64 threw.
+			TypedIntLiteral top = (TypedIntLiteral)Specializer.ToLiteral(ulong.MaxValue, new TypeName { Name = "u64" });
+			Assert.AreEqual(ulong.MaxValue, top.Boxed);
+
 			//A type no suffix can spell keeps the value-directed fold.
 			Assert.IsInstanceOfType<StringLiteral>(Specializer.ToLiteral("x", new TypeName { Name = "str" }));
 			Assert.IsInstanceOfType<IntLiteral>(

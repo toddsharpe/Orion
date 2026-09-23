@@ -292,7 +292,7 @@ namespace Orion.Frontend
 			return value switch
 			{
 				sbyte or short or int or long or byte or ushort or uint or ulong =>
-					Suffixed(Convert.ToInt64(value), declared.Name),
+					Suffixed(Literal.Exact(value), declared.Name),
 				float or double =>
 					new TypedFloatLiteral { TypeName = declared, Code = declared.Name, Value = Convert.ToDouble(value) },
 				//bool, str and everything else spell one type each, so the declaration adds nothing.
@@ -300,7 +300,7 @@ namespace Orion.Frontend
 			};
 		}
 
-		private static Literal Suffixed(long value, string code) =>
+		private static Literal Suffixed(Int128 value, string code) =>
 			new TypedIntLiteral { TypeName = new TypeName { Name = code }, Code = code, Value = value };
 
 		//Evaluate a desugared interpolation (Value / Variable / __str(...) / a + b) with #param constants.
