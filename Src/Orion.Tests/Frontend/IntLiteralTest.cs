@@ -13,6 +13,16 @@ namespace Orion.Tests.Frontend
 			StringAssert.Contains(result.CodeOutput, "18446744073709551615ULL");
 		}
 
+		//Every file-scope integer constant is offered as a generic size, so one no Int64 holds must not be read as one.
+		[TestMethod]
+		public void AConstantPastInt64MaxCompiles()
+		{
+			CompilerResult result = Harness.Compile("const u64 TOP = 18446744073709551615:u64;\ni32 main()\n{\n\tWriteLine(to_str(TOP));\n\treturn 0;\n}\n");
+
+			result.AssertNoErrors();
+			StringAssert.Contains(result.CodeOutput, "18446744073709551615");
+		}
+
 		[TestMethod]
 		public void Int64MinIsSpelledAsArithmeticInCpp()
 		{
