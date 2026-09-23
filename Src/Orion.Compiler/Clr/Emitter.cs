@@ -16,12 +16,13 @@ namespace Orion.Clr
 		private static readonly MethodInfo StrAt = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_at));
 		private static readonly MethodInfo StrSet = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_set));
 
-		//One row per primitive element: the unsigned widths load as such but store through the signed opcode, which is all the CLR has.
+		//One row per primitive element: the unsigned widths load as such but store through the signed opcode, which is all the CLR has; u64 has no unsigned load either, and the i64 pair moves the same bits.
 		private static readonly Dictionary<TypeCode, (OpCode Load, OpCode Store)> ElementOps = new Dictionary<TypeCode, (OpCode Load, OpCode Store)>
 		{
 			[TypeCode.u8] = (OpCodes.Ldelem_U1, OpCodes.Stelem_I1),
 			[TypeCode.u16] = (OpCodes.Ldelem_U2, OpCodes.Stelem_I2),
 			[TypeCode.u32] = (OpCodes.Ldelem_U4, OpCodes.Stelem_I4),
+			[TypeCode.u64] = (OpCodes.Ldelem_I8, OpCodes.Stelem_I8),
 			[TypeCode.i8] = (OpCodes.Ldelem_I1, OpCodes.Stelem_I1),
 			[TypeCode.i16] = (OpCodes.Ldelem_I2, OpCodes.Stelem_I2),
 			[TypeCode.i32] = (OpCodes.Ldelem_I4, OpCodes.Stelem_I4),

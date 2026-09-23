@@ -1,0 +1,34 @@
+//u64 arrays hold all 64 bits on every backend and in the build: a literal, a zeroed array, stores, a compound add, a sum that wraps, and a #run.
+u64 total(ConstSpan<u64> xs)
+{
+	u64 sum = 0:u64;
+	for (const u64 x in xs)
+	{
+		sum += x;
+	}
+	return sum;
+}
+
+u64 top()
+{
+	u64[2] pair = [1:u64, 18446744073709551615:u64]:u64[2];
+	return pair[1];
+}
+
+i32 main()
+{
+	u64[3] a = [1:u64, 9223372036854775808:u64, 18446744073709551615:u64]:u64[3];
+	WriteLine($"literal {a[0]} {a[1]} {a[2]}");
+
+	u64[4] z;
+	z[1] = a[2];
+	z[2] += 5:u64;
+	z[3] = a[1] + a[1];
+	WriteLine($"zeroed {z[0]} {z[1]} {z[2]} {z[3]}");
+
+	WriteLine($"sum {total(a)}");
+
+	u64 built = #run top();
+	WriteLine($"build {built}");
+	return 0;
+}
