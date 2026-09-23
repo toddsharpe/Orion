@@ -13,6 +13,16 @@ namespace Orion.Tests.Frontend
 			StringAssert.Contains(result.CodeOutput, "18446744073709551615ULL");
 		}
 
+		//A default is kept as its CLR value and made a literal again at each call that omits it.
+		[TestMethod]
+		public void ADefaultPastInt64MaxCompiles()
+		{
+			CompilerResult result = Harness.Compile("u64 id(u64 x = 18446744073709551615:u64) { return x; }\ni32 main()\n{\n\tWriteLine(to_str(id()));\n\treturn 0;\n}\n");
+
+			result.AssertNoErrors();
+			StringAssert.Contains(result.CodeOutput, "18446744073709551615");
+		}
+
 		//Every file-scope integer constant is offered as a generic size, so one no Int64 holds must not be read as one.
 		[TestMethod]
 		public void AConstantPastInt64MaxCompiles()

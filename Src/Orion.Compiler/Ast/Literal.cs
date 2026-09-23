@@ -38,6 +38,9 @@ namespace Orion.Ast
 			}
 		}
 
+		//A CLR integer's exact value, as a literal holds it: a u64 past Int64.MaxValue included.
+		internal static Int128 Exact(object value) => value is ulong big ? big : Convert.ToInt64(value);
+
 		//A suffixed float as its width's CLR value, or an integer width's for `1e3:i32`.
 		internal static object Box(double value, string code) => code switch
 		{

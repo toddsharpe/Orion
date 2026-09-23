@@ -353,7 +353,7 @@ namespace Orion.BuildTime.Builtins
 			switch (value)
 			{
 				case sbyte or short or int or long or byte or ushort or uint or ulong:
-					return new Ast.Value { Literal = new Ast.TypedIntLiteral { Value = Convert.ToInt64(value), Code = code, TypeName = type }, Region = Env.Region };
+					return new Ast.Value { Literal = new Ast.TypedIntLiteral { Value = Ast.Literal.Exact(value), Code = code, TypeName = type }, Region = Env.Region };
 
 				case float or double:
 					return new Ast.Value { Literal = new Ast.TypedFloatLiteral { Value = Convert.ToDouble(value), Code = code, TypeName = type }, Region = Env.Region };

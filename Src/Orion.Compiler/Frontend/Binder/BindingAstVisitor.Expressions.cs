@@ -424,7 +424,7 @@ namespace Orion.Frontend.Binder
 				string text => new StringLiteral { TypeName = type, Value = text },
 				bool flag => new BoolLiteral { TypeName = type, Value = flag },
 				float or double => new TypedFloatLiteral { Value = Convert.ToDouble(formal.Default), Code = code, TypeName = type },
-				_ => new TypedIntLiteral { Value = Convert.ToInt64(formal.Default), Code = code, TypeName = type },
+				_ => new TypedIntLiteral { Value = Literal.Exact(formal.Default), Code = code, TypeName = type },
 			};
 
 			return new Value { Literal = literal, Region = region };
