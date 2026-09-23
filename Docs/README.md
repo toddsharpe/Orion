@@ -18,7 +18,7 @@ Each doc is under a five-minute read. Start wherever your question is.
 
 ## Where the truth is
 
-The corpus is the real specification: [Tests/](../Tests/) holds 183 programs, each paired with the
+The corpus is the real specification: [Tests/](../Tests/) holds 184 programs, each paired with the
 output every backend must print. Anything a doc claims, a case there proves.
 
 ```
