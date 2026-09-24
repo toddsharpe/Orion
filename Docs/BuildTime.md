@@ -80,13 +80,14 @@ the build knows.
 declaration says, so a generator packs a frame from a struct without restating its layout.
 
 **Files and text.** `File::Open`, `ReadLine`, `HasLine`, `ReadAll`; `Csv::Read<T>` (rows into structs);
-`Str::Split`; `Str::To(text, type)`, which reads text *at a type* so a config value cannot silently
-wrap; `str_md5`; `Time::Now`; `Define::Get` and `Define::Has`. Paths resolve against `--root`.
+`Str::Split`; `Str::To(text, type)`, which reads text *at a type*; `str_md5`; `Time::Now`;
+`Define::Get` and `Define::Has`. Paths resolve against `--root`.
 
 **Outputs.** `Output::Write(name, text)` files text below the output directory, and the CLI renders a
 `.dot` to PDF when Graphviz is installed. `Graph::New`, `Node` (`entry = true` outlines a start),
-`Edge` (`dashed = true` for feedback), `Cluster` and `Dot` draw one, and `Solver::Graph(solver)` is a
-netlist as one: `Output::Write("net.dot", Graph::Dot(Solver::Graph(solver)))`.
+`Edge` (`dashed = true` for feedback) and `Cluster` draw one; `Dot(g, remove)` renders it without
+`remove`'s nodes. `Solver::Graph(solver)` is a netlist, a node per block by name:
+`Output::Write("net.dot", Graph::Dot(Solver::Graph(solver), ["tx"]:List<str>))`.
 
 **Another source file.** `#src` compiles one into the live build and calls its `#build` entry:
 

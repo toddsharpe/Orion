@@ -1,4 +1,6 @@
 using Orion.Diagrams;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Orion.BuildTime.Builtins
 {
@@ -47,9 +49,31 @@ namespace Orion.BuildTime.Builtins
 			graph.Cluster(label, ids.Items);
 		}
 
-		public static string Dot(Graph graph)
+		//DOT for the graph without the nodes `remove` names, as a netlist names a block; an empty list keeps them all.
+		public static string Dot(Graph graph, BuildList<string> remove)
 		{
-			return Diagrams.Dot.Write(graph);
+			foreach (string id in remove.Items.Where(i => !graph.Has(i)))
+				Env.Report($"Graph '{graph.Name}' has no node '{id}'.");
+
+			return Diagrams.Dot.Write(Without(graph, [.. remove.Items]));
+		}
+
+		//A copy without the named nodes: their edges and places in clusters go too, as does an external source left feeding nothing.
+		private static Graph Without(Graph graph, HashSet<string> ids)
+		{
+			Graph kept = new Graph(graph.Name, graph.LeftToRight) { Concentrate = graph.Concentrate };
+			kept.Edges.AddRange(graph.Edges.Where(i => !ids.Contains(i.From) && !ids.Contains(i.To)));
+			kept.Nodes.AddRange(graph.Nodes.Where(i => !ids.Contains(i.Id)
+				&& (i.Kind != NodeKind.External || kept.Edges.Any(e => e.From == i.Id || e.To == i.Id))));
+
+			foreach (Cluster cluster in graph.Clusters)
+			{
+				List<string> members = [.. cluster.Ids.Where(i => !ids.Contains(i))];
+				if (members.Count > 0)
+					kept.Cluster(cluster.Label, members);
+			}
+
+			return kept;
 		}
 	}
 }
