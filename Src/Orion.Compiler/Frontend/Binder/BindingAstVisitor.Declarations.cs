@@ -419,7 +419,7 @@ namespace Orion.Frontend.Binder
 			{
 				ctx.Messages.Add(new Message(
 					$"Typedef {alias.Name} names `{named.Name}`, which is not a primitive. A typedef gives a " +
-					$"primitive's representation a name of its own; a struct already has one.",
+					$"primitive's representation a name of its own.",
 					alias.Region, MessageType.Error));
 				return;
 			}
@@ -524,11 +524,6 @@ namespace Orion.Frontend.Binder
 				Visit(ctx, measure);
 			}
 
-			foreach (TypeDef alias in tu.Blocks.OfType<TypeDef>())
-			{
-				Visit(ctx, alias);
-			}
-
 			foreach (Enum @enum in tu.Blocks.OfType<Enum>())
 			{
 				Visit(ctx, @enum);
@@ -539,6 +534,12 @@ namespace Orion.Frontend.Binder
 			foreach (Struct @struct in tu.Blocks.OfType<Struct>())
 			{
 				Declare(ctx, @struct);
+			}
+
+			//After the struct and enum names, so a typedef naming one is told it is not a primitive rather than that it is unknown.
+			foreach (TypeDef alias in tu.Blocks.OfType<TypeDef>())
+			{
+				Visit(ctx, alias);
 			}
 
 			//Scalar constants before the fields, so an extent can name one; struct- and array-valued ones after, since they may need the fields.

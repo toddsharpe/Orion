@@ -1,4 +1,6 @@
-﻿namespace Orion.Tests.Frontend
+﻿using System.Collections.Generic;
+
+namespace Orion.Tests.Frontend
 {
 	//`to_str(x)` stringifies without the call site naming the source type, becoming the same __str an interpolation hole produces, which binding resolves to a <type>_str builtin.
 	[TestClass]
@@ -80,13 +82,16 @@ i32 main()
 	WriteLine(to_str(v, v));").AssertError("Parse error");
 		}
 
-		//Only the primitives have a stringify builtin; the message must not say "interpolate" here.
+		//Only the primitives have a stringify builtin; the message must not say "interpolate" here, nor repeat as a stand-in's argument.
 		[TestMethod]
 		public void ToStrOfANonPrimitiveIsReported()
 		{
-			Compile(@"
+			List<string> errors = Compile(@"
 	i32[] a = [1, 2]:i32;
-	WriteLine(to_str(a));").AssertError("Cannot convert value of type");
+	WriteLine(to_str(a));").Errors();
+
+			Assert.AreEqual(1, errors.Count, string.Join(" | ", errors));
+			StringAssert.Contains(errors[0], "Cannot convert value of type");
 		}
 	}
 }

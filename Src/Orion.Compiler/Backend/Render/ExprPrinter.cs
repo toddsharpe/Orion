@@ -57,6 +57,15 @@ namespace Orion.Backend.Render
 		internal static bool NeedsMask(BinaryTacOp op, TypeSymbol type) =>
 			Language.IsInteger(type) && op is BinaryTacOp.Add or BinaryTacOp.Subtract or BinaryTacOp.Multiply or BinaryTacOp.ShiftLeft;
 
+		//The mask a shift count takes, as C#, JavaScript and the CLR shift: 31 up to 32 bits and 63 at 64; null for a literal count already inside it.
+		internal static int? CountMask(StBin shift)
+		{
+			int mask = shift.Type is PrimitiveTypeSymbol { Code: TypeCode.i64 or TypeCode.u64 } ? 63 : 31;
+			bool inside = shift.Right is StLeaf { Symbol: LiteralSymbol literal } && Language.IsInteger(literal.Type)
+				&& Convert.ToDecimal(literal.Value) is decimal n && n >= 0 && n <= mask;
+			return inside ? null : mask;
+		}
+
 		//`~x` and `-x` both leave the unsigned range, and ++/-- are an add in disguise.
 		internal static bool NeedsMask(UnaryTacOp op, TypeSymbol type) =>
 			Language.IsInteger(type) && op is UnaryTacOp.Negate or UnaryTacOp.BitNot or UnaryTacOp.Increment or UnaryTacOp.Decrement;

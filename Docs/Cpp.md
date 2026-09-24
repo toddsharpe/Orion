@@ -91,7 +91,8 @@ C++ renders through the shared statement walk, overriding its tokens and a few s
 | `Orion.h` | every tier, for hand-written code |
 
 Each host defines the two ABIs: `Windows.cpp` and `Linux.cpp` for the executives, the golden harness's
-`TestPlatform.cpp` for test programs, a real target over its own hardware. Floats print through
+`TestPlatform.cpp` for test programs, a real target over its own hardware. A shift count is masked,
+`(n & 31)` or `(n & 63)` at 64 bits, unless it is a literal inside the width. Floats print through
 `_float_str`, six significant figures and always a decimal point, which the other runtimes mirror.
 Integers wrap in hardware, the semantics the script targets emulate. The `f32` transcendentals narrow
 the `f64` result to agree bit-for-bit elsewhere; `ORION_FAST_F32` takes the native single-precision
