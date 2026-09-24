@@ -65,26 +65,24 @@ namespace Orion.Diagrams
 
 		private static string Millis(long ns) => $"{ns / 1000000.0:0.###}ms";
 
-		//The solver netlist: one ported node per block and an edge from each net's producer to its consumers, with an undriven #input shown as an external source so a wiring error is visible.
+		//The solver netlist: one ported node per block, its id the block's name, and an edge from each net's producer to its consumers, with an undriven #input shown as an external source so a wiring error is visible.
 		public static Graph Netlist(Solver solver)
 		{
 			Graph g = new Graph("Netlist", leftToRight: true) { Concentrate = true };
-			Dictionary<SourceFunctionSymbol, string> ids = new Dictionary<SourceFunctionSymbol, string>();
 
 			//net -> the block whose #output drives it
 			Dictionary<string, SourceFunctionSymbol> producer = new Dictionary<string, SourceFunctionSymbol>();
 			foreach (SourceFunctionSymbol f in solver.Blocks)
 			{
-				ids[f] = "s" + ids.Count;
-				Node node = g.Node(ids[f], f.Name + Rate(f));
+				Node node = g.Node(f.Name, f.Name + Rate(f));
 				node.Inputs = [.. f.Parameters.Where(p => p.Direction == ParamDirection.In && !string.IsNullOrEmpty(p.Net)).Select(p => p.Net)];
 				node.Outputs = [.. f.Parameters.Where(p => p.Direction == ParamDirection.Out && !string.IsNullOrEmpty(p.Net)).Select(p => p.Net)];
 				foreach (string net in node.Outputs)
 					producer[net] = f;
 			}
 
-			//An undriven net is one external source however many blocks read it.
-			Dictionary<string, string> external = new Dictionary<string, string>();
+			//An undriven net is one external source however many blocks read it, its id apart from every block's by a `:` no name has.
+			HashSet<string> external = new HashSet<string>();
 			foreach (SourceFunctionSymbol f in solver.Blocks)
 				foreach (ParamDataSymbol p in f.Parameters)
 				{
@@ -96,19 +94,16 @@ namespace Orion.Diagrams
 					if (producer.TryGetValue(root, out SourceFunctionSymbol prod))
 					{
 						//A `#prev` read is last cycle's value, so it draws as a dashed feedback edge.
-						Edge e = g.Edge(ids[prod], ids[f], p.Delayed ? "prev" : string.Empty, p.Delayed);
+						Edge e = g.Edge(prod.Name, f.Name, p.Delayed ? "prev" : string.Empty, p.Delayed);
 						e.FromPort = root;
 						e.ToPort = p.Net;
 					}
 					else
 					{
-						if (!external.TryGetValue(p.Net, out string src))
-						{
-							src = "x" + external.Count;
-							external[p.Net] = src;
+						string src = "net:" + p.Net;
+						if (external.Add(p.Net))
 							g.Node(src, p.Net, NodeKind.External);
-						}
-						g.Edge(src, ids[f]).ToPort = p.Net;
+						g.Edge(src, f.Name).ToPort = p.Net;
 					}
 				}
 

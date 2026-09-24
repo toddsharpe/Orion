@@ -342,7 +342,7 @@ void StateMachine(#param str name, #param str spec)
 		//Run the configuration program: `spec` is a #param, so the file is not known until this executes.
 		StateMachine m = #src spec machine();
 		sm_validate(m);
-		Output::Write($"{name}.dot", Graph::Dot(sm_graph(m, name)));
+		Output::Write($"{name}.dot", Graph::Dot(sm_graph(m, name), []:List<str>));
 
 		str stateEnum = $"{name}_State";
 		str cmdEnum = $"{name}_Cmd";
