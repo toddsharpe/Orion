@@ -157,7 +157,8 @@ namespace Orion.IR.Opts
 			{
 				if (right is not (sbyte or short or int or long or byte or ushort or uint or ulong))
 					return null;
-				count = (int)(Convert.ToInt64(right) & (width - 1));
+				//Masked at the 32 bits a narrower width is shifted in, as every target masks it.
+				count = (int)(Convert.ToInt64(right) & (width == 64 ? 63 : 31));
 			}
 			else if (!TryUnsigned(code, right, out b))
 			{

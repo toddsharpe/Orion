@@ -57,7 +57,9 @@ A Python keyword is not an identifier, so an enum member named `None` is written
 
 **Integers are unbounded**, so nothing wraps on its own. Each result that could leave its range — add,
 subtract, multiply, left shift, negate, `~`, `++`, `--` — is wrapped in `cast_i32(...)`, `cast_u8(...)`
-and the rest. A right shift, bitwise op, divide or modulo cannot, and is left alone.
+and the rest. A right shift, bitwise op, divide or modulo cannot, and is left alone. A shift count is
+masked, `(n & 31)` or `(n & 63)` unless it is a literal inside the width, where Python would shift by
+all of it and refuse a negative one.
 
 **Division** is `/` for floats. Python's `//` and `%` floor where C++ truncates, which only a negative
 operand can tell apart, so integer `/` and `%` call the runtime's `int_div` and `int_mod`: `-7 / 2` is

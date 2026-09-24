@@ -34,7 +34,7 @@ namespace Orion.Frontend.Binder
 				return Desugar.StrFunction(@enum.Name);
 
 			ctx.Messages.Add(new Message($"{Where(ctx)}: Cannot convert value of type {type.Name} to str.", region, MessageType.Error));
-			return $"{DefaultType}_str";
+			return null;
 		}
 
 		private static string InternalBuiltinHint(string name)
@@ -116,7 +116,7 @@ namespace Orion.Frontend.Binder
 			return method.Name;
 		}
 
-		//The name a call is looked up by: a `#insert` of a Code, a builtin receiver's method, `__str` and a math stem each name the function they reach; at most one applies.
+		//The name a call is looked up by, or null for a `__str` already refused: a `#insert` of a Code, a builtin receiver's method, `__str` and a math stem each name the function they reach; at most one applies.
 		private static string CalleeName(BindContext ctx, SymbolTable current, Call expr)
 		{
 			//`#insert x` became Build::AddBody before x's type was known; a Code x inserts through Code::Insert instead.
@@ -183,7 +183,17 @@ namespace Orion.Frontend.Binder
 
 			bool buildCall = buildContext || expr.IsBuildCall;
 
-			expr.Function = CalleeName(ctx, current, expr);
+			string resolved = CalleeName(ctx, current, expr);
+
+			//A refused stringify is still a str, so the text around it types without the refusal repeating as a stand-in's argument.
+			if (resolved == null)
+			{
+				expr.Symbol = ctx.NewTemp(current.Get<TypeSymbol>("str"));
+				current.Add(expr.Symbol);
+				return;
+			}
+
+			expr.Function = resolved;
 
 			FunctionTypeSymbol funcType = null;
 			bool unresolved = false;
@@ -749,6 +759,8 @@ namespace Orion.Frontend.Binder
 			bool isShift = expr.Op == AstOp.ShiftLeft || expr.Op == AstOp.ShiftRight;
 			if (!isShift && !Composes(expr) && expr.Operand1.Symbol.Type != expr.Operand2.Symbol.Type)
 				ctx.Messages.Add(new Message($"Invalid operand types ({expr.Operand1.Symbol.Type} != {expr.Operand2.Symbol.Type})", expr.Region, MessageType.Error));
+			else if (Uncompared(expr.Op, expr.Operand1.Symbol.Type) is string refused)
+				ctx.Messages.Add(new Message($"{Where(ctx)}: {refused}", expr.Region, MessageType.Error));
 
 			SymbolTable current = ctx.Scoper.Peek();
 
@@ -831,6 +843,22 @@ namespace Orion.Frontend.Binder
 			MeasuredTypeSymbol composed = new MeasuredTypeSymbol(primitive.Code, measure);
 			root.Add(composed);
 			return composed;
+		}
+
+		//Why a comparison does not apply to an operand type, or null when it does: == takes primitives and enums, ordering numbers and enums, since each other type compares differently per target or not at all.
+		private static string Uncompared(AstOp op, TypeSymbol type)
+		{
+			string written = Expression.NamedOps.FirstOrDefault(i => i.Value == op).Key;
+			string hint = type is StructTypeSymbol or BufferTypeSymbol ? "; compare its fields or elements instead." : ".";
+			return op switch
+			{
+				_ when type is BuiltinTypeSymbol => null,
+				AstOp.Equals or AstOp.NotEquals when type is not (PrimitiveTypeSymbol or EnumTypeSymbol) =>
+					$"Operator '{written}' requires a number, bool, str or enum operand, received {type.Name}{hint}",
+				AstOp.LessThan or AstOp.LessThanEqual or AstOp.GreaterThan or AstOp.GreaterThanEqual when !Language.IsNumeric(type) && type is not EnumTypeSymbol =>
+					$"Operator '{written}' requires a number or enum operand, received {type.Name}.",
+				_ => null,
+			};
 		}
 
 		private static TypeSymbol ArithmeticOperand(BindContext ctx, BinaryOp expr, string op, bool allowStr)

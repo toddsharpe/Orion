@@ -1,0 +1,17 @@
+//A shift count is masked to 31 up to 32 bits and to 63 at 64 on every target, a folded shift included, where Python shifted by all of it and C++ left it undefined.
+i32 shl(i32 v, i32 n) { return v << n; }
+i64 shl64(i64 v, i32 n) { return v << n; }
+i32 shr(i32 v, i32 n) { return v >> n; }
+u32 ushr(u32 v, i32 n) { return v >> n; }
+u8 shl8(u8 v, i32 n) { return v << n; }
+
+i32 main()
+{
+	WriteLine($"wide {shl(1, 40)} {shl64(1:i64, 70)} {shr(-256, 40)} {ushr(256:u32, 40)}");
+	WriteLine($"negative {shl(1, -1)}");
+	WriteLine($"narrow {shl8(1:u8, 10)} {shl8(1:u8, 33)}");
+	u8 folded = 1:u8 << 10;
+	u8 wrapped = 1:u8 << 33;
+	WriteLine($"folded {folded} {wrapped}");
+	return 0;
+}

@@ -27,9 +27,9 @@ File scope holds `#using`, `struct`, `enum`, `typedef`, `#measure`, `const`, `ex
 - `Func<A,R>`, `Action<A>`: a function as a value. `f64<m/s^2>`: a number carrying a measure.
 
 `List<T>`, `Map<K,V>`, `Type`, `Code`, `Function`, `Instance`, `Port`, `File`, `Graph`, `Solver` and
-`args` are build-only. Integers **wrap** at their width on every backend, but a literal or constant
-its type cannot hold is an error; floats are IEEE. A `str` is bytes: `s[i]` reads a `u8`, and
-`s[i] = c` assigns the string back.
+`args` are build-only. Integers **wrap** at their width, but a literal or constant its type cannot
+hold is an error; floats are IEEE. A `str` is bytes: `s[i]` reads a `u8`, and `s[i] = c` assigns the
+string back.
 
 ## Literals
 
@@ -54,7 +54,6 @@ x += 2;                            // also -= *= /= %= &= |= ^=
 
 Control flow is C's: `if`/`else`, `switch` (arms are blocks, no fall-through), `for`,
 `for (const T x in xs)`, `while`, `do`/`while`, `break`, `continue`, `return`.
-`#assert(cond, "why")` is checked during the build.
 
 `#if (cond) { } else { }` picks a branch before the other binds; its condition may name a `#param`,
 a type parameter, a literal or a `-D` define (absent is false), and may ask what a type is —
@@ -69,7 +68,8 @@ not its size. Build code reads a define with `Define::Get(name, fallback)` or `D
 
 C precedence, lowest first: `? :`, `||`, `&&`, `|`, `^`, `&`, `== !=`, `< <= > >=`, `<< >>`, `+ -`,
 `* / %`, unary `- ~ ! ++ --`. `&&` and `||` short-circuit, `!e` is `e == false`, and `& | ^` also
-take bools.
+take bools. `==` takes primitives and enums, ordering numbers and enums; shift counts are masked to
+31, or 63 at 64 bits.
 
 Nothing converts implicitly, not even `i16` to `i32`. `cast<T>(x)` converts between numeric types
 and enums, never `bool` or `str`; `to_str(x)` stringifies anything. A `typedef` reads as its
@@ -116,8 +116,7 @@ order, `pack_be<T>`/`unpack_be<T>` and `pack_le<T>`/`unpack_le<T>`, over `bool u
 `sqrt<f64>(x)`: `cbrt fabs fmin fmax floor ceil round trunc fmod pow sin cos tan asin acos atan atan2
 sinh cosh tanh exp log log2 log10 inf nan is_nan is_inf is_finite`; `popcount clz ctz` take `u32`.
 
-With `--rtti`, `Function::Count()`, `Function::At(i)` and `Function::Get(name)` return `RtFunction`
-descriptors: a name, a return `RtType`, and input, output and state ports ([Compiler.md](Compiler.md)).
+With `--rtti`, `Function::Get(name)` and its kin describe a program's functions ([Compiler.md](Compiler.md)).
 
 ## Tests
 

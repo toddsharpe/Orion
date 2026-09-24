@@ -27,7 +27,7 @@ dotnet run --project ./Src/Orion.Web              # the playground, at the local
 ```
 
 The compiler lands at `Src/Orion/bin/Debug/net9.0/Orion.dll`. The golden corpus in [Tests/](Tests/) is
-the real specification: 184 programs, each with the stdout every backend must print, the only thing
+the real specification: 185 programs, each with the stdout every backend must print, the only thing
 asserting the four agree. It needs `python` and `node` on `PATH`; the C++ cases find MSVC through
 `vswhere` themselves. See [Tests/README.md](Tests/README.md).
 

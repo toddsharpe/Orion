@@ -144,7 +144,11 @@ namespace Orion.Backend.Python
 				{
 					int p = ExprPrinter.Prec(b.Op);
 					(int lp, int rp) = ExprPrinter.OperandPrec(b.Op);
-					string s = $"{PrintExpr(b.Left, lp)} {BinaryOps[b.Op]} {PrintExpr(b.Right, rp)}";
+					//A shift count is masked as the other targets mask it, where Python shifts by all of it and refuses a negative one.
+					string right = b.Op is BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight && ExprPrinter.CountMask(b) is int mask
+						? $"({PrintExpr(b.Right, ExprPrinter.UnaryPrec)} & {mask})"
+						: PrintExpr(b.Right, rp);
+					string s = $"{PrintExpr(b.Left, lp)} {BinaryOps[b.Op]} {right}";
 					//The cast wrapper brings its own parentheses, so the precedence guard is not needed on top.
 					if (ExprPrinter.NeedsMask(b.Op, b.Type) || ExprPrinter.NeedsNarrow(b.Op, b.Type))
 						return Cast(b.Type, s);

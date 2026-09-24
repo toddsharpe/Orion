@@ -46,7 +46,11 @@ namespace Orion.Backend.Cpp
 				{
 					int p = ExprPrinter.Prec(b.Op);
 					(int lp, int rp) = ExprPrinter.OperandPrec(b.Op);
-					string s = $"{PrintExpr(b.Left, lp)} {Spelling.Binary[b.Op]} {PrintExpr(b.Right, rp)}";
+					//A shift count is masked as the other targets mask it, where C++ leaves one at or past the width undefined.
+					string right = b.Op is BinaryTacOp.ShiftLeft or BinaryTacOp.ShiftRight && ExprPrinter.CountMask(b) is int mask
+						? $"({PrintExpr(b.Right, ExprPrinter.UnaryPrec)} & {mask})"
+						: PrintExpr(b.Right, rp);
+					string s = $"{PrintExpr(b.Left, lp)} {Spelling.Binary[b.Op]} {right}";
 					return p < minPrec ? $"({s})" : s;
 				}
 				case StUn { Op: UnaryTacOp.BitNot } u: return $"~{PrintExpr(u.Operand, ExprPrinter.UnaryPrec)}";
