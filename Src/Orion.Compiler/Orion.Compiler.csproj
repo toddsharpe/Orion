@@ -16,10 +16,4 @@
 		<ProjectReference Include="..\Orion.Lang\Orion.Lang.fsproj" />
 	</ItemGroup>
 
-	<!-- RTTI is written in Orion, so it lives as Orion and ships inside the compiler. -->
-	<ItemGroup>
-		<EmbeddedResource Include="Rtti\Types.src" LogicalName="Orion.Rtti.Types.src" />
-		<EmbeddedResource Include="Rtti\Code.src" LogicalName="Orion.Rtti.Code.src" />
-	</ItemGroup>
-
 </Project>

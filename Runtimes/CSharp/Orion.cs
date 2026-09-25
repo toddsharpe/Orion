@@ -48,7 +48,7 @@ public sealed class OrionArray<T> : IOrionValue
 	}
 }
 
-//A function as a value: the descriptor RTTI names one by.
+//A function as a value: the handle a `Function` constant names.
 public sealed class OrionFunction
 {
 	public readonly string Name;
@@ -65,7 +65,7 @@ public static class Orion
 {
 	//Values.
 
-	//Copy a value if it is an aggregate. Numbers, strings and booleans are already values here and pass straight through, as does a `Ref<T>`, which names storage it does not own.
+	//Copy a value if it is an aggregate. Numbers, strings and booleans are already values here and pass straight through.
 	public static T copy_value<T>(T value)
 	{
 		return value is IOrionValue aggregate ? (T)aggregate.Copy() : value;

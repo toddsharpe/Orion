@@ -50,7 +50,7 @@ namespace Orion.Backend.JavaScript
 
 		protected override string Value(DataSymbol symbol) => Js(symbol);
 
-		protected override Declaration Rtti(SourceFunctionSymbol function) =>
+		protected override Declaration Handle(SourceFunctionSymbol function) =>
 			new Declaration("OrionFunction", $"{Language.Mangled(function.Name)}Function", $"new OrionFunction(\"{function.Name}\")");
 
 		public override string Render(SymbolTable root, CallGraph.Node main)
@@ -244,23 +244,6 @@ namespace Orion.Backend.JavaScript
 					}
 				}
 
-				case AggregateSymbol aggregate:
-				{
-					string items = string.Join(", ", aggregate.Items.Select(Js));
-					return aggregate.Type is BufferTypeSymbol
-						? $"new OrionArray([{items}], {aggregate.Items.Count})"
-						: $"new {Js(aggregate.Type)}({items})";
-				}
-
-				case SliceSymbol slice:
-					return $"span_slice({slice.Global.Name}, {slice.Offset}, {slice.Length})";
-
-				case RefSymbol reference:
-					return reference.Global.Name;
-
-				case NullSymbol:
-					return "null";
-
 				case ArrayElementSymbol arr when arr.Array.Type is PrimitiveTypeSymbol { Code: TypeCode.str }:
 					return $"str_at({Js(arr.Array)}, {Js(arr.Operand)})";
 
@@ -283,7 +266,6 @@ namespace Orion.Backend.JavaScript
 			return type switch
 			{
 				BufferTypeSymbol a => "OrionArray",
-				RefTypeSymbol r => Js(r.Element),
 				PrimitiveTypeSymbol p => string.Empty,
 				BuiltinTypeSymbol builtin => type.Name,
 				FunctionTypeSymbol t => "Function",

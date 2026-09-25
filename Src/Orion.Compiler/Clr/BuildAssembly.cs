@@ -272,7 +272,7 @@ namespace Orion.Clr
 			Generation generation = Open();
 
 			MethodBuilder method = generation.Type.DefineMethod(
-				//An Orion name may be qualified (`Function::Get`); a CLR method name may not.
+				//An Orion name may be qualified (`Report::Line`); a CLR method name may not.
 				Language.Mangled(func.Name),
 				MethodAttributes.Public | MethodAttributes.Static,
 				Language.IsVoid(func.ReturnType) ? null : GetClrType(func.ReturnType),
@@ -346,12 +346,6 @@ namespace Orion.Clr
 				{
 					Type element = GetClrType(buffer.Element);
 					return element.MakeArrayType();
-				}
-
-				//The CLR refers to what it holds already, so a reference mirrors as the thing referred to.
-				case RefTypeSymbol reference:
-				{
-					return GetClrType(reference.Element);
 				}
 
 				//Create() and Begin() are the only definers and both assign Hosted, so the symbol already has it.

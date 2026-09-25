@@ -249,25 +249,6 @@ namespace Orion.Backend.CSharp
 					}
 				}
 
-				//Compiler-built composite data: a buffer is an OrionArray, a struct its class.
-				case AggregateSymbol aggregate:
-				{
-					IEnumerable<string> items = aggregate.Items.Select(Cs);
-					return aggregate.Type is BufferTypeSymbol b
-						? Buffer(b, items, aggregate.Items.Count)
-						: $"new {Cs(aggregate.Type)}({string.Join(", ", items)})";
-				}
-
-				case SliceSymbol slice:
-					return $"span_slice({Ident(slice.Global.Name)}, {slice.Offset}, {slice.Length})";
-
-				//The row itself: C# holds it by reference, so naming the global IS the reference.
-				case RefSymbol reference:
-					return Ident(reference.Global.Name);
-
-				case NullSymbol:
-					return "null";
-
 				//A string reads by byte; an assignment target is intercepted before it reaches here.
 				case ArrayElementSymbol arr when arr.Array.Type is PrimitiveTypeSymbol { Code: TypeCode.str }:
 					return $"str_at({Cs(arr.Array)}, {Cs(arr.Operand)})";
@@ -327,10 +308,6 @@ namespace Orion.Backend.CSharp
 				case BufferTypeSymbol b:
 					return $"OrionArray<{Cs(b.Element)}>";
 
-				//C# names what it holds already, so a reference mirrors as the thing referred to.
-				case RefTypeSymbol r:
-					return Cs(r.Element);
-
 				case PrimitiveTypeSymbol p:
 					return Primitives[p.Code];
 
@@ -357,7 +334,7 @@ namespace Orion.Backend.CSharp
 
 		private static string Ident(string name)
 		{
-			//`Function::Get` is one Orion name, not a scope C# knows about, so it mangles to an identifier.
+			//`Report::Line` is one Orion name, not a scope C# knows about, so it mangles to an identifier.
 			name = Language.Mangled(name);
 			return Keywords.Contains(name) ? $"@{name}" : name;
 		}

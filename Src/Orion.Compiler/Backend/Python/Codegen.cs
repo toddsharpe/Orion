@@ -54,7 +54,7 @@ namespace Orion.Backend.Python
 
 		protected override string Value(DataSymbol symbol) => Python(symbol);
 
-		protected override Declaration Rtti(SourceFunctionSymbol function) =>
+		protected override Declaration Handle(SourceFunctionSymbol function) =>
 			new Declaration("Function", $"{Python(function.Name)}Function", $"Function(\"{function.Name}\")");
 
 		public override string Render(SymbolTable root, CallGraph.Node main)
@@ -269,23 +269,6 @@ namespace Orion.Backend.Python
 					}
 				}
 
-				case AggregateSymbol aggregate:
-				{
-					string items = string.Join(", ", aggregate.Items.Select(Python));
-					return aggregate.Type is BufferTypeSymbol
-						? $"Array([{items}], {aggregate.Items.Count})"
-						: $"{Python(aggregate.Type)}({items})";
-				}
-
-				case SliceSymbol slice:
-					return $"span_slice({slice.Global.Name}, {slice.Offset}, {slice.Length})";
-
-				case RefSymbol reference:
-					return reference.Global.Name;
-
-				case NullSymbol:
-					return "None";
-
 				case ArrayElementSymbol arr when arr.Array.Type is PrimitiveTypeSymbol { Code: TypeCode.str }:
 					return $"str_at({Python(arr.Array)}, {Python(arr.Operand)})";
 
@@ -311,7 +294,6 @@ namespace Orion.Backend.Python
 			return type switch
 			{
 				BufferTypeSymbol a => "Array",
-				RefTypeSymbol r => $"\"{Python(r.Element)}\"",
 				PrimitiveTypeSymbol p => TypeHints[p.Code],
 				BuiltinTypeSymbol builtin => type.Name,
 				FunctionTypeSymbol t => "Callable",

@@ -11,9 +11,9 @@ cl /std:c++20 /EHsc -I Runtimes\Cpp build\tour.cpp
 
 ## What is emitted
 
-One translation unit: includes, forward struct declarations, enums, structs, globals (RTTI tables and
-hoisted array literals among them), the platform externs it calls, forward function declarations,
-then the functions.
+One translation unit: includes, forward struct declarations, enums, structs, globals (hoisted array
+literals among them), the platform externs it calls, forward function declarations, then the
+functions.
 
 ```cpp
 #include <Orion_core.h>     // always: types, framing, math
@@ -35,7 +35,6 @@ iostream and one that never keeps a string has no `std::string`.
 | `str` | `std::string` |
 | `T[N]`, `T[R,C]` | `std::array<T, N>`, `std::array<std::array<T, C>, R>`: values, copied on assignment |
 | `Span<T>`, `ConstSpan<T>` | `std::span<T>`, `std::span<const T>` |
-| `Ref<T>` | `T*` |
 | `Func<A,R>` | `std::function<R(A)>`; a lambda is a `static` function |
 | `struct`, `enum`, `typedef` | `struct`, `enum class`, the representation |
 
@@ -45,14 +44,14 @@ writes passes `const T&`; an array passes by reference.
 
 What the program does not offer outward gets internal linkage: a helper nothing outside calls is
 `static`, free to inline and unable to collide with the platform's symbols. `#export`s, the solver
-entries, the channel accessors, `main` and the RTTI tables stay external.
+entries, the channel accessors and `main` stay external.
 
 ## The header
 
 When a program exports anything, `--lang cpp` also writes `<output>.h` (or `--header`): the exported
 functions, the solver entries, the channel accessors and the externs the program calls, over
 `<output>_types.h`, which holds the exported structs and enums alone. The `.cpp` includes the header,
-so the C++ compiler checks the two agree; `main` and RTTI are not in it.
+so the C++ compiler checks the two agree; `main` is not in it.
 
 A platform includes the types companion to fill a program's structs without being its translation
 unit. Two units that each define a type two programs share, identically, is what the one-definition

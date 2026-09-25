@@ -48,7 +48,6 @@ may name its type in an initializer, which Python resolves at import.
 | `T[N]`, `Span<T>` | the runtime's `Array`: a list, an `Offset` and a `Length` |
 | `struct` | a `@dataclass` with a generated `copy()` |
 | `enum` | an `IntEnum`, which has the ordinal conversion the other targets have |
-| `Ref<T>` | the object itself |
 | `Func<A,R>` | `Callable`; a lambda is a module-level function |
 
 A Python keyword is not an identifier, so an enum member named `None` is written `_None`.
@@ -72,7 +71,7 @@ the `f64` result, as `Orion_core.h` does, so an accumulated single is bit-identi
 
 **Structs and arrays are values.** A dataclass aliases on assignment, so assigning a struct or array
 emits `copy_value(...)`, a struct argument is copied at the call site, and `copy()` copies all the
-way down. A `Ref<T>` field is the exception: a copy names the same object, as a C++ pointer does.
+way down. A view field is the exception: a copy names the same array, as a C++ `std::span` does.
 
 **Zero values are real values**, not `None`. A field starts as `0`, `0.0`, `False`, `""` or its enum's
 first member, and an array of structs builds each element, so a solver net read on the first cycle,

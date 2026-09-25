@@ -26,15 +26,14 @@ namespace Orion.Backend.Render
 
 		protected abstract string Zero(TypeSymbol type);
 
-		//A function's handle, one per function, emitted whether or not `--rtti` is set.
-		protected abstract Declaration Rtti(SourceFunctionSymbol function);
+		//The handle a `Function` constant names, declared for each function a constant holds.
+		protected abstract Declaration Handle(SourceFunctionSymbol function);
 
 		protected abstract List<Function> CreateFunctions(SymbolTable root, List<SourceFunctionSymbol> reachable);
 
 		protected File Generate(SymbolTable root, CallGraph.Node main)
 		{
 			List<SourceFunctionSymbol> allFunctions = [.. root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Distinct()];
-			List<Fixup> fixups = [];
 
 			return new File
 			(
@@ -49,12 +48,11 @@ namespace Orion.Backend.Render
 				},
 				new Dictionary<string, List<Declaration>>
 				{
-					{ "Globals", Decls(root, fixups) },
-					{ "Runtime type information", [.. allFunctions.Select(Rtti)] },
+					{ "Globals", Decls(root) },
+					{ "Function handles", [.. FunctionHandles.Held(root, allFunctions).Select(Handle)] },
 					{ "Function globals", FunctionGlobals(allFunctions) },
 				},
 				CreateFunctions(root, allFunctions),
-				fixups,
 				main != null
 			);
 		}
@@ -64,13 +62,9 @@ namespace Orion.Backend.Render
 			[.. root.Traverse().SelectMany(i => i.GetAll<EnumTypeSymbol>()).Distinct()
 				.Select(i => new Enum(Identifier(i.Name), i.Members.ToDictionary(m => EnumName(m.Name), m => m.Value)))];
 
-		//A `Ref<T>` field names a T it does not own, so copying the struct must not copy through it; internal because the writers spell a struct's copy() from it.
-		internal static HashSet<string> Aliased(StructTypeSymbol @struct) =>
-			[.. @struct.Fields.Where(i => i.Type is RefTypeSymbol).Select(i => i.Name)];
-
-		//The argument list of a struct's copy(): every field copied through copy_value, an aliased one passed straight through.
+		//The argument list of a struct's copy(): every field through copy_value but a view, which names storage the struct does not own; internal because the writers spell copy() from it.
 		internal static string Copied(Struct s, string receiver) =>
-			string.Join(", ", s.Fields.Keys.Select(i => s.Aliased?.Contains(i) == true ? $"{receiver}.{i}" : $"copy_value({receiver}.{i})"));
+			string.Join(", ", s.Fields.Keys.Select(i => s.Views?.Contains(i) == true ? $"{receiver}.{i}" : $"copy_value({receiver}.{i})"));
 
 		//Every T declared in the function's scopes, each once.
 		internal static IEnumerable<T> Scoped<T>(SourceFunctionSymbol func) where T : Symbol =>
@@ -86,28 +80,16 @@ namespace Orion.Backend.Render
 			return locals;
 		}
 
-		//The struct rows a value-semantics target renders, each carrying the aliased fields a copy skips.
+		//The struct rows a value-semantics target renders, a struct after those it holds.
 		private List<Struct> Structs(SymbolTable root) =>
 			[.. StructOrder.Sort(root.Traverse().SelectMany(i => i.GetAll<StructTypeSymbol>()).Distinct())
-				.Select(i => new Struct(Identifier(i.Name), i.Fields.ToDictionary(f => Identifier(f.Name), f => TypeName(f.Type)), [.. Aliased(i).Select(Identifier)]))];
+				.Select(i => new Struct(Identifier(i.Name), i.Fields.ToDictionary(f => Identifier(f.Name), f => TypeName(f.Type)),
+					[.. i.Fields.Where(f => f.Type is SpanTypeSymbol).Select(f => Identifier(f.Name))]))];
 
-		//The module-scope globals, each self-reference blanked in its initializer and patched by a fixup.
-		private List<Declaration> Decls(SymbolTable root, List<Fixup> fixups)
-		{
-			List<Declaration> globals = [];
-			foreach (GlobalDataSymbol global in root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct())
-			{
-				Field self = SelfRef.Find(global);
-				if (self != null)
-					fixups.Add(new Fixup($"{Identifier(global.Name)}.{Identifier(self.Name)}", Identifier(global.Name)));
-
-				DataSymbol initializer = self == null ? global.Initializer : SelfRef.Blanked(global, self);
-				globals.Add(new Declaration(TypeName(global.Declared ?? global.Type), Identifier(global.Name),
-					initializer == null ? Zero(global.Declared ?? global.Type) : Value(initializer)));
-			}
-
-			return globals;
-		}
+		//The module-scope globals, each starting at its type's zero.
+		private List<Declaration> Decls(SymbolTable root) =>
+			[.. root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct()
+				.Select(i => new Declaration(TypeName(i.Type), Identifier(i.Name), Zero(i.Type)))];
 
 		//A function-static local, lifted to module scope for a target with no static storage; a query, not a rewrite -- Relooper.ProducesNothing already dropped the declare-assign from the St body.
 		internal static List<(LocalDataSymbol Symbol, DataSymbol Init)> Statics(IEnumerable<SourceFunctionSymbol> functions)

@@ -48,7 +48,7 @@ namespace Orion.Backend.Cpp
 			foreach (StructTypeSymbol s in root.Traverse().SelectMany(i => i.GetAll<StructTypeSymbol>()).Distinct())
 				Walk(s, needs, visited);
 			foreach (GlobalDataSymbol g in root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct())
-				Walk(g.Declared ?? g.Type, needs, visited);
+				Walk(g.Type, needs, visited);
 
 			//The io builtins take a str, so printing implies the text tier whatever else survived.
 			needs.Text |= needs.Io;
@@ -90,10 +90,6 @@ namespace Orion.Backend.Cpp
 				//A sized array, a view and an inferred array all hold one element type.
 				case BufferTypeSymbol b:
 					Walk(b.Element, needs, visited);
-					break;
-
-				case RefTypeSymbol r:
-					Walk(r.Element, needs, visited);
 					break;
 
 				case StructTypeSymbol s:

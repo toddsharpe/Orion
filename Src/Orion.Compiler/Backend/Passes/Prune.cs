@@ -25,12 +25,12 @@ namespace Orion.Backend.Passes
 
 			HashSet<SourceFunctionSymbol> live = [.. Reachable(root).OfType<SourceFunctionSymbol>()];
 			foreach (SymbolTable table in root.Traverse())
-				Drop<SourceFunctionSymbol>(table, i => !live.Contains(i) && !Rtti.Generator.Owns(i), messages, "unreachable function");
+				Drop<SourceFunctionSymbol>(table, i => !live.Contains(i), messages, "unreachable function");
 
 			HashSet<TypeSymbol> used = LiveTypes(root, live);
 			foreach (SymbolTable table in root.Traverse())
 				Drop<TypeSymbol>(table, i => (i is StructTypeSymbol or EnumTypeSymbol or ArrayTypeSymbol)
-					&& !used.Contains(i) && !Rtti.Generator.Owns(i), messages, "unused type");
+					&& !used.Contains(i), messages, "unused type");
 
 			messages.Trace($"Kept {Messages.Count(live.Count, "function")} and {Messages.Count(used.Count, "type")}");
 		}

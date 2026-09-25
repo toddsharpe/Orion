@@ -49,7 +49,6 @@ the compile.
 | `T[N]`, `Span<T>` | `OrionArray`: an array, an `Offset` and a `Length` |
 | `struct` | a class with a generated `copy()` |
 | `enum` | `Object.freeze({ ... })`, members being their ordinals |
-| `Ref<T>` | the object itself |
 | `Func<A,R>` | a function value; a lambda is a top-level function |
 
 ## Numbers
@@ -81,10 +80,10 @@ single throws that away. `Tests/f32_exact.src` pins it in raw bits.
 
 `OrionArray` wraps its data in a `Proxy`, so `arr[i]` reads and writes elements while `Length` and
 `Offset` stay properties. Assigning an array or struct emits `copy_value(...)`, and each struct's
-`copy()` copies all the way down, so Orion's value semantics hold; a `Ref<T>` field passes through a
-copy untouched. `span_slice` returns a view sharing the source's data, so a write through it writes the
-source. Floats print through `_float_str`, a port of C's `%g` at six significant figures, exponent and
-trailing-zero trimming included.
+`copy()` copies all the way down, so Orion's value semantics hold; a view field passes through a copy
+untouched, as a C++ `std::span` does. `span_slice` returns a view sharing the source's data, so a
+write through it writes the source. Floats print through `_float_str`, a port of C's `%g` at six
+significant figures, exponent and trailing-zero trimming included.
 
 ## The runtime library
 

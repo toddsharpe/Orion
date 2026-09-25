@@ -3,8 +3,8 @@
 //
 // No target can declare a field with a dot in it, so the two names are kept apart: a net is DECLARED
 // under an identifier (`Baro_Pressure`) and LABELLED with the name it was wired under. The label is
-// what the RTTI descriptor carries and what Solver::ViewState prints; the identifier is what C++,
-// Python and JavaScript emit. Nothing in between has to know.
+// what Solver::ViewState prints; the identifier is what C++, Python and JavaScript emit. Nothing in
+// between has to know.
 //The declarations this needs from Lib/types.src, spelled here so the test stands alone.
 //A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
 #build struct Device
@@ -83,18 +83,10 @@ i32 main()
 				solver_cycle(state);
 			}
 		}
-	}
 
-	// The program's own description carries the net as wired, dots and all -- the field the backend
-	// declared is not the name the netlist knows it by. A type is reached through a port, and
-	// solver_cycle's one `#state` port is the state struct itself.
-	WriteLine("-- schema --");
-	RtFunction cycle = Function::Get("solver_cycle");
-	RtPort port = cycle.State[0];
-	for (i32 i = 0; i < port.Type.Fields.Length; i++)
-	{
-		RtField f = port.Type.Fields[i];
-		WriteLine("  " + f.Name + " : " + f.Type.Name);
+		// The state as wired, dots and all -- the field the backend declared is not the name the netlist knows it by.
+		#insert { WriteLine("-- state --"); }
+		#insert Solver::ViewState(solver);
 	}
 
 	return 0;

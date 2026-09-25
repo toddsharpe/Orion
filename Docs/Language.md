@@ -23,7 +23,8 @@ by `-D` defines.
 - `bool`, `i8`…`i64`, `u8`…`u64`, `f32`, `f64`, `str`: primitives.
 - `T[N]`, `T[R,C]`: a fixed array, and a **value**. `i32[2,3]` is 2 rows of `i32[3]`; `f32[Window]`
   names a file-scope `const`. `T[]` and `T[,]` size a local from its initializer, nothing else.
-- `Span<T>`, `ConstSpan<T>`: a view of storage someone else owns. `Ref<T>`: a reference to someone else's `T`.
+- `Span<T>`, `ConstSpan<T>`: a view of storage someone else owns; a field or return value holds one only
+  over storage that outlives the call, like a `#state` array.
 - `Func<A,R>`, `Action<A>`: a function as a value. `f64<m/s^2>`: a number carrying a measure.
 
 `List<T>`, `Map<K,V>`, `Type`, `Code`, `Function`, `Instance`, `Port`, `File`, `Graph`, `Solver` and
@@ -115,8 +116,6 @@ a function is built instead.
 order, `pack_be<T>`/`unpack_be<T>` and `pack_le<T>`/`unpack_le<T>`, over `bool u8 u16 u32 i32 i64 f32 f64`. Math names its float type,
 `sqrt<f64>(x)`: `cbrt fabs fmin fmax floor ceil round trunc fmod pow sin cos tan asin acos atan atan2
 sinh cosh tanh exp log log2 log10 inf nan is_nan is_inf is_finite`; `popcount clz ctz` take `u32`.
-
-With `--rtti`, `Function::Get(name)` and its kin describe a program's functions ([Compiler.md](Compiler.md)).
 
 ## Tests
 

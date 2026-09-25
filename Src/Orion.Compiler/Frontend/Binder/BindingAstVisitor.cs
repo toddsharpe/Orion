@@ -113,9 +113,6 @@ namespace Orion.Frontend.Binder
 			if (tn.IsSpan)
 				return new SpanTypeSymbol(ResolveType(ctx, current, tn.Generics[0], what, region), tn.GenericType == TypeName.ConstSpanType);
 
-			if (tn.IsRef)
-				return new RefTypeSymbol(ResolveType(ctx, current, tn.Generics[0], what, region));
-
 			if (tn.IsGeneric)
 			{
 				List<TypeSymbol> inner = [.. tn.Generics.Select(i => ResolveType(ctx, current, i, what, region))];
@@ -237,7 +234,7 @@ namespace Orion.Frontend.Binder
 
 		private static void DeclareFunctions(BindContext ctx, TypeName type)
 		{
-			if (!type.IsGeneric || type.IsSpan || type.IsRef)
+			if (!type.IsGeneric || type.IsSpan)
 				return;
 
 			SymbolTable current = ctx.Scoper.Peek();

@@ -59,7 +59,6 @@ namespace Orion.Commands
 		private static readonly Option<string> RootOption = new Option<string>("--root", "-r") { Description = "Working directory; the entry file's own when unset." };
 		private static readonly Option<string[]> IncludeOption = new Option<string[]>("--include", "-I") { Description = "Directories a #using searches, after the root." };
 		private static readonly Option<string[]> DefineOption = new Option<string[]>("--define", "-D") { Description = "Symbols defined before the first line is read." };
-		private static readonly Option<bool> RttiOption = new Option<bool>("--rtti") { Description = "Emit the runtime type information the program can reflect over." };
 		private static readonly Option<string> SrcRootOption = new Option<string>("--src-root", "-s") { Description = "Source root a #using names its file from." };
 		private static readonly Option<bool> VerboseOption = new Option<bool>("--verbose", "-v") { Description = "Print each phase and the state it produced." };
 		private static readonly Option<string> LangOption = new Option<string>("--lang", "-l") { Description = "Backend: cpp, python, javascript or csharp.", Required = true };
@@ -77,7 +76,6 @@ namespace Orion.Commands
 				RootOption,
 				IncludeOption,
 				DefineOption,
-				RttiOption,
 				SrcRootOption,
 				VerboseOption,
 				LangOption,
@@ -96,7 +94,6 @@ namespace Orion.Commands
 			string root = result.GetValue(RootOption);
 			List<string> includes = [.. result.GetValue(IncludeOption) ?? []];
 			string[] defines = result.GetValue(DefineOption);
-			bool rtti = result.GetValue(RttiOption);
 			string srcRoot = result.GetValue(SrcRootOption);
 			bool verbose = result.GetValue(VerboseOption);
 			string lang = result.GetValue(LangOption);
@@ -137,7 +134,6 @@ namespace Orion.Commands
 				WorkingDirectory = root,
 				Includes = includes,
 				Defines = [.. defines ?? []],
-				Rtti = rtti,
 				SrcRoot = srcRoot,
 				Lang = language,
 				HeaderName = headerFile == null ? null : Path.GetFileName(headerFile),

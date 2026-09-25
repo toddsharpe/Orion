@@ -26,7 +26,7 @@ namespace Orion
 	{
 		public static CompileSession Session { get; private set; }
 
-		public static CompileSession StartSession(string root = "", List<string> includes = null, bool testing = false, List<string> defines = null, bool rtti = false)
+		public static CompileSession StartSession(string root = "", List<string> includes = null, bool testing = false, List<string> defines = null)
 		{
 			Session = new CompileSession
 			{
@@ -34,7 +34,6 @@ namespace Orion
 				Includes = includes ?? new List<string>(),
 				Testing = testing,
 				Defines = defines ?? new List<string>(),
-				Rtti = rtti,
 			};
 			return Session;
 		}
@@ -126,8 +125,6 @@ namespace Orion
 			new("BuildTime", "Blocks",
 				(ctx, m) => SolverBuiltins.CheckInits(ctx.Root, m),
 				ctx => new TableState(ctx.Root)),
-
-			Rtti.Generator.FillRow,
 
 			new("Optimize", "IR",
 				(ctx, m) =>
@@ -265,8 +262,7 @@ namespace Orion
 				SetRoot(options.Input, options.SrcRoot),
 				(options.Includes ?? new List<string>()).Select(Path.GetFullPath).ToList(),
 				options.Testing,
-				options.Defines,
-				options.Rtti);
+				options.Defines);
 
 			Compilation ctx = new Compilation(options, session);
 			List<PhaseResult> phases = new List<PhaseResult>();

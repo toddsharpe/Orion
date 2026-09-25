@@ -13,7 +13,7 @@ Each doc is under a five-minute read. Start wherever your question is.
 | [Language.md](Language.md) | The language that survives to run time: types, statements, operators, functions, measures. |
 | [BuildTime.md](BuildTime.md) | Orion running *inside* the compiler: `#run`, `#insert` and `Code` fragments, `#src`, and what only a build can reach. |
 | [Solver.md](Solver.md) | Blocks wired by net, the cycle they compile to, schedules, channels, and the entries a platform calls. |
-| [Compiler.md](Compiler.md) | The pipeline phase by phase, the build stage in the middle, RTTI, and how a target's capabilities decide what gets rewritten. |
+| [Compiler.md](Compiler.md) | The pipeline phase by phase, the build stage in the middle, and how a target's capabilities decide what gets rewritten. |
 | [Cpp.md](Cpp.md) · [Python.md](Python.md) · [JavaScript.md](JavaScript.md) · [CSharp.md](CSharp.md) | What each target needs adapted, what comes out, and its runtime library. |
 
 ## Where the truth is

@@ -69,7 +69,7 @@ namespace Orion.Backend.CSharp
 		//A global with no initializer is zeroed (C++'s `= {}`): an exported solver reads a struct global before it writes it on the first cycle, and a null field would throw there.
 		protected override string Zero(TypeSymbol type) => ZeroValue(type);
 
-		protected override Declaration Rtti(SourceFunctionSymbol function) =>
+		protected override Declaration Handle(SourceFunctionSymbol function) =>
 			new Declaration("OrionFunction", $"{Ident(function.Name)}Function", $"new OrionFunction(\"{function.Name}\")");
 
 		private static Function Entry(SourceFunctionSymbol entry)

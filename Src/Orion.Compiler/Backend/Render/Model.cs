@@ -6,16 +6,13 @@ namespace Orion.Backend.Render
 	internal record Reference(string Path, bool Local = false);
 	//An enum to render: a name and its members.
 	internal record Enum(string Name, Dictionary<string, int> Values);
-	//A struct to render; Aliased names the fields a copy must not copy through.
-	internal record Struct(string Name, Dictionary<string, string> Fields, HashSet<string> Aliased = null, string Namespace = null);
+	//A struct to render: its name, each field's type, and the view fields a copy shares rather than copies.
+	internal record Struct(string Name, Dictionary<string, string> Fields, HashSet<string> Views = null);
 	//One declaration: type, name, initializer; Comment says where a compiler-minted one came from.
-	internal record Declaration(string Type, string Name, string Initializer, string Namespace = null, string Comment = null);
-
-	//A module-scope assignment after the globals, for the one thing an initializer cannot say: itself.
-	internal record Fixup(string Target, string Value);
+	internal record Declaration(string Type, string Name, string Initializer, string Comment = null);
 
 	//A function to render: signature, locals by section, body; Declared marks one a consumer header already declares.
-	internal record Function(string ReturnType, string Name, List<string> Args, Dictionary<string, List<Declaration>> Locals, List<Code> Code, string Namespace = null, bool Declared = false);
+	internal record Function(string ReturnType, string Name, List<string> Args, Dictionary<string, List<Declaration>> Locals, List<Code> Code, bool Declared = false);
 	//The whole rendered output; HasEntry is false for a library, whose main ran at build time.
 	internal record File(
 		List<Reference> Includes,
@@ -23,7 +20,6 @@ namespace Orion.Backend.Render
 		Dictionary<string, List<Struct>> Structs,
 		Dictionary<string, List<Declaration>> Globals,
 		List<Function> Functions,
-		List<Fixup> Fixups = null,
 		bool HasEntry = true,
 		List<Function> Externs = null   //declaration-only: the platform defines these, the program calls them
 	);

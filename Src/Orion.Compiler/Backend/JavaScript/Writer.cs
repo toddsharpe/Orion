@@ -17,15 +17,6 @@ namespace Orion.Backend.JavaScript
 
 			WriteSections(file.Globals, WriteBlockComment, Write, blankAfter: true);
 
-			//A global that names itself: the name is in the temporal dead zone, so the field is assigned after.
-			if (file.Fixups?.Count > 0)
-			{
-				WriteBlockComment("Self references");
-				foreach (Fixup fixup in file.Fixups)
-					AppendLine($"{fixup.Target} = {fixup.Value};");
-				AppendLine();
-			}
-
 			//Functions, one blank line between them
 			for (int i = 0; i < file.Functions.Count; i++)
 			{

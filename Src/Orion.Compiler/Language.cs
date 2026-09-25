@@ -14,7 +14,7 @@ namespace Orion
 
 		internal static readonly Dictionary<TypeCode, PrimitiveTypeSymbol> Primitives = Enum.GetValues(typeof(TypeCode)).Cast<TypeCode>().ToDictionary(i => i, j => new PrimitiveTypeSymbol(j));
 
-		//`Function::Get` -> `Function_Get`, for the places that need an ordinary identifier.
+		//`List::New` -> `List_New`, for the places that need an ordinary identifier.
 		public static string Mangled(string name) => name.Replace("::", "_");
 
 		//The integer and float families, each spelled once; an alias or a measured type is in the family of the code it carries.

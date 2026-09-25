@@ -638,11 +638,9 @@ namespace Orion.Frontend.Binder
 				return;
 			}
 
-			TypeSymbol named = instance.Type is RefTypeSymbol reference ? reference.Element : instance.Type;
-
-			if (named is not CompositeTypeSymbol composite)
+			if (instance.Type is not CompositeTypeSymbol composite)
 			{
-				ctx.Messages.Add(new Message($"{Where(ctx)}: {named?.Name ?? "<unknown>"} is not a struct; cannot access .{expr.Field}.", expr.Region, MessageType.Error));
+				ctx.Messages.Add(new Message($"{Where(ctx)}: {instance.Type?.Name ?? "<unknown>"} is not a struct; cannot access .{expr.Field}.", expr.Region, MessageType.Error));
 				expr.Symbol = Unresolved(current, "$member");
 				return;
 			}
@@ -656,7 +654,7 @@ namespace Orion.Frontend.Binder
 			}
 
 			FieldDataSymbol fieldSymbol = new FieldDataSymbol(expr.Field, field.Type, instance) with { IsBuild = ctx.Scoper.IsBuildContext() };
-			if (named is StructTypeSymbol structType)
+			if (composite is StructTypeSymbol structType)
 				fieldSymbol.Hosted = structType.Hosted.GetField(expr.Field);
 			expr.Symbol = fieldSymbol;
 		}

@@ -33,17 +33,15 @@ a definite assignment on every path.
 | `T[N]`, `Span<T>`, `ConstSpan<T>` | `OrionArray<T>`, a `Data`/`Offset`/`Length` wrapper |
 | `struct S` | `public sealed class S : IOrionValue`, with a constructor and a generated `Copy()` |
 | `enum E` | `public enum E` |
-| `Ref<T>` | `T`; C# names objects by reference already |
 | `Func<i32,bool>` | `Func<int,bool>` |
 
 Not `System.Span<T>`: it is a `ref struct`, and a `#state` local lowers to a static field, which a
 `ref struct` cannot be.
 
-**A class, not a C# struct.** A struct would give value semantics for free, but `Ref<T>` maps to plain
-`T`, and RTTI's `struct RtType { ...; Ref<RtType> Element; }` is in every `--rtti` program — as a struct,
-`CS0523`, a cycle in the layout. A `ref` field is legal only in a `ref struct`, back to the static-field
-problem. `Copy()` already gives value semantics under the same corpus, and a sealed class cannot
-mislead the way a mutable struct does, where `foreach (var p in pts) p.x = 1;` mutates copies.
+**A class, not a C# struct.** A struct would still copy an array field's `OrionArray` by reference, so
+value semantics need `Copy()` either way; it copies every field but a view, which it shares as C++
+copies a `std::span`. And a sealed class cannot mislead the way a mutable struct does, where
+`foreach (var p in pts) p.x = 1;` mutates copies.
 
 ## Where C# is stricter than C++
 
