@@ -122,7 +122,7 @@ namespace Orion.BuildTime
 			unit.Blocks = unit.Blocks.Where(b => !Bound(root, b)).ToList();
 
 			SymbolTable scope = root.CreateChild($"src${Compiler.Session.SrcScopes++}${name}");
-			if (!Pipeline.Lower(unit, scope, messages, emit: true))
+			if (!Pipeline.Lower(unit, scope, messages))
 				return null;
 
 			BuildAssembly.Close();

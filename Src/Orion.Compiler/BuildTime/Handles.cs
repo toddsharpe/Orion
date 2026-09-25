@@ -1,7 +1,6 @@
 using Orion.BuildTime.Builtins;
 using Orion.Symbols;
 using System.Collections.Generic;
-using System.Linq;
 using System;
 
 namespace Orion.BuildTime
@@ -19,49 +18,9 @@ namespace Orion.BuildTime
 		}
 
 		public string Name => Function?.Name ?? string.Empty;
-		public OrionType Return => OrionType.Of(Function?.ReturnType);
 
 		//The block's startup as a handle of its own, empty without one; see Docs/Solver.md.
 		public OrionFunction Init => new OrionFunction(Function?.Init);
-
-		//`Port[]`, not `IReadOnlyList<Port>`: a span is read with ldlen/ldelem, so it must be a real array.
-		public Port[] Inputs => Params(i => i.Direction is ParamDirection.None or ParamDirection.In);
-		public Port[] Outputs => Params(i => i.Direction == ParamDirection.Out);
-
-		//The #state parameters then the #state locals.
-		public Port[] State => [.. Params(i => i.Direction == ParamDirection.State), .. Statics()];
-
-		//The `#state` locals a block owns; a hoisted `const` shares the storage but is not one (Rewrites.Constants).
-		private static IEnumerable<LocalDataSymbol> StateLocals(SourceFunctionSymbol function) =>
-			function.Table.Traverse()
-				.SelectMany(i => i.GetAll<LocalDataSymbol>())
-				.Where(i => i.Storage == LocalStorage.Static && !i.Hoisted)
-				.Distinct();
-
-		private Port[] Params(Func<ParamDataSymbol, bool> match)
-		{
-			if (Function == null)
-				return [];
-
-			return [.. Function.Parameters.Where(match).Select(i => Of(i.Name, i.Type, i.Direction, i.Delayed))];
-		}
-
-		private Port[] Statics()
-		{
-			if (Function?.Table == null)
-				return [];
-
-			return [.. StateLocals(Function).Select(i => Of(i.Name, i.Type, ParamDirection.State, delayed: false))];
-		}
-
-		private static Port Of(string name, TypeSymbol type, ParamDirection direction, bool delayed) =>
-			new Port
-			{
-				Name = name,
-				Type = OrionType.Of(type),
-				Direction = direction,
-				Delayed = delayed,
-			};
 
 		public override string ToString() => Name;
 	}
@@ -172,10 +131,6 @@ namespace Orion.BuildTime
 
 		public string Name { get; init; } = string.Empty;
 		public OrionType Type { get; init; }
-		public ParamDirection Direction { get; init; }
-
-		//`#prev`: an In that reads last cycle's value, so a generator walking ports can render the difference.
-		public bool Delayed { get; init; }
 
 		//The path rides along, so `${p}` in an interpolated string spells what a hole would splice.
 		public override string ToString() => Name + string.Concat(Path);

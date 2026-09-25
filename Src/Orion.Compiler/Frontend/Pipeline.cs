@@ -21,21 +21,21 @@ namespace Orion.Frontend
 			new("Frontend", "Specializer", (ctx, m) => Specializer.Extract(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
 		];
 
-		//The one door mid-build re-entry goes through: bind into the scope, then lower, analyze and optionally emit. Its caller, the build, holds no compilation, so it binds on the ambient session.
-		internal static bool Lower(TranslationUnit unit, SymbolTable scope, List<Message> messages, bool emit)
+		//The one door mid-build re-entry goes through: bind into the scope, then lower, analyze and emit. Its caller, the build, holds no compilation, so it binds on the ambient session.
+		internal static bool Lower(TranslationUnit unit, SymbolTable scope, List<Message> messages)
 		{
 			Binding.BindAst(unit, scope, Compiler.Session, messages);
-			return !messages.HasError() && Finish(unit.Blocks.OfType<Function>(), messages, emit);
+			return !messages.HasError() && Finish(unit.Blocks.OfType<Function>(), messages);
 		}
 
 		//The same door for functions the build made directly, with no unit around them.
-		internal static bool Lower(List<Function> functions, SymbolTable scope, List<Message> messages, bool emit)
+		internal static bool Lower(List<Function> functions, SymbolTable scope, List<Message> messages)
 		{
 			Binding.BindAst(functions, scope, Compiler.Session, messages);
-			return !messages.HasError() && Finish(functions, messages, emit);
+			return !messages.HasError() && Finish(functions, messages);
 		}
 
-		private static bool Finish(IEnumerable<Function> functions, List<Message> messages, bool emit)
+		private static bool Finish(IEnumerable<Function> functions, List<Message> messages)
 		{
 			foreach (Function func in functions)
 			{
@@ -44,8 +44,7 @@ namespace Orion.Frontend
 				if (messages.HasError())
 					return false;
 
-				if (emit)
-					Clr.Emitter.Generate(func.Symbol);
+				Clr.Emitter.Generate(func.Symbol);
 			}
 
 			return true;
