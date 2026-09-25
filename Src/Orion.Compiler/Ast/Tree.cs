@@ -27,6 +27,7 @@ namespace Orion.Ast
 			Subscript x => Of(x.Instance).Concat(Many(x.Indices)),
 			MemberAccess x => Of(x.Instance),
 			ArrayExpr x => Many(x.Elements),
+			SpreadExpr x => Of(x.Value),
 			StructExpr x => Many(x.Fields?.Values),
 			ArgsExpr x => Many(x.Fields?.Values),
 			Func x => Many(x.Parameters).Concat(Many(x.Body)),
@@ -118,6 +119,7 @@ namespace Orion.Ast
 				case Subscript x: x.Instance = Rw(x.Instance, f); RwList(x.Indices, f); break;
 				case MemberAccess x: x.Instance = Rw(x.Instance, f); break;
 				case ArrayExpr x: RwArray(x.Elements, f); break;
+				case SpreadExpr x: x.Value = Rw(x.Value, f); break;
 				case StructExpr x: RwDict(x.Fields, f); break;
 				case ArgsExpr x: RwDict(x.Fields, f); break;
 				case Func x: RwList(x.Parameters, f); RwList(x.Body, f); break;

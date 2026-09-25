@@ -65,7 +65,7 @@ the rest of the build can name.
 **Collections**, with no runtime form:
 
 ```
-List<T>    List::New<T>(), List::FromArray, [a, b]:List<T>, [x for const T v in xs if c]:List<T>,
+List<T>    List::New<T>(), List::FromArray, [a, ..xs]:List<T>, [x for const T v in xs if c]:List<T>,
            .Add .AddUnique .Contains .Length .ToArray, [] and +
 Map<K,V>   Map::New<K,V>(), Map<str,i32>{ "a" = 1 }, .Has .GetOrAdd .Keys .Length, [] and +
 ```

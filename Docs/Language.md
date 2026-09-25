@@ -15,8 +15,8 @@ no `..` and is never rooted; `-I` adds trees searched after the root.
 making the file a *library* a platform drives ([Solver.md](Solver.md)).
 
 File scope holds `#using`, `struct`, `enum`, `typedef`, `#measure`, `const`, `extern`, functions,
-`#run { }`, `#test`, and `#if (SIM)` choosing between sets of declarations,
-`#using`s included, by the `-D` defines.
+`#run { }`, `#test`, and `#if (SIM)` choosing declarations, `#using`s included,
+by `-D` defines.
 
 ## Types
 
@@ -36,7 +36,7 @@ string back.
 ```
 42    0xFF    1.5    true    "hi\n"    Dir::North
 128:i64    3.14:f32    0.5:f64<1/s>        // typed; bare ints are i32, floats f64
-[1, 2, 3]:i32                             // suffixed with its ELEMENT type
+[1, 2, ..xs]:i32                          // suffixed with its ELEMENT type; ..xs spreads a T[N]
 Point{ x = 1, y = 2 }                     // a struct
 [](i32 i) { return i % 2 == 0; }:bool     // a lambda; void takes no suffix
 $"span {hi - lo}"                         // interpolation

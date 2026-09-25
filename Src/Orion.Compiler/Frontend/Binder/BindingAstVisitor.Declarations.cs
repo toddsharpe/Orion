@@ -347,19 +347,13 @@ namespace Orion.Frontend.Binder
 
 		private static void BindConstant(BindContext ctx, TypeName typeName, string name, Literal value, InputRegion region)
 		{
-			SymbolTable current = ctx.Scoper.Peek();
-
 			//A struct or array constant binds through its own visit, which makes the type the scalar path cannot.
 			if (value is StructVal or ArrayVal)
 			{
 				Visit(ctx, value);
 				if (value.Symbol is LiteralSymbol built)
 				{
-					TypeSymbol declared = ResolveType(ctx, current, typeName, $"Constant {name}", region);
-					if (!CanAssign(declared, built.Type))
-						ctx.Messages.Add(new Message($"{Where(ctx)}: Invalid constant {name} of {Refused(declared, built.Type)}.", region, MessageType.Error));
-
-					current.AddConst(name, built);
+					DeclareBuilt(ctx, typeName, name, built, region);
 					return;
 				}
 			}
@@ -369,6 +363,20 @@ namespace Orion.Frontend.Binder
 				ScalarType(ctx, value);
 
 			DeclareConstant(ctx, typeName, name, value.Boxed, region);
+		}
+
+		//A struct or array constant: a literal, or an array expression over the constants before it.
+		private static bool IsAggregate(Const @const) => @const.Value is StructVal or ArrayVal || @const.Initializer is ArrayExpr;
+
+		//A struct or array constant, already built, checked against its declared type and named in the current table.
+		private static void DeclareBuilt(BindContext ctx, TypeName typeName, string name, LiteralSymbol built, InputRegion region)
+		{
+			SymbolTable current = ctx.Scoper.Peek();
+			TypeSymbol declared = ResolveType(ctx, current, typeName, $"Constant {name}", region);
+			if (!CanAssign(declared, built.Type))
+				ctx.Messages.Add(new Message($"{Where(ctx)}: Invalid constant {name} of {Refused(declared, built.Type)}.", region, MessageType.Error));
+
+			current.AddConst(name, built);
 		}
 
 		//A scalar constant: coerced to its declared type, interned, and named in the current table.
@@ -473,6 +481,13 @@ namespace Orion.Frontend.Binder
 			if (@const.Initializer != null)
 				Visit(ctx, @const.Initializer);
 
+			//An array of named constants, or of spreads of constant arrays, folds as the literal it spells.
+			if (@const.Initializer is ArrayExpr array && ConstantArray(ctx.Scoper.Peek(), array) is LiteralSymbol built)
+			{
+				DeclareBuilt(ctx, @const.TypeName, @const.Name, built, @const.Region);
+				return;
+			}
+
 			if (@const.Initializer == null || !ConstEval.TryEval(@const.Initializer, out object folded))
 			{
 				ctx.Messages.Add(new Message(
@@ -543,7 +558,7 @@ namespace Orion.Frontend.Binder
 			}
 
 			//Scalar constants before the fields, so an extent can name one; struct- and array-valued ones after, since they may need the fields.
-			foreach (Const @const in tu.Blocks.OfType<Const>().Where(i => i.Value is not (StructVal or ArrayVal)))
+			foreach (Const @const in tu.Blocks.OfType<Const>().Where(i => !IsAggregate(i)))
 			{
 				Visit(ctx, @const);
 			}
@@ -553,7 +568,7 @@ namespace Orion.Frontend.Binder
 				Define(ctx, @struct);
 			}
 
-			foreach (Const @const in tu.Blocks.OfType<Const>().Where(i => i.Value is StructVal or ArrayVal))
+			foreach (Const @const in tu.Blocks.OfType<Const>().Where(IsAggregate))
 			{
 				Visit(ctx, @const);
 			}
