@@ -52,8 +52,6 @@ namespace Orion.BuildTime.Builtins
 			return new Port
 			{
 				Name = port.Name,
-				Direction = port.Direction,
-				Delayed = port.Delayed,
 				Path = steps,
 				Type = OrionType.Of(type),
 			};
@@ -174,14 +172,6 @@ namespace Orion.BuildTime.Builtins
 			{
 				Name = declared,
 				Type = type,
-				Delayed = directive == ParamDirective.Prev,
-				Direction = directive switch
-				{
-					ParamDirective.Input or ParamDirective.Prev => ParamDirection.In,
-					ParamDirective.Output or ParamDirective.Pure => ParamDirection.Out,
-					ParamDirective.State => ParamDirection.State,
-					_ => ParamDirection.None,
-				},
 			};
 		}
 	}

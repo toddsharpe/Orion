@@ -115,7 +115,7 @@ namespace Orion.BuildTime.Builtins
 		{
 			List<Function> instances = Monomorphizer.ExpandLate(statements, Compiler.Session, Env.Context.Messages);
 			if (instances.Count != 0)
-				Pipeline.Lower(instances, root, Env.Context.Messages, emit: true);
+				Pipeline.Lower(instances, root, Env.Context.Messages);
 		}
 
 		internal static OrionFunction Emit(Function function, bool bake = true)
@@ -163,7 +163,7 @@ namespace Orion.BuildTime.Builtins
 		internal static void Invoke(Function function, object[] arguments)
 		{
 			SymbolTable root = Env.Context.Function.Table.GetRoot();
-			if (!Pipeline.Lower([function], root, Env.Context.Messages, emit: true))
+			if (!Pipeline.Lower([function], root, Env.Context.Messages))
 				return;
 
 			BuildAssembly.Close();

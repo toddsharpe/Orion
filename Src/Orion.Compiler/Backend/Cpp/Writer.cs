@@ -1,6 +1,5 @@
 ﻿using Enum = Orion.Backend.Render.Enum;
 using Orion.Backend.Render;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
