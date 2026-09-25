@@ -106,6 +106,7 @@ namespace Orion.IR
 				Subscript x => Tacs(x, ctx),
 				MemberAccess x => Tacs(x, ctx),
 				ArrayExpr x => Tacs(x, ctx),
+				SpreadExpr x => Tacs(x.Value, ctx),
 				StructExpr x => Tacs(x, null, ctx),
 				ArgsExpr x => Tacs(x, ctx),
 				BinaryOp x => Tacs(x, ctx),
@@ -237,11 +238,18 @@ namespace Orion.IR
 		{
 			Trace.Assert(expr.Symbol != null);
 
-			return
-			[
-				.. expr.Elements.SelectMany((item, idx) => Tacs(item, ctx).Append(new AssignTac(expr.Destinations[idx], item.Symbol))),
-				new DataTac(expr.Symbol)
-			];
+			List<Tac> tacs = [];
+			int slot = 0;
+			foreach (Expression item in expr.Elements)
+			{
+				//A spread's source is evaluated once, then stored an element at a time.
+				tacs.AddRange(Tacs(item, ctx));
+				foreach (DataSymbol value in item is SpreadExpr spread ? spread.Items : [item.Symbol])
+					tacs.Add(new AssignTac(expr.Destinations[slot++], value));
+			}
+
+			tacs.Add(new DataTac(expr.Symbol));
+			return tacs;
 		}
 
 		private static List<Tac> Tacs(StructExpr expr, DataSymbol destination, LowerContext ctx)

@@ -610,6 +610,13 @@ namespace Orion.Frontend.Binder
 				return;
 			}
 
+			//A constant array's length is a constant too.
+			if (expr.Instance.Symbol is LiteralSymbol { Type: ArrayTypeSymbol, Value: Array items } && expr.Field == "Length")
+			{
+				expr.Symbol = InternLiteral(current, items.Length, Language.Primitives[TypeCode.i32]);
+				return;
+			}
+
 			if (expr.Instance.Symbol is not NamedDataSymbol instance)
 			{
 				ctx.Messages.Add(new Message($"{Where(ctx)}: Cannot take member .{expr.Field} of a non-symbol.", expr.Region, MessageType.Error));
@@ -666,27 +673,43 @@ namespace Orion.Frontend.Binder
 			if (expr.TypeName.Extents != null)
 				FoldExtents(ctx, current, expr.TypeName, $"Array literal {expr.TypeName.Name}", expr.Region);
 
-			List<string> types = expr.Elements.Select(i => i.Symbol.Type.Name).ToList();
-			string typesString = "[" + string.Join(", ", types) + "]";
-			List<string> distinct = types.Distinct().ToList();
+			//A spread stores every element of its source, so only a flat array whose type counts them can be one.
+			TypeSymbol[] stored = [.. expr.Elements.Select(Stored)];
+			List<SpreadExpr> uncounted = [.. expr.Elements.OfType<SpreadExpr>().Where(i => Stored(i) == null)];
+			foreach (SpreadExpr spread in uncounted)
+				ctx.Messages.Add(new Message($"{Where(ctx)}: A spread in an array literal takes a flat array whose type counts its elements, as u8[4] does; received {spread.Symbol.Type.Name}.", spread.Region, MessageType.Error));
+
+			string typesString = "[" + string.Join(", ", expr.Elements.Select(i => (i is SpreadExpr ? ".." : "") + i.Symbol.Type.Name)) + "]";
+			List<string> distinct = [.. stored.Where(i => i != null).Select(i => i.Name).Distinct()];
 			string written = WrittenElement(expr.TypeName);
-			if (expr.Elements.Any(i => i.Symbol?.Type is BufferTypeSymbol))
+			if (expr.Elements.Any(i => i is not SpreadExpr && i.Symbol?.Type is BufferTypeSymbol))
 				NestedArrays(ctx, typesString, written, expr.Region);
-			else if (distinct.Count != 1 || written != distinct[0])
+			else if (uncounted.Count == 0 && (distinct.Count != 1 || written != distinct[0]))
 				ctx.Messages.Add(new Message($"Mixed-typed arrays not supported ({written} != {typesString}).", expr.Region, MessageType.Error));
 
-			TypeSymbol elementType = expr.Elements.FirstOrDefault()?.Symbol?.Type;
+			TypeSymbol elementType = stored.FirstOrDefault(i => i != null);
 			if (elementType == null && !current.TryGet(expr.TypeName.ElementType ?? expr.TypeName.Name, out elementType))
 				elementType = Default(current);
 
-			ArrayTypeSymbol arrayType = ArrayShape(ctx, expr.TypeName, elementType, expr.Elements.Length, expr.Region);
+			//The length is unknown, so an empty array of the element type stands in and the declaration reports nothing more.
+			if (uncounted.Count > 0)
+			{
+				expr.Symbol = ctx.NewTemp(new ArrayTypeSymbol(elementType, 0));
+				return;
+			}
+
+			foreach (SpreadExpr spread in expr.Elements.OfType<SpreadExpr>())
+				spread.Items = [.. Enumerable.Range(0, ((ArrayTypeSymbol)spread.Symbol.Type).Length).Select(i => SpreadItem(current, spread.Symbol, i))];
+
+			int count = expr.Elements.Sum(i => i is SpreadExpr spread ? spread.Items.Length : 1);
+			ArrayTypeSymbol arrayType = ArrayShape(ctx, expr.TypeName, elementType, count, expr.Region);
 
 			List<int> shape = expr.TypeName.Dimensions.Count > 1 ? expr.TypeName.Dimensions : [arrayType.Length];
 			expr.Symbol = ctx.NewTemp(arrayType) with { Dimension = shape[0] };
 			current.Add(expr.Symbol);
 
 			NamedDataSymbol target = expr.Symbol as NamedDataSymbol;
-			expr.Destinations = Enumerable.Range(0, expr.Elements.Length).Select(flat =>
+			expr.Destinations = Enumerable.Range(0, count).Select(flat =>
 			{
 				NamedDataSymbol slot = target;
 				int remaining = flat;
@@ -699,6 +722,26 @@ namespace Orion.Frontend.Binder
 
 				return slot;
 			}).ToArray();
+		}
+
+		//The type an array literal's element stores: its own, or for a spread its source's element type; null for a source that cannot be counted.
+		private static TypeSymbol Stored(Expression element) => element switch
+		{
+			SpreadExpr { Symbol.Type: ArrayTypeSymbol { Element: not BufferTypeSymbol } source } => source.Element,
+			SpreadExpr => null,
+			_ => element.Symbol.Type
+		};
+
+		//Element i of a spread's source: a constant array's is its value, anything else's is read from where it is stored.
+		private static DataSymbol SpreadItem(SymbolTable current, DataSymbol source, int i) => source is LiteralSymbol { Value: Array items }
+			? InternLiteral(current, items.GetValue(i), ((ArrayTypeSymbol)source.Type).Element)
+			: new ArrayElementSymbol((NamedDataSymbol)source, InternLiteral(current, i, Default(current)));
+
+		//`..rest` stands for rest; the literal around it decides what rest may be.
+		public static void Visit(BindContext ctx, SpreadExpr expr)
+		{
+			Visit(ctx, expr.Value);
+			expr.Symbol = expr.Value.Symbol;
 		}
 
 		public static void Visit(BindContext ctx, StructExpr expr)
@@ -757,7 +800,10 @@ namespace Orion.Frontend.Binder
 			Visit(ctx, expr.Operand2);
 
 			bool isShift = expr.Op == AstOp.ShiftLeft || expr.Op == AstOp.ShiftRight;
-			if (!isShift && !Composes(expr) && expr.Operand1.Symbol.Type != expr.Operand2.Symbol.Type)
+			//A List literal's spread became `list + rest`, so the mismatch is reported as the spread the source spells.
+			if (expr.Operand2 is SpreadExpr && expr.Operand1.Symbol.Type != expr.Operand2.Symbol.Type)
+				ctx.Messages.Add(new Message($"{Where(ctx)}: A spread in a {expr.Operand1.Symbol.Type.Name} literal takes a {expr.Operand1.Symbol.Type.Name}, received {expr.Operand2.Symbol.Type.Name}{(expr.Operand2.Symbol.Type is BufferTypeSymbol ? "; List::FromArray makes a List of an array" : "")}.", expr.Region, MessageType.Error));
+			else if (!isShift && !Composes(expr) && expr.Operand1.Symbol.Type != expr.Operand2.Symbol.Type)
 				ctx.Messages.Add(new Message($"Invalid operand types ({expr.Operand1.Symbol.Type} != {expr.Operand2.Symbol.Type})", expr.Region, MessageType.Error));
 			else if (Uncompared(expr.Op, expr.Operand1.Symbol.Type) is string refused)
 				ctx.Messages.Add(new Message($"{Where(ctx)}: {refused}", expr.Region, MessageType.Error));

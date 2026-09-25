@@ -95,7 +95,7 @@ namespace Orion.Frontend.Binder
 
 		//An array literal and an array expression share the message: a nested element has no rectangular shape.
 		private static void NestedArrays(BindContext ctx, string typesString, string written, InputRegion region) =>
-			ctx.Messages.Add(new Message($"Arrays of arrays are not supported ({typesString}); write the rectangular form ({written}[2,2]) over a flat list.", region, MessageType.Error));
+			ctx.Messages.Add(new Message($"Arrays of arrays are not supported ({typesString}); `..name` stores an array's elements in place, and a 2-D array is the rectangular form ({written}[2,2]) over a flat list.", region, MessageType.Error));
 
 		//The type an array's written extents give `count` elements, reported when they hold a different number; shared by the literal and the expression.
 		private static ArrayTypeSymbol ArrayShape(BindContext ctx, TypeName typeName, TypeSymbol elementType, int count, InputRegion region)
@@ -132,6 +132,25 @@ namespace Orion.Frontend.Binder
 				row = row.MakeArrayType();
 
 			return row;
+		}
+
+		//The constant array an array expression stores when every value it stores is a constant of its element type, else null.
+		private static LiteralSymbol ConstantArray(SymbolTable current, ArrayExpr array)
+		{
+			if (array.Destinations == null || array.Symbol.Type is not ArrayTypeSymbol type)
+				return null;
+
+			TypeSymbol leaf = BufferTypeSymbol.Leaf(type, type.Rank);
+			List<DataSymbol> stored = [.. array.Elements.SelectMany(i => i is SpreadExpr spread ? spread.Items : [i.Symbol])];
+			if (leaf is not (PrimitiveTypeSymbol or StructTypeSymbol) || stored.Any(i => i is not LiteralSymbol literal || literal.Type != leaf))
+				return null;
+
+			Array flat = Array.CreateInstance(BuildAssembly.GetClrType(leaf), stored.Count);
+			for (int i = 0; i < stored.Count; i++)
+				flat.SetValue(((LiteralSymbol)stored[i]).Value, i);
+
+			Array nested = Nest(flat, array.TypeName.Dimensions);
+			return InternLiteral(current, nested, type, nested.Length);
 		}
 
 		private static Array Nest(Array flat, List<int> dimensions)

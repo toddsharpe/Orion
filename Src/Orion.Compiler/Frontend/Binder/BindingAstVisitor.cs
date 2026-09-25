@@ -33,6 +33,7 @@ namespace Orion.Frontend.Binder
 				case Subscript x: Visit(ctx, x); break;
 				case MemberAccess x: Visit(ctx, x); break;
 				case ArrayExpr x: Visit(ctx, x); break;
+				case SpreadExpr x: Visit(ctx, x); break;
 				case StructExpr x: Visit(ctx, x); break;
 				case ArgsExpr x: Visit(ctx, x); break;
 				case BinaryOp x: Visit(ctx, x); break;

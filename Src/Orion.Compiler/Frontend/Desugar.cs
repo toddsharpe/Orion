@@ -270,7 +270,7 @@ namespace Orion.Frontend
 			}
 		}
 
-		//`List<T>[a, b]` -> chained List::With over List::New.
+		//`[a, ..rest, b]:List<T>` -> chained List::With over List::New, with `+ rest` for the spread.
 		private static Expression ProcessList(ArrayExpr a) =>
 			Collection(BuildTime.Surface.Builtin(typeof(BuildTime.Builtins.ListBuiltins), nameof(BuildTime.Builtins.ListBuiltins.New)), BuildTime.Surface.Builtin(typeof(BuildTime.Builtins.ListBuiltins), nameof(BuildTime.Builtins.ListBuiltins.With)), a.TypeName.Generics,
 				a.Elements.Select(el => new List<Expression> { el }), a.Region);
@@ -298,6 +298,13 @@ namespace Orion.Frontend
 
 			foreach (List<Expression> entry in entries)
 			{
+				//`..rest` joins a whole List on with its `+`, where every other entry adds one; the operand stays a spread for the binder's message.
+				if (entry is [SpreadExpr spread])
+				{
+					acc = new BinaryOp { Operand1 = acc, Op = AstOp.Add, Operand2 = spread, Region = spread.Region };
+					continue;
+				}
+
 				acc = new Call
 				{
 					Function = with,

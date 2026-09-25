@@ -152,6 +152,8 @@ namespace Orion.Backend.JavaScript
 			string type = Js(sym.Type);
 			string init = sym.Type switch
 			{
+				//A 2-D temp's element stores index into its rows, so the rows must exist before them.
+				ArrayTypeSymbol { Element: BufferTypeSymbol } when sym is TempDataSymbol => Zero(sym.Type),
 				BufferTypeSymbol when sym is TempDataSymbol => $"new OrionArray(new Array({sym.Dimension}).fill(null), {sym.Dimension})",
 				BufferTypeSymbol => "new OrionArray([], 0)",
 				StructTypeSymbol s => $"new {type}({string.Join(", ", s.Fields.Select(f => Zero(f.Type)))})",

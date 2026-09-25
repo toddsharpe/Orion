@@ -144,6 +144,8 @@ namespace Orion.Backend.CSharp
 			string type = Cs(sym.Type);
 			string init = sym.Type switch
 			{
+				//A 2-D temp's element stores index into its rows, so the rows must exist before them.
+				ArrayTypeSymbol { Element: BufferTypeSymbol } when sym is TempDataSymbol => ZeroValue(sym.Type),
 				//An array temp materializes a non-constant literal element by element, so it needs a buffer; a local is always pointed at an existing one first, so an empty view is enough.
 				BufferTypeSymbol b when sym is TempDataSymbol => $"new {type}(new {Cs(b.Element)}[{sym.Dimension}], {sym.Dimension})",
 				BufferTypeSymbol b => $"new {type}(new {Cs(b.Element)}[0], 0)",

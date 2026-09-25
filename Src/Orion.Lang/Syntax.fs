@@ -149,6 +149,8 @@ module Syntax =
         | ToStr of Pos<Expr>
         //[1, 2, 3]:i32
         | ArrayExpr of Pos<Expr> list * Pos<TypeName>
+        //the `..rest` in [0, ..rest, 9]:i32 - its elements, in place; an element of a literal and nothing else
+        | Spread of Pos<Expr>
         //[v.name for Device v in devices if v.type == "u16"]:List<str>; `for Device v, i32 i in` binds the position too
         | Comprehension of Pos<Expr> * Pos<ConstFlag> * Pos<TypeName> * Pos<Identifier> * Pos<Identifier> option * Pos<Expr> * Pos<Expr> option * Pos<TypeName>
         //Point{ x = 1, y = 2 }

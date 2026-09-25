@@ -269,9 +269,11 @@ module Parser =
     //`to_str(x)` - stringify.
     let ptostr =
         %% (str "to_str") -- (str "(") -- +.pexpr -- (str ")") -|> fun e -> ToStr(e)
+    //`..rest` - no expression starts with `..`, so an element that does is a spread.
+    let pspread = (str ".." >>. pexpr |>> Spread) |> withPos
     //`[1, 2, 3]:i32` - the suffix types the literal, so an empty `[]:List<str>` is still well typed.
     let parrayexpr =
-        %% (str "[") -- +.(qty.[0..] / comma * pexpr) -- (str "]") -- ((str ":") <?> "':' -- an array literal carries its type as a suffix, as in [1.0, 2.0]:f32[2]") -- +.ptype -|>
+        %% (str "[") -- +.(qty.[0..] / comma * (pspread <|> pexpr)) -- (str "]") -- ((str ":") <?> "':' -- an array literal carries its type as a suffix, as in [1.0, 2.0]:f32[2]") -- +.ptype -|>
             fun items t -> ArrayExpr(items |> Seq.toList, t)
     //`[body for T x in source if filter]:List<U>` - a comprehension; `for` is reserved, so it parses.
     let pcomprexpr =

@@ -215,7 +215,7 @@ namespace Orion.Ast
 		private static Expression CreateArray(Expr.ArrayExpr array)
 		{
 			TypeName typeName = TypeName.Create(array.Item2.Value);
-			Expression[] elements = array.Item1.Select(i => Create(i.Value)).ToArray();
+			Expression[] elements = array.Item1.Select(CreateItem).ToArray();
 			InputRegion region = InputRegion.Create([
 				(array.Item2.Start, array.Item2.End),
 				.. array.Item1.Select(i => (i.Start, i.End))
@@ -234,6 +234,19 @@ namespace Orion.Ast
 					Region = region
 				},
 				Region = region
+			};
+		}
+
+		//One element of a literal; a `..rest` spread keeps the `..` in its region, so an error about it points there.
+		private static Expression CreateItem(Pos<Expr> item)
+		{
+			if (item.Value is not Expr.Spread spread)
+				return Create(item.Value);
+
+			return new SpreadExpr
+			{
+				Value = Create(spread.Item.Value),
+				Region = InputRegion.Create(item.Start, item.End)
 			};
 		}
 
@@ -479,7 +492,16 @@ namespace Orion.Ast
 		internal TypeName TypeName { get; set; }
 		internal Expression[] Elements { get; set; }
 	
+		//One slot per element stored, so a spread takes as many as its source holds.
 		internal NamedDataSymbol[] Destinations { get; set; }
+	}
+
+	//`..rest` in `[0, ..rest]:T`; Desugar makes a List literal's a `+`, and the binder reads an array's elements into Items.
+	public class SpreadExpr : Expression
+	{
+		internal Expression Value { get; set; }
+	
+		internal DataSymbol[] Items { get; set; }
 	}
 
 	//`Point{ x = 1, y = 2 }`.

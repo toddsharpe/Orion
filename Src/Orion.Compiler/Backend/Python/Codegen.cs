@@ -182,6 +182,8 @@ namespace Orion.Backend.Python
 			string type = Python(sym.Type);
 			string init = sym.Type switch
 			{
+				//A 2-D temp's element stores index into its rows, so the rows must exist before them.
+				ArrayTypeSymbol { Element: BufferTypeSymbol } when sym is TempDataSymbol => Zero(sym.Type),
 				BufferTypeSymbol when sym is TempDataSymbol => $"{type}([None] * {sym.Dimension}, {sym.Dimension})",
 				BufferTypeSymbol => $"{type}([], 0)",
 				StructTypeSymbol s => $"{type}({string.Join(", ", s.Fields.Select(f => Zero(f.Type)))})",
