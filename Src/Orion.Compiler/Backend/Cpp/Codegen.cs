@@ -75,8 +75,6 @@ namespace Orion.Backend.Cpp
 				includes,
 				new Dictionary<string, List<Enum>>
 				{
-					//TypeCode exists to label the RTTI type rows, so without them it is a dead enum in the image.
-					{ "Compiler Enums", Compiler.Session.Rtti ? [ClrEnum(typeof(TypeCode))] : [] },
 					{ "Enums", CreateEnums(root, exported) },
 				},
 				new Dictionary<string, List<Struct>>
@@ -86,7 +84,7 @@ namespace Orion.Backend.Cpp
 				new Dictionary<string, List<Declaration>>
 				{
 					{ "Globals", CreateGlobals(root) },
-					{ "Runtime type information", Rtti(root, reachable) },
+					{ "Function handles", [.. FunctionHandles.Held(root, reachable).Select(Handle)] },
 					{ "Array literals", HoistViewedArrays(reachable) },
 				},
 				CreateFunctions(reachable, exported),
@@ -112,15 +110,7 @@ namespace Orion.Backend.Cpp
 		private List<Declaration> CreateGlobals(SymbolTable root)
 		{
 			return [.. root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct()
-				.Select(i => new Declaration($"static {Cpp(i.Declared ?? i.Type)}", i.Name, i.Initializer == null ? "{}" : Cpp(i.Initializer), Namespace(i)))];
-		}
-
-		//A compiler enum rendered as it is declared, its members in declaration order.
-		private static Enum ClrEnum(Type type)
-		{
-			string[] names = System.Enum.GetNames(type);
-			int[] values = (int[])System.Enum.GetValues(type);
-			return new Enum(type.Name, names.Zip(values).ToDictionary(i => Cpp(i.First), i => i.Second));
+				.Select(i => new Declaration($"static {Cpp(i.Type)}", i.Name, "{}"))];
 		}
 
 		private static List<Enum> CreateEnums(SymbolTable root, bool exported)
@@ -132,23 +122,12 @@ namespace Orion.Backend.Cpp
 		private static List<Struct> CreateStructs(SymbolTable root, bool exported)
 		{
 			return StructOrder.Sort(root.Traverse().SelectMany(i => i.GetAll<StructTypeSymbol>()).Distinct()).Where(i => !(exported && i.IsExport))
-				.Select(i => new Struct(i.Name, i.Fields.ToDictionary(f => f.Name, f => Cpp(f.Type)), null, Namespace(i))).ToList();
+				.Select(i => new Struct(i.Name, i.Fields.ToDictionary(f => f.Name, f => Cpp(f.Type)))).ToList();
 		}
 
-		//Only a function held by VALUE needs a handle; RTTI's generated source address-takes what its lookup answers, so the referenced set covers Get.
-		private static List<Declaration> Rtti(SymbolTable root, IEnumerable<SourceFunctionSymbol> reachable)
-		{
-			HashSet<string> referenced = root.Traverse()
-				.SelectMany(t => t.GetAll<LiteralSymbol>())
-				.Select(l => l.Value as OrionFunction)
-				.Where(h => h != null)
-				.Select(h => h.Function as SourceFunctionSymbol)
-				.Where(f => f != null)
-				.Select(f => f.Name)
-				.ToHashSet();
-
-			return [.. reachable.Where(i => referenced.Contains(i.Name)).Select(i => new Declaration("static _Function", $"{Cpp(i.Name)}Function", $"{{ \"{i.Name}\" }}"))];
-		}
+		//The handle a `Function` constant points at, for a function a constant holds.
+		private static Declaration Handle(SourceFunctionSymbol function) =>
+			new Declaration("static _Function", $"{Cpp(function.Name)}Function", $"{{ \"{function.Name}\" }}");
 
 		private List<Declaration> HoistViewedArrays(IEnumerable<SourceFunctionSymbol> reachable)
 		{
@@ -244,8 +223,8 @@ namespace Orion.Backend.Cpp
 				HashSet<ParamDataSymbol> written = WrittenParams(i);
 				List<string> args = i.Wired ? [$"{Solver.StructName}& {Solver.ParamName}"] : i.Parameters.Select(p => Declare(p, written)).ToList();
 				//A program with exports keeps its unexported functions to itself; without any, every function is linkable.
-				string storage = !anyExported || i.IsExport || Orion.Rtti.Generator.Owns(i) ? string.Empty : "static ";
-				return new Function($"{storage}{Cpp(i.ReturnType)}", Cpp(i.Name), args, locals, body, Namespace(i),
+				string storage = !anyExported || i.IsExport ? string.Empty : "static ";
+				return new Function($"{storage}{Cpp(i.ReturnType)}", Cpp(i.Name), args, locals, body,
 					Declared: exported && Header.Declares(i));
 			}).ToList();
 		}

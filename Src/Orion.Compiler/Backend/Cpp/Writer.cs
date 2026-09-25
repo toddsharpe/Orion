@@ -15,11 +15,12 @@ namespace Orion.Backend.Cpp
 				Write(include);
 			AppendLine();
 
-			//Forward declare structs so a pointer field can name one; namespaced first, as RTTI names no user struct.
+			//Forward declare structs so a function-typed field can name one defined further down.
 			List<Struct> structs = [.. file.Structs.SelectMany(i => i.Value)];
 			if (structs.Count > 0)
 			{
-				Namespaced(structs, i => i.Namespace, s => AppendLine($"struct {s.Name};"));
+				foreach (Struct s in structs)
+					AppendLine($"struct {s.Name};");
 				AppendLine();
 			}
 
@@ -31,7 +32,8 @@ namespace Orion.Backend.Cpp
 				if (kvp.Value.Count == 0)
 					continue;
 				WriteBlockComment(kvp.Key);
-				Namespaced(kvp.Value, i => i.Namespace, Write);
+				foreach (Struct s in kvp.Value)
+					Write(s);
 			}
 			AppendLine();
 
@@ -41,7 +43,8 @@ namespace Orion.Backend.Cpp
 				if (kvp.Value.Count == 0)
 					continue;
 				WriteBlockComment(kvp.Key);
-				Namespaced(kvp.Value, i => i.Namespace, Write);
+				foreach (Declaration global in kvp.Value)
+					Write(global);
 				AppendLine();
 			}
 
@@ -59,21 +62,17 @@ namespace Orion.Backend.Cpp
 			if (forward.Count > 0)
 			{
 				WriteBlockComment("Forward Function Declarations");
-				Namespaced(forward, i => i.Namespace, Declare);
+				foreach (Function function in forward)
+					Declare(function);
 				AppendLine();
 			}
 
 			//Write functions, one blank line between them
-			foreach (IGrouping<string, Function> group in Grouped(file.Functions, i => i.Namespace))
+			foreach ((int i, Function function) in file.Functions.Index())
 			{
-				Open(group.Key);
-				foreach ((int i, Function function) in group.Index())
-				{
-					if (i > 0)
-						AppendLine();
-					Write(function);
-				}
-				Close(group.Key);
+				if (i > 0)
+					AppendLine();
+				Write(function);
 			}
 		}
 
@@ -111,7 +110,7 @@ namespace Orion.Backend.Cpp
 
 			WriteSections(file.Enums, WriteBlockComment, Write, blankAfter: true);
 
-			//Forward declare first, as the translation unit does: a `Ref<T>` field may name a struct defined further down.
+			//Forward declare first, as the translation unit does: a function-typed field may name a struct defined further down.
 			List<Struct> structs = [.. file.Structs.SelectMany(i => i.Value)];
 			if (structs.Count > 0)
 			{
@@ -121,41 +120,6 @@ namespace Orion.Backend.Cpp
 			}
 
 			WriteSections(file.Structs, WriteBlockComment, Write, blankAfter: true);
-		}
-
-		//Namespaced first, then file scope, each one run, so a later declaration may name an earlier one.
-		private static IEnumerable<IGrouping<string, T>> Grouped<T>(IEnumerable<T> items, Func<T, string> ns) =>
-			items.GroupBy(ns).OrderBy(i => i.Key == null);
-
-		//One namespace opened around each run of items that carry it.
-		private void Namespaced<T>(IEnumerable<T> items, Func<T, string> ns, Action<T> write)
-		{
-			foreach (IGrouping<string, T> group in Grouped(items, ns))
-			{
-				Open(group.Key);
-				foreach (T item in group)
-					write(item);
-				Close(group.Key);
-			}
-		}
-
-		private void Open(string ns)
-		{
-			if (ns == null)
-				return;
-
-			AppendLine($"namespace {ns}");
-			AppendLine("{");
-			PushScope();
-		}
-
-		private void Close(string ns)
-		{
-			if (ns == null)
-				return;
-
-			PopScope();
-			AppendLine("}");
 		}
 
 		private void Write(Reference include)

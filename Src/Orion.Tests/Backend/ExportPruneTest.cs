@@ -25,7 +25,7 @@ i32 main()
 
 		private static string Emit(BackendLanguage lang, string marker) => Harness.Emit(lang, Program.Replace("{0}", marker));
 
-		//How each target spells a DEFINITION of `name` -- the name alone will not do, since RTTI's `_Functions` carries `"exported_scale"` as a string either way.
+		//How each target spells a DEFINITION of `name`, so a mention of the name elsewhere does not count.
 		private static bool Defines(BackendLanguage lang, string code, string name) => lang switch
 		{
 			BackendLanguage.Cpp => code.Contains($"u32 {name}(") || code.Contains($"str {name}(")

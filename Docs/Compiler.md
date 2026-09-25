@@ -18,8 +18,8 @@ The playground's Pipeline and Analysis tabs show the same.
 
 | | |
 |---|---|
-| **Frontend** | Inputs, Parser, Combined, Desugar, Conditionals, Monomorphizer, RTTI Declare, BuildLocals, Specializer, Binding, IR |
-| **BuildTime** | BuildRegions, TacAnalyze, Generate, Execute, Channels, Blocks, RTTI Fill |
+| **Frontend** | Inputs, Parser, Combined, Desugar, Conditionals, Monomorphizer, BuildLocals, Specializer, Binding, IR |
+| **BuildTime** | BuildRegions, TacAnalyze, Generate, Execute, Channels, Blocks |
 | **Optimize** | IR |
 | **Backend** | Checks, Prepare, StIr, ShortCircuit, Fuse, Guards, ControlFlow, Prune, Codegen |
 
@@ -46,28 +46,13 @@ three-address code: one operation per TAC, temps for intermediates, labels and g
 
 `BuildRegions` lifts every `#run { }` into a build-only function. `TacAnalyze` adds missing returns
 and checks the port rules — an `#input` is never written, a `#pure` never read and always written —
-and that no `Span` or `Ref` outlives what it views. `Generate` emits MSIL for build functions into an
+and that no `Span` outlives what it views. `Generate` emits MSIL for build functions into an
 in-memory assembly, and `Execute` walks the TACs from `main`, running each build call whose arguments
 are known and splicing its result ([BuildTime.md](BuildTime.md)). `Channels` then emits ring storage
 and accessors, and `Blocks` reports an `#init` nothing will run.
 
 Files the build wrote with `Output::Write` come back as `CompilerResult.Outputs`. The call graph,
 netlist, CFG and structured-form diagrams in `Diagrams/` are Graphviz text the playground draws.
-
-## RTTI
-
-With `--rtti` the program can describe itself. The descriptors are Orion,
-[Rtti/Types.src](../Src/Orion.Compiler/Rtti/Types.src) and [Rtti/Code.src](../Src/Orion.Compiler/Rtti/Code.src),
-compiled like any source: `Declare` binds them first, and `Fill` builds the tables after the build:
-
-```
-RtFunction f = Function::Get("scale");
-WriteLine($"{f.Name} -> {f.Return.Name}, {f.Inputs.Length} inputs");
-```
-
-`RtType` has a name, kind, size, length, element and fields with packed offsets; `RtFunction` has a
-return type and input, output and state ports. Row 0 is the "no type" ending a walk, and the build-time
-`Type` handle classifies alike.
 
 ## Optimizing
 

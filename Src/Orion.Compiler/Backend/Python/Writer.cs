@@ -31,15 +31,6 @@ namespace Orion.Backend.Python
 
 			WriteSections(file.Globals, WriteBlockComment, Write, blankAfter: true);
 
-			//A global that names itself: the name binds once the initializer ends, so the field is assigned after.
-			if (file.Fixups?.Count > 0)
-			{
-				WriteBlockComment("Self references");
-				foreach (Fixup fixup in file.Fixups)
-					AppendLine($"{fixup.Target} = {fixup.Value}");
-				AppendLine();
-			}
-
 			//Write functions, one blank line between them
 			for (int i = 0; i < file.Functions.Count; i++)
 			{

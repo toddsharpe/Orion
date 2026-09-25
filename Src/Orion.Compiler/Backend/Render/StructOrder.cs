@@ -26,7 +26,7 @@ namespace Orion.Backend.Render
 					while (held is BufferTypeSymbol buffer)
 						held = buffer.Element;
 
-					//Only a struct held by value must precede; a `Ref<T>` field is a pointer, which a forward declaration already satisfies.
+					//Only a struct held by value must precede; a function-typed field naming one needs only the forward declaration.
 					if (held is StructTypeSymbol dep && byName.TryGetValue(dep.Name, out StructTypeSymbol own))
 						Place(own);
 				}

@@ -16,7 +16,7 @@ namespace Orion.Frontend
 			Run(tu, messages);
 		}
 
-		//A unit that declares no `#test`, as RTTI's own source does.
+		//A unit whose `#test`s the session never sees, as a unit test's is.
 		public static void Run(TranslationUnit tu, List<Message> messages)
 		{
 			//Before the rewrite, so a hoisted block picks up its void ResultType like a written one.

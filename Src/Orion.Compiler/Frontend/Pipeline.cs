@@ -17,12 +17,11 @@ namespace Orion.Frontend
 			new("Frontend", "Desugar", (ctx, m) => Desugar.Run(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
 			new("Frontend", "Conditionals", (ctx, m) => Conditionals.Run(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
 			new("Frontend", "Monomorphizer", (ctx, m) => Monomorphizer.Expand(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
-			Rtti.Generator.DeclareRow,
 			new("Frontend", "BuildLocals", (ctx, m) => BuildLocals.Run(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
 			new("Frontend", "Specializer", (ctx, m) => Specializer.Extract(ctx.Unit, ctx.Session, m), ctx => new UnitState(ctx.Combined)),
 		];
 
-		//The one door mid-build re-entry goes through: bind into the scope, then lower, analyze and optionally emit. Its callers (the build, RTTI) hold no compilation, so it binds on the ambient session.
+		//The one door mid-build re-entry goes through: bind into the scope, then lower, analyze and optionally emit. Its caller, the build, holds no compilation, so it binds on the ambient session.
 		internal static bool Lower(TranslationUnit unit, SymbolTable scope, List<Message> messages, bool emit)
 		{
 			Binding.BindAst(unit, scope, Compiler.Session, messages);

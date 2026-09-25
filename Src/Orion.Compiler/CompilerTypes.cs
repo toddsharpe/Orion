@@ -42,9 +42,6 @@ namespace Orion
 		//`-D NAME` or `-D NAME=value`: build-time constants every `#if` can choose with.
 		public List<string> Defines { get; set; } = new List<string>();
 
-		//`--rtti`: declare and emit the runtime type tables. Off, a use of the surface cannot even bind.
-		public bool Rtti { get; set; }
-
 		public string SrcRoot { get; set; }
 
 		public bool Testing { get; set; }

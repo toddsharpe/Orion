@@ -14,7 +14,7 @@ namespace Orion.IR.Checks
 		internal static void Check(SourceFunctionSymbol func, List<Message> messages)
 		{
 			//Returned: the frame it pointed at is gone by the time the caller reads it.
-			if (Indirect(func.ReturnType))
+			if (func.ReturnType is SpanTypeSymbol)
 			{
 				foreach (ReturnSymTac tac in func.Tacs.OfType<ReturnSymTac>())
 					if (!Global(func, tac.Symbol, []))
@@ -23,18 +23,15 @@ namespace Orion.IR.Checks
 
 			//Stored into a struct field: the struct may outlive whatever it pointed at.
 			foreach (AssignTac tac in func.Tacs.OfType<AssignTac>())
-				if (tac.Result is FieldDataSymbol field && Indirect(field.Type) && !Global(func, tac.Operand1, []))
+				if (tac.Result is FieldDataSymbol field && field.Type is SpanTypeSymbol && !Global(func, tac.Operand1, []))
 					Report(messages, func, field.Type, $"stored in {tac.Result.Name}", tac.Region);
 		}
-
-		//The two types that hold storage they do not own.
-		private static bool Indirect(TypeSymbol type) => type is SpanTypeSymbol or RefTypeSymbol;
 
 		private static void Report(List<Message> messages, SourceFunctionSymbol func, TypeSymbol type, string what, InputRegion region)
 		{
 			messages.Add(new Message(
 				$"{func.Name}: a view of storage that does not outlive the call cannot be {what}. " +
-				$"A `{type.Name}` may only view a global.",
+				$"A `{type.Name}` may only view storage that does, such as a `#state` array.",
 				region ?? InputRegion.None, MessageType.Error));
 		}
 
@@ -44,10 +41,11 @@ namespace Orion.IR.Checks
 			if (symbol == null || !seen.Add(symbol))
 				return false;
 
-			if (symbol is GlobalDataSymbol or SliceSymbol or RefSymbol)
+			//A global, or the static storage a `#state` local lives in, outlives every call.
+			if (symbol is GlobalDataSymbol or LocalDataSymbol { Storage: LocalStorage.Static })
 				return true;
 
-			//An element lives inside whatever holds it, so `_Types[i]` outlives the call when `_Types` does.
+			//An element lives inside whatever holds it, so `table[i]` outlives the call when `table` does.
 			if (symbol is ArrayElementSymbol element)
 				return Global(func, element.Array, seen);
 

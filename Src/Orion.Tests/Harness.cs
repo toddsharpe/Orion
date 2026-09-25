@@ -16,13 +16,9 @@ namespace Orion.Tests
 		internal static CompilerResult Compile(string[] defines, string main, params (string Name, string Contents)[] files) =>
 			CompileTo(BackendLanguage.Cpp, main, null, files, defines);
 
-		//As above with the RTTI surface enabled, as `orion compile --rtti` does.
-		internal static CompilerResult CompileRtti(string main, params (string Name, string Contents)[] files) =>
-			CompileTo(BackendLanguage.Cpp, main, null, files, null, true);
-
 		//As above with `#test`s running during the build, as `orion compile` and `orion test` do.
 		internal static CompilerResult CompileTesting(string main, params (string Name, string Contents)[] files) =>
-			CompileTo(BackendLanguage.Cpp, main, null, files, null, false, true);
+			CompileTo(BackendLanguage.Cpp, main, null, files, null, true);
 
 		//As above with the C++ header: the CLI names it after the output, so a test asking for one has to say what it is called.
 		internal static CompilerResult CompileWithHeader(string header, string main, params (string Name, string Contents)[] files) =>
@@ -77,7 +73,7 @@ namespace Orion.Tests
 			return count;
 		}
 
-		private static CompilerResult CompileTo(BackendLanguage lang, string main, string header, (string Name, string Contents)[] files, string[] defines = null, bool rtti = false, bool testing = false)
+		private static CompilerResult CompileTo(BackendLanguage lang, string main, string header, (string Name, string Contents)[] files, string[] defines = null, bool testing = false)
 		{
 			using TempDir dir = new TempDir("orion_test_");
 			string entry = dir.Write("main.src", main);
@@ -92,7 +88,6 @@ namespace Orion.Tests
 				HeaderName = header,
 				TypesName = header == null ? null : Path.GetFileNameWithoutExtension(header) + "_types.h",
 				Defines = [.. defines ?? []],
-				Rtti = rtti,
 				Testing = testing,
 			});
 		}

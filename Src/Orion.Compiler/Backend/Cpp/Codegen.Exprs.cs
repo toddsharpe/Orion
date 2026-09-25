@@ -14,12 +14,6 @@ namespace Orion.Backend.Cpp
 	//How a value, symbol, type or fused expression spells in C++; the sections and function bodies are in Codegen.cs.
 	internal partial class Codegen
 	{
-		private const string RttiScope = "RTTI";
-		private static string Namespace(Symbol symbol) => Orion.Rtti.Generator.Owns(symbol) ? RttiScope : null;
-
-		private static string Qualify(Symbol symbol, string name) =>
-			Namespace(symbol) is string ns ? $"{ns}::{name}" : name;
-
 		private string PrintExpr(StExpr e) => PrintExpr(e, 0);
 
 		private string PrintExpr(StExpr e, int minPrec)
@@ -39,7 +33,7 @@ namespace Orion.Backend.Cpp
 
 				case StIndex ix: return $"{PrintExpr(ix.Array)}[{PrintExpr(ix.Index)}]";
 				case StMember m when m.Field == "Length": return $"static_cast<i32>({PrintExpr(m.Instance)}.size())";
-				case StMember m when m.Owner is RefTypeSymbol or BuiltinTypeSymbol { ByPointer: true }: return $"{PrintExpr(m.Instance)}->{m.Field}";
+				case StMember m when m.Owner is BuiltinTypeSymbol { ByPointer: true }: return $"{PrintExpr(m.Instance)}->{m.Field}";
 				case StMember m: return $"{PrintExpr(m.Instance)}.{m.Field}";
 				case StBin b when ExprPrinter.NotOperand(b) is StExpr inner: return $"!{PrintExpr(inner, ExprPrinter.UnaryPrec)}";
 				case StBin b:
@@ -59,7 +53,7 @@ namespace Orion.Backend.Cpp
 				case StCast c: return $"static_cast<{Spelling.Emitted(c.Target)}>({PrintExpr(c.Value)})";
 				//A wired block reads its ports off the state, so its call carries exactly that.
 				case StCall c when Netlist.Wired(c.Function): return $"{Cpp(c.Function.EmitName)}({Solver.StateName})";
-				case StCall c: return $"{Qualify(c.Function, Cpp(c.Function.EmitName))}({string.Join(", ", c.Args.Select(a => PrintExpr(a)))})";
+				case StCall c: return $"{Cpp(c.Function.EmitName)}({string.Join(", ", c.Args.Select(a => PrintExpr(a)))})";
 				default: throw new NotImplementedException($"Cpp PrintExpr: {e.GetType().Name}");
 			}
 		}
@@ -197,23 +191,6 @@ namespace Orion.Backend.Cpp
 					}
 				}
 
-				case AggregateSymbol aggregate:
-				{
-					string items = string.Join(", ", aggregate.Items.Select(Cpp));
-					return aggregate.Type is ArrayTypeSymbol
-						? $"{Cpp(aggregate.Type)}{{ {{ {items} }} }}"
-						: $"{{ {items} }}";
-				}
-
-				case SliceSymbol slice:
-					return $"span_slice({slice.Global.Name}, {slice.Offset}, {slice.Length})";
-
-				case RefSymbol reference:
-					return $"&{reference.Global.Name}";
-
-				case NullSymbol:
-					return "nullptr";
-
 				case ArrayElementSymbol arr when arr.Array.Type is PrimitiveTypeSymbol { Code: TypeCode.str }:
 					return $"str_at({Cpp(arr.Array)}, {Cpp(arr.Operand)})";
 
@@ -229,9 +206,6 @@ namespace Orion.Backend.Cpp
 
 					return $"{Cpp(field.Instance)}.{fieldName}";
 				}
-
-				case GlobalDataSymbol global when Namespace(global) != null:
-					return Qualify(global, global.Name);
 
 				case NamedDataSymbol data:
 					return data.Name;
@@ -263,9 +237,7 @@ namespace Orion.Backend.Cpp
 				SpanTypeSymbol s => $"std::span<{Cpp(s.Element)}>",
 				ArrayTypeSymbol a => $"std::array<{Cpp(a.Element)}, {a.Length}>",
 				AutoArrayTypeSymbol a => $"std::span<{Cpp(a.Element)}>",
-				RefTypeSymbol r => $"{Cpp(r.Element)}*",
 				PrimitiveTypeSymbol p => p.Code.ToString(),
-				StructTypeSymbol s => Qualify(s, s.Name),
 				TypeSymbol t => t.Name
 			};
 		}

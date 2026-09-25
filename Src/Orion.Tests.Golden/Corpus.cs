@@ -68,8 +68,7 @@ namespace Orion.Tests.Golden
 		//No -I: the repo's `orion.json` is the root, and passing one here would hide a broken discovery.
 		internal static void Compile(string test, string source, string language, string output)
 		{
-			//--rtti for the whole corpus: the surface stays golden-covered, and the OFF default is unit-tested.
-			ToolResult result = Tool.Run(Compiler, $"compile \"{source}\" -o \"{output}\" -l {language} --rtti", Repo.Root);
+			ToolResult result = Tool.Run(Compiler, $"compile \"{source}\" -o \"{output}\" -l {language}", Repo.Root);
 
 			//The compiler reports errors on stdout and returns non-zero; both matter, so show everything.
 			Assert.IsTrue(result.Ok, $"{test}: compiling to {language} failed.\n{result.Report()}");

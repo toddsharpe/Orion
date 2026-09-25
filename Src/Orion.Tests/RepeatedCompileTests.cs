@@ -54,7 +54,7 @@ i32 main()
 			Assert.AreEqual(0, diags.Count, string.Join("\n", diags));
 		}
 
-		//A `#build` cell hoists into a process-global registry, and RTTI's Declare binds before the hoist pass clears the last one -- so a stale cell would be reported against a program that never wrote it.
+		//A `#build` cell hoists into the session's registry, so a stale one from the last compile would be reported against a program that never wrote it.
 		private const string CellOwner = @"
 struct Digest
 {

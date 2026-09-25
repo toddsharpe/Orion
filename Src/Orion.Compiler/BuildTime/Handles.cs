@@ -6,7 +6,7 @@ using System;
 
 namespace Orion.BuildTime
 {
-	//The values a generator holds: the three handles (OrionFunction, OrionType, OrionCode), whose public properties are the build-time face of RTTI, and Port, Instance and Scalar. See Docs/Compiler.md.
+	//The values a generator holds: the three handles (OrionFunction, OrionType, OrionCode), whose public properties are what the build reflects over, and Port, Instance and Scalar. See Docs/BuildTime.md.
 
 	//A function as a build-time value: what `#create` yields.
 	public class OrionFunction
@@ -28,11 +28,11 @@ namespace Orion.BuildTime
 		public Port[] Inputs => Params(i => i.Direction is ParamDirection.None or ParamDirection.In);
 		public Port[] Outputs => Params(i => i.Direction == ParamDirection.Out);
 
-		//The #state parameters then the #state locals, the two-part walk Rtti/Generator shares through StateLocals.
+		//The #state parameters then the #state locals.
 		public Port[] State => [.. Params(i => i.Direction == ParamDirection.State), .. Statics()];
 
-		//The `#state` locals a block owns; a hoisted `const` shares the storage but is not one (Rewrites.Constants), and the clause is a no-op for RTTI, which walks before hoisting.
-		internal static IEnumerable<LocalDataSymbol> StateLocals(SourceFunctionSymbol function) =>
+		//The `#state` locals a block owns; a hoisted `const` shares the storage but is not one (Rewrites.Constants).
+		private static IEnumerable<LocalDataSymbol> StateLocals(SourceFunctionSymbol function) =>
 			function.Table.Traverse()
 				.SelectMany(i => i.GetAll<LocalDataSymbol>())
 				.Where(i => i.Storage == LocalStorage.Static && !i.Hoisted)

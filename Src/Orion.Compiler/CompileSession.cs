@@ -20,9 +20,6 @@ namespace Orion
 		//Whether each `#test` runs, as a `#run` hoisted into the entry; clear, a `#test` is only declared.
 		public bool Testing;
 
-		//`--rtti`: whether the runtime type tables are declared and emitted.
-		public bool Rtti;
-
 		//Every `#test` the compile lowered, run or not, in the order declared.
 		public List<DeclaredTest> Declared = new List<DeclaredTest>();
 
@@ -49,9 +46,6 @@ namespace Orion
 
 		//The `#param` solver-block templates by name: Specializer.Extract registers them, Solver::Block specializes one per `#create`.
 		public readonly Dictionary<string, Ast.Function> Templates = new Dictionary<string, Ast.Function>();
-
-		//Every symbol RTTI declared, so no pass mistakes the generated types and tables for the program's.
-		internal readonly HashSet<Symbol> RttiOwned = new HashSet<Symbol>(ReferenceEqualityComparer.Instance);
 
 		//The function and callsite build-time code is running for, and the messages its reports land in: Env.Context.
 		internal BuildTime.Env.CallContext BuildContext;

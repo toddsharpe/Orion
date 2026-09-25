@@ -14,9 +14,9 @@ namespace Orion.Backend.Cpp
 			|| root.Traverse().SelectMany(i => i.GetAll<StructTypeSymbol>()).Any(i => i.IsExport)
 			|| root.Traverse().SelectMany(i => i.GetAll<EnumTypeSymbol>()).Any(i => i.IsExport);
 
-		//Every `#export`ed function except `main` and RTTI's entries; scaffolding accessors DO count -- Channels.cpp calls `channel_push` and only this file declares it.
+		//Every `#export`ed function except `main`; scaffolding accessors DO count -- Channels.cpp calls `channel_push` and only this file declares it.
 		internal static bool Declares(SourceFunctionSymbol func) =>
-			func.IsExport && !func.IsRuntimeEntry && !Rtti.Generator.Owns(func);
+			func.IsExport && !func.IsRuntimeEntry;
 
 		//Whether this header declares the extern, so the translation unit that includes it need not repeat the declaration.
 		internal static bool DeclaresExtern(BuiltinFunctionSymbol func) =>
@@ -38,7 +38,7 @@ namespace Orion.Backend.Cpp
 				{
 					{ "Exported structs", types == null ? CreateStructs(root) : [] },
 				},
-				//A header declares no storage: a global is the translation unit's own, and a program does not export its RTTI.
+				//A header declares no storage: a global is the translation unit's own.
 				new Dictionary<string, List<Declaration>>(),
 				CreateFunctions(reachable),
 				//The externs the program calls, declared here so the platform's definition compiles against the same contract; one naming an unexported type stays out, since the header could not spell it.
@@ -68,7 +68,6 @@ namespace Orion.Backend.Cpp
 		private static bool Representable(TypeSymbol type) => type switch
 		{
 			BufferTypeSymbol buffer => Representable(buffer.Element),
-			RefTypeSymbol reference => Representable(reference.Element),
 			FunctionTypeSymbol func => Representable(func.ReturnType) && func.ParamTypes.All(Representable),
 			StructTypeSymbol s => s.IsExport,
 			EnumTypeSymbol e => e.IsExport,

@@ -37,18 +37,6 @@ namespace Orion.Backend.CSharp
 
 			WriteSections(file.Globals, WriteBlockComment, global => AppendLine($"{Access}{Field(global)}"), blankAfter: true);
 
-			//A global that names itself cannot say so in its own initializer, so the static constructor completes it -- field initializers all run first, so the target already exists.
-			if (file.Fixups?.Count > 0)
-			{
-				WriteBlockComment("Self references");
-				AppendLine("static Program()");
-				BraceCode.Open(this);
-				foreach (Fixup fixup in file.Fixups)
-					AppendLine($"{fixup.Target} = {fixup.Value};");
-				BraceCode.Close(this);
-				AppendLine();
-			}
-
 			//Functions, one blank line between them
 			for (int i = 0; i < file.Functions.Count; i++)
 			{
@@ -70,7 +58,7 @@ namespace Orion.Backend.CSharp
 			AppendLine();
 		}
 
-		//A class, not a C# struct: `struct RtType { Ref<RtType> Element; }` is a layout cycle (CS0523) and RTTI is in every program, so value semantics come from Copy() through copy_value. See Docs/CSharp.md.
+		//A class, not a C# struct: a struct would still share an array field's OrionArray, so value semantics come from Copy() through copy_value either way. See Docs/CSharp.md.
 		private void Write(Struct s)
 		{
 			AppendLine($"public sealed class {s.Name} : IOrionValue");

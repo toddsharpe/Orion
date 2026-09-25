@@ -230,20 +230,6 @@ namespace Orion.Symbols
 		public override string ToString() => base.ToString();
 	}
 
-	//`Ref<T>`: a reference to a T someone else owns, the one type in Orion that indirects.
-	public record RefTypeSymbol : TypeSymbol
-	{
-		public TypeSymbol Element { get; }
-
-		public RefTypeSymbol(TypeSymbol element)
-			: base($"{Ast.TypeName.RefType}<{element.Name}>")
-		{
-			Element = element;
-		}
-
-		public override string ToString() => base.ToString();
-	}
-
 	//`T[]` / `T[,]`: a local whose extents come from its initializer, and legal nowhere else.
 	public record AutoArrayTypeSymbol : BufferTypeSymbol
 	{
@@ -341,38 +327,10 @@ namespace Orion.Symbols
 	//A variable at file scope: initialized once, readable from every function.
 	public record GlobalDataSymbol(string Name, TypeSymbol Type) : NamedDataSymbol(Name, Type)
 	{
-		public DataSymbol Initializer { get; set; }
-
-		public TypeSymbol Declared { get; set; }
-
 		public override string ToString()
 		{
 			return $"{Name}:{Type}:global";
 		}
-	}
-
-	//Composite constant data the COMPILER built, with no backing object, so a field may be a view.
-	public record AggregateSymbol(TypeSymbol Type, List<DataSymbol> Items) : DataSymbol(Type)
-	{
-		public override string ToString() => $"{Type}{{{Items.Count}}}";
-	}
-
-	//A view of part of a global's storage; every runtime library provides span_slice.
-	public record SliceSymbol(GlobalDataSymbol Global, int Offset, int Length, TypeSymbol Type) : DataSymbol(Type)
-	{
-		public override string ToString() => $"{Global.Name}[{Offset}..{Offset + Length}]";
-	}
-
-	//A reference to a global: `&_Type2` in C++, the object itself where a backend has references already.
-	public record RefSymbol(GlobalDataSymbol Global, TypeSymbol Type) : DataSymbol(Type)
-	{
-		public override string ToString() => $"&{Global.Name}";
-	}
-
-	//No value, for the one place a backend writes a field it assigns a moment later. Compiler-internal.
-	public record NullSymbol(TypeSymbol Type) : DataSymbol(Type)
-	{
-		public override string ToString() => "null";
 	}
 
 	//Where a local lives: the stack, or static storage that outlives a call.

@@ -13,7 +13,7 @@ namespace Orion.Backend.Checks
 		{
 			foreach (SourceFunctionSymbol func in root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Distinct())
 			{
-				if (!func.IsExport || func.IsRuntimeEntry || Rtti.Generator.Owns(func))
+				if (!func.IsExport || func.IsRuntimeEntry)
 					continue;
 
 				InputRegion region = func.Located();
@@ -33,10 +33,6 @@ namespace Orion.Backend.Checks
 			{
 				case BufferTypeSymbol buffer:
 					Verify(buffer.Element, what, region, messages);
-					return;
-
-				case RefTypeSymbol reference:
-					Verify(reference.Element, what, region, messages);
 					return;
 
 				case FunctionTypeSymbol func:

@@ -49,7 +49,6 @@ dotnet ./Src/Orion/bin/Debug/net9.0/Orion.dll compile Demo/Apps/tour.src --lang 
 | `--src-root`, `-s` | the tree every `#using` is named from; the nearest `orion.json` by default |
 | `--include`, `-I` | another source tree, searched after the root; repeatable |
 | `--define`, `-D` | `NAME` or `NAME=value`, for `#if` and `Define::Get`; repeatable |
-| `--rtti` | emit the type tables a program reads with `Function::Get` |
 | `--header`, `-H` | the C++ header's path; beside the output by default |
 | `--log`, `-L` | the build transcript to a file, `<output>.log` by default, instead of the console |
 | `--no-test` | leave the program's `#test`s unrun |

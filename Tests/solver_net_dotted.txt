@@ -7,9 +7,7 @@
 -- cycle 2 --
   Baro.Pressure = 101250.0
   Baro.BiasPressure = 101250.0
--- schema --
-  Baro.Pressure : f32
-  Baro.Updated : bool
-  Baro.BiasPressure : f32
-  baro_t : i32
-  bias_held : f32
+-- state --
+Baro.Pressure (f32): 101250.0
+Baro.Updated (bool): true
+Baro.BiasPressure (f32): 101250.0

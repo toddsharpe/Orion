@@ -44,11 +44,10 @@ namespace Orion.Clr
 		public static void Run(SymbolTable root, List<Message> messages)
 		{
 			foreach (SourceFunctionSymbol func in root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()))
-				if (!Rtti.Generator.Owns(func))
-				{
-					Generate(func);
-					messages.Trace($"Emitted {func.Name}{(func.IsBuild ? " (#build)" : "")}");
-				}
+			{
+				Generate(func);
+				messages.Trace($"Emitted {func.Name}{(func.IsBuild ? " (#build)" : "")}");
+			}
 
 			BuildAssembly.Close();
 		}
