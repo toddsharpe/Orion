@@ -1,7 +1,9 @@
 using Orion.Ast;
+using Orion.BuildTime;
 using Orion.Diagnostics;
 using Orion.Symbols;
 using System.Collections.Generic;
+using System.Linq;
 using TypeCode = Orion.Symbols.TypeCode;
 
 namespace Orion.Frontend.Binder
@@ -168,6 +170,67 @@ namespace Orion.Frontend.Binder
 		{
 			Visit(ctx, statement.Expression);
 		}
+
+		//`#assert` checks during the build: a failure reports at the assert, with a comparison's operands as the condition evaluated them.
+		public static void Visit(BindContext ctx, Assert assert)
+		{
+			if (!ctx.Scoper.IsBuildContext())
+			{
+				ctx.Messages.Add(new Message($"{Where(ctx)}: #assert checks during the build; put it in a #build function or a #run {{ }} block.", assert.Region, MessageType.Error));
+				return;
+			}
+
+			SymbolTable current = ctx.Scoper.Peek();
+			Visit(ctx, assert.Condition);
+			CheckCondition(ctx, assert.Condition, "#assert condition", assert.Region);
+
+			Expression said = Desugar.Str("assertion failed", assert.Region);
+			if (assert.Message != null)
+			{
+				Visit(ctx, assert.Message);
+				said = new Bound { Symbol = assert.Message.Symbol, Region = assert.Message.Region };
+				if (assert.Message.Symbol.Type != current.Get<TypeSymbol>("str"))
+					ctx.Messages.Add(new Message($"{Where(ctx)}: An #assert's message is a str, received {assert.Message.Symbol.Type.Name}.", assert.Message.Region, MessageType.Error));
+			}
+
+			assert.Failure = Joined(assert.Region, [said, .. Shown(current, assert.Condition, assert.Region)]);
+			Visit(ctx, assert.Failure);
+
+			ctx.Session.Asserts.Add(assert.Region);
+			assert.At = InternLiteral(current, ctx.Session.Asserts.Count - 1, Language.Primitives[TypeCode.i32]);
+			assert.Report = current.GetRoot().Get<FunctionSymbol>(Surface.Builtin(typeof(BuildTime.Builtins.BuildBuiltins), nameof(BuildTime.Builtins.BuildBuiltins.Fail)));
+		}
+
+		//A comparison's two sides as a failure shows them, `(0 == 2 is false)`, read from where the condition left them; nothing when either has no text.
+		private static List<Expression> Shown(SymbolTable current, Expression condition, InputRegion region)
+		{
+			if (condition is not BinaryOp { Op: AstOp.Equals or AstOp.NotEquals or AstOp.LessThan or AstOp.LessThanEqual or AstOp.GreaterThan or AstOp.GreaterThanEqual } comparison
+				|| Shows(current, comparison.Operand1) is not Expression left || Shows(current, comparison.Operand2) is not Expression right)
+				return [];
+
+			string op = Expression.NamedOps.First(i => i.Value == comparison.Op).Key;
+			return [Desugar.Str(" (", region), left, Desugar.Str($" {op} ", region), right, Desugar.Str(" is false)", region)];
+		}
+
+		//One side's evaluated value as text, a str in quotes so an empty one still shows; null for a type with no text.
+		private static Expression Shows(SymbolTable current, Expression side)
+		{
+			Bound value = new Bound { Symbol = side.Symbol, Region = side.Region };
+			if (side.Symbol.Type is PrimitiveTypeSymbol { Code: TypeCode.str })
+				return Joined(side.Region, [Desugar.Str("\"", side.Region), value, Desugar.Str("\"", side.Region)]);
+
+			return Stringify(current, side.Symbol.Type) == null ? null : new Call
+			{
+				Function = "__str",
+				Arguments = [value],
+				ArgumentNames = [null],
+				Region = side.Region
+			};
+		}
+
+		//Texts joined left to right with `+`.
+		private static Expression Joined(InputRegion region, List<Expression> parts) =>
+			parts.Aggregate((a, b) => new BinaryOp { Operand1 = a, Op = AstOp.Add, Operand2 = b, Region = region });
 
 		public static void Visit(BindContext ctx, If statement)
 		{

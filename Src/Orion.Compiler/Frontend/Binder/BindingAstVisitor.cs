@@ -34,6 +34,7 @@ namespace Orion.Frontend.Binder
 				case MemberAccess x: Visit(ctx, x); break;
 				case ArrayExpr x: Visit(ctx, x); break;
 				case SpreadExpr x: Visit(ctx, x); break;
+				case Bound: break;
 				case StructExpr x: Visit(ctx, x); break;
 				case ArgsExpr x: Visit(ctx, x); break;
 				case BinaryOp x: Visit(ctx, x); break;
@@ -59,6 +60,7 @@ namespace Orion.Frontend.Binder
 				case Continue x: Visit(ctx, x); break;
 				case Return x: Visit(ctx, x); break;
 				case Scope x: Visit(ctx, x); break;
+				case Assert x: Visit(ctx, x); break;
 				case InitBlock x: Visit(ctx, x); break;
 				case Group x: Visit(ctx, x); break;
 
@@ -77,7 +79,7 @@ namespace Orion.Frontend.Binder
 
 				case Invalid x: Visit(ctx, x); break;
 
-				case Interpolation or MapLiteral or SrcExpr or Template or CodeExpr or InsertCode or Assert:
+				case Interpolation or MapLiteral or SrcExpr or Template or CodeExpr or InsertCode:
 					throw new NotImplementedException($"{node.GetType().Name} must be desugared before binding");
 
 				default: throw new NotImplementedException($"Binding: {node.GetType().Name}");

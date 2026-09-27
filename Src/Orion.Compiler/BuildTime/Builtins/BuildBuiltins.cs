@@ -23,6 +23,12 @@ namespace Orion.BuildTime.Builtins
 			Env.Report(message);
 		}
 
+		//A failed #assert, reported at the assert; internal, since `at` is the place binding registered for it.
+		public static void Fail(int at, string message)
+		{
+			Env.Report(Compiler.Session.Asserts[at], message);
+		}
+
 		public static bool Failed()
 		{
 			return Env.Context.Messages.HasError();

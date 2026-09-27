@@ -1,7 +1,6 @@
-// #assert(cond) / #assert(cond, message) is build-time sugar for `if (!cond) Build::Error(message)`.
-// A failing assert reports a compile error and the build fails, so only passing asserts can appear in
-// a test that produces output; the failing case is exercised by breaking a config by hand.
-// With no message the line number is reported, which is what locates the check inside a generator.
+// #assert(cond) / #assert(cond, message) checks during the build: a failure is a compile error at the
+// assert itself, a failed comparison showing both sides, so only passing asserts can appear in a test
+// that produces output; the failing cases are pinned by Src/Orion.Tests/BuildTime/AssertTest.cs.
 struct Row { str name; i32 weight; }
 
 #build i32 total(List<Row> rows)

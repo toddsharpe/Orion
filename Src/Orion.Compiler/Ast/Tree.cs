@@ -35,7 +35,7 @@ namespace Orion.Ast
 			Value x => Of(x.Literal),
 			//An expression whose children are statements, so #param folding walks it like any other body.
 			RunExpr x => Many(x.Statements),
-			Variable => Empty,
+			Variable or Bound => Empty,
 
 			//Sugar, all lowered by Desugar before binding.
 			Interpolation x => Many(x.Parts?.Select(p => p.Hole)),
@@ -210,7 +210,7 @@ namespace Orion.Ast
 				case TranslationUnit x: RwList(x.Blocks, f); break;
 
 				//Leaves.
-				case Variable or Literal or Break or Continue or ReturnVoid
+				case Variable or Bound or Literal or Break or Continue or ReturnVoid
 					or Struct or Enum or Using or TypeDef or MeasureDecl or FileTest or Invalid:
 					break;
 

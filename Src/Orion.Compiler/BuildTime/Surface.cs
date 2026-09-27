@@ -147,7 +147,7 @@ namespace Orion.BuildTime
 		internal static bool IsMathGeneric(string name) => MathGenerics.ContainsKey(name);
 
 		internal static bool IsInternalBuiltin(string name) =>
-			StrBuiltins.Contains(name) || MathBuiltins.Contains(name);
+			StrBuiltins.Contains(name) || MathBuiltins.Contains(name) || name == Builtin(typeof(Builtins.BuildBuiltins), nameof(Builtins.BuildBuiltins.Fail));
 
 		//A builtin's Orion surface is exactly what it declares publicly (DeclaredOnly keeps object's out): properties become members, the indexer `[]`, methods functions.
 		private const BindingFlags SurfaceFlags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;

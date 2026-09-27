@@ -134,12 +134,11 @@ namespace Orion.Ast
 					Code = Expression.CreateInterpolation(port.Item),
 					Region = region
 				},
-				//#assert(cond[, message]): Item1 = cond, Item2 = the optional message, lowered by Frontend.Desugar to `if (!cond) { Build::Error(message); }`.
+				//#assert(cond[, message]): Item1 = cond, Item2 = the optional message; binding builds what a failure reports.
 				Lang.Syntax.Statement.Assert a => new Assert
 				{
 					Condition = Expression.Create(a.Item1.Value),
 					Message = a.Item2 != null ? Expression.Create(a.Item2.Value.Value) : null,
-					Line = a.Item1.Start.Line,
 					Region = InputRegion.Create(a.Item1.Start, a.Item1.End)
 				},
 				//#init { }. The body is lifted into its own function by Frontend.Specializer.LiftInit.
@@ -307,12 +306,16 @@ namespace Orion.Ast
 		public SourceFunctionSymbol Lifted { get; set; }
 	}
 
-	//A faithful `#assert(cond[, message])`; Desugar processes it to `if (!cond) Build::Error(message)`.
+	//`#assert(cond[, message])`, checked during the build; a failure reports at the assert itself.
 	public class Assert : Statement
 	{
 		internal Expression Condition { get; set; }
 		internal Expression Message { get; set; }
-		internal long Line { get; set; }
+
+		//Set by binding: the text a failure reports, and the call it reports through with the assert's place.
+		internal Expression Failure { get; set; }
+		internal FunctionSymbol Report { get; set; }
+		internal LiteralSymbol At { get; set; }
 	}
 
 	//`#input i32 x @ src;` / `#output f64 y;` -- a port line with ${expr} holes, appended to the builder's signature.

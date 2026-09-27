@@ -1,4 +1,5 @@
-﻿using Orion.Symbols;
+﻿using Orion.Diagnostics;
+using Orion.Symbols;
 using CodeTemplate = Microsoft.FSharp.Collections.FSharpList<Orion.Lang.Syntax.Pos<Orion.Lang.Syntax.Statement>>;
 using System.Collections.Generic;
 using System;
@@ -43,6 +44,9 @@ namespace Orion
 
 		//Each `#build` cell's name as written, by its mangled name, for the messages that name it.
 		internal readonly Dictionary<string, string> BuildCellSources = new Dictionary<string, string>();
+
+		//Each #assert's place, by the index its failure reports with: binding registers it, Build::Fail reads it.
+		internal readonly List<InputRegion> Asserts = new List<InputRegion>();
 
 		//The `#param` solver-block templates by name: Specializer.Extract registers them, Solver::Block specializes one per `#create`.
 		public readonly Dictionary<string, Ast.Function> Templates = new Dictionary<string, Ast.Function>();

@@ -548,6 +548,11 @@ namespace Orion.Ast
 		internal string Reason { get; set; }
 	}
 
+	//A value the binder already evaluated, read where it was left: a failed #assert shows its comparison's operands without evaluating them twice.
+	public class Bound : Expression
+	{
+	}
+
 	//`${expr}` in a #code: a build-time value, evaluated in the ENCLOSING scope and spliced into the AST.
 	public class Hole : Expression
 	{
