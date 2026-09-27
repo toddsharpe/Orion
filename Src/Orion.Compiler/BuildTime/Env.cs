@@ -31,6 +31,12 @@ namespace Orion.BuildTime
 			messages.Add(new Message(text, Region, type));
 		}
 
+		//Report at a place of the call's choosing, as a failed #assert does at itself; the callsite running stays its origin, which a #test claims it by.
+		internal static void Report(InputRegion region, string text)
+		{
+			Context.Messages.Add(new Message(text, region, MessageType.Error) { Origin = Region });
+		}
+
 		//An `${...}` argument bag as a builtin receives it, typed object; anything else reads as an empty one.
 		internal static Dictionary<string, object> Bag(object args) =>
 			args as Dictionary<string, object> ?? new Dictionary<string, object>();

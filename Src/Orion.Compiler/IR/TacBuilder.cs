@@ -107,6 +107,7 @@ namespace Orion.IR
 				MemberAccess x => Tacs(x, ctx),
 				ArrayExpr x => Tacs(x, ctx),
 				SpreadExpr x => Tacs(x.Value, ctx),
+				Bound x => [new DataTac(x.Symbol)],
 				StructExpr x => Tacs(x, null, ctx),
 				ArgsExpr x => Tacs(x, ctx),
 				BinaryOp x => Tacs(x, ctx),
@@ -132,6 +133,7 @@ namespace Orion.IR
 				Continue => ctx.Loops.Count > 0 && ctx.Loops.Peek().Continue != null ? [new GotoTac(ctx.Loops.Peek().Continue)] : [],
 				Return x => Tacs(x.Ret, ctx),
 				Scope x => Tacs(x, ctx),
+				Assert x => Tacs(x, ctx),
 				Group x => [.. x.Statements.SelectMany(i => Tacs(i, ctx))],
 
 				ReturnExpr x => Tacs(x, ctx),
@@ -139,7 +141,7 @@ namespace Orion.IR
 
 				Parameter or Struct or Enum or Const or Using => [],
 
-				Interpolation or MapLiteral or SrcExpr or Template or CodeExpr or InsertCode or Assert =>
+				Interpolation or MapLiteral or SrcExpr or Template or CodeExpr or InsertCode =>
 					throw new NotImplementedException($"{node.GetType().Name} must be desugared before codegen"),
 
 				_ => throw new NotImplementedException($"Codegen: {node.GetType().Name}"),
@@ -250,6 +252,22 @@ namespace Orion.IR
 
 			tacs.Add(new DataTac(expr.Symbol));
 			return tacs;
+		}
+
+		//The condition once; only when it is false the message, the text a failure reports, and the report at the assert's place.
+		private static List<Tac> Tacs(Assert assert, LowerContext ctx)
+		{
+			LabelTac holds = ctx.NewLabel();
+			List<Tac> message = assert.Message == null ? [] : Tacs(assert.Message, ctx);
+			return
+			[
+				.. Tacs(assert.Condition, ctx),
+				new ConditionalTac(ConditionalTacOp.IfNotZero, holds, assert.Condition.Symbol),
+				.. message,
+				.. Tacs(assert.Failure, ctx),
+				new CallTac(null, assert.Report, [assert.At, assert.Failure.Symbol]),
+				holds
+			];
 		}
 
 		private static List<Tac> Tacs(StructExpr expr, DataSymbol destination, LowerContext ctx)

@@ -84,7 +84,7 @@ declaration says, so a generator packs a frame from a struct without restating i
 `Define::Get` and `Define::Has`. Paths resolve against `--root`.
 
 **Outputs.** `Output::Write(name, text)` files text below the output directory, and the CLI renders a
-`.dot` to PDF when Graphviz is installed. `Graph::New`, `Node` (`entry = true` outlines a start),
+`.dot` to PDF given Graphviz. `Graph::New`, `Node` (`entry = true` outlines a start),
 `Edge` (`dashed = true` for feedback) and `Cluster` draw one; `Dot(g, remove)` renders it without
 `remove`'s nodes. `Solver::Graph(solver)` is a netlist, a node per block by name:
 `Output::Write("net.dot", Graph::Dot(Solver::Graph(solver), ["tx"]:List<str>))`.
@@ -97,10 +97,10 @@ List<Device> telem = #src "Configs/demo.src" telem_config();
 
 The path may be computed; the file shares the caller's types but binds names in its own scope.
 
-**Failing.** `#assert(cond, "why")` stops the build. `Build::Error(text)` reports and carries on, so a
-generator reports every problem at once; `Build::Failed()` asks whether any has. Messages point at the
-callsite that was running. `WriteLine` during the build prints under "Build output", or into
-`<output>.log` with `--log`.
+**Failing.** A failed `#assert(cond, "why")` fails the build at the assert, showing a comparison's two
+sides: `why (0 == 2 is false)`. `Build::Error(text)` reports at the running callsite and carries on;
+`Build::Failed()` asks whether any has. `WriteLine` during the build prints under "Build output", or
+into `<output>.log` with `--log`.
 
 ## Calling what the build built
 
@@ -123,6 +123,6 @@ is the block's own memory.
 `BuildRegions` lifts each `#run { }` into a build-only function, leaving a call. `Generate` emits MSIL
 for every build function into an in-memory assembly. `Execute` walks the TACs from `main`, invokes
 each build call whose arguments are known and replaces it with its result as a literal; code spliced
-from inside is parsed, bound and lowered on the spot. A `#build main` is simply invoked, which is what
-makes the program a library. Build code is *the same language*: it typechecks, tests can drive it, and
+from inside is parsed, bound and lowered on the spot. A `#build main` is simply invoked, making the
+program a library. Build code is *the same language*: it typechecks, tests can drive it, and
 a helper may be called at run time too.

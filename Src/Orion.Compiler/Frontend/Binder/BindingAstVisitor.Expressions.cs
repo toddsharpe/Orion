@@ -18,8 +18,16 @@ namespace Orion.Frontend.Binder
 	{
 		private static string StrFunctionFor(BindContext ctx, TypeSymbol type, InputRegion region)
 		{
-			SymbolTable current = ctx.Scoper.Peek();
+			string function = Stringify(ctx.Scoper.Peek(), type);
+			if (function == null)
+				ctx.Messages.Add(new Message($"{Where(ctx)}: Cannot convert value of type {type.Name} to str.", region, MessageType.Error));
 
+			return function;
+		}
+
+		//The function a type stringifies through, or null when it has none: a primitive's or typedef's, a builtin's own, an enum's generated one.
+		private static string Stringify(SymbolTable current, TypeSymbol type)
+		{
 			if (type is PrimitiveTypeSymbol p && p.Code != TypeCode.@void)
 				return type is AliasTypeSymbol && current.GetRoot().TryGet($"{p.Name}_str", out FunctionSymbol _)
 					? $"{p.Name}_str"
@@ -33,12 +41,14 @@ namespace Orion.Frontend.Binder
 				&& current.TryGet(Desugar.StrFunction(@enum.Name), out FunctionSymbol _))
 				return Desugar.StrFunction(@enum.Name);
 
-			ctx.Messages.Add(new Message($"{Where(ctx)}: Cannot convert value of type {type.Name} to str.", region, MessageType.Error));
 			return null;
 		}
 
 		private static string InternalBuiltinHint(string name)
 		{
+			if (name == Surface.Builtin(typeof(BuildTime.Builtins.BuildBuiltins), nameof(BuildTime.Builtins.BuildBuiltins.Fail)))
+				return "#assert(condition, message)";
+
 			int split = name.LastIndexOf('_');
 			string stem = split < 0 ? name : name.Substring(0, split);
 			return Surface.IsMathGeneric(stem) ? $"{stem}<T>(x)" : "to_str(x)";

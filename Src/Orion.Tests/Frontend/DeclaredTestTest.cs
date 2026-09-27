@@ -55,7 +55,7 @@ i32 main()
 			Assert.AreEqual(1, result.Declared.Count);
 		}
 
-		//The failure carries the `#test` line, so the command can name the test that claimed it.
+		//The failure points at the assert, and the `#test` it ran under claims it, so the command can name that test.
 		[TestMethod]
 		public void TheFailureIsClaimedByTheTest()
 		{

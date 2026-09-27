@@ -75,11 +75,11 @@ namespace Orion
 	//One `#test` the compile lowered: what to call it, what it calls, and the line that ties a failure back to it.
 	public sealed record DeclaredTest(string Name, string Entry, InputRegion Region)
 	{
-		//The message belongs to this test when it carries the `#test` line the hoisted `#run` was given.
+		//The message belongs to this test when it carries the `#test` line the hoisted `#run` was given, as its origin when it points elsewhere.
 		public bool Claims(Message message) =>
-			message.Region != null && Region != null &&
-			string.Equals(message.Region.File, Region.File, StringComparison.OrdinalIgnoreCase) &&
-			message.Region.Start.Line == Region.Start.Line;
+			(message.Origin ?? message.Region) is InputRegion at && Region != null &&
+			string.Equals(at.File, Region.File, StringComparison.OrdinalIgnoreCase) &&
+			at.Start.Line == Region.Start.Line;
 	}
 
 	//The Inputs phase's payload: what the compile was asked to do, echoed for the phase view.

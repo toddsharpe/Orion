@@ -156,7 +156,7 @@ namespace Orion.Frontend
 		}
 
 		//`"text"` as an expression: the shape every lowering below writes a string literal in.
-		private static Value Str(string text, InputRegion region) => new Value
+		internal static Value Str(string text, InputRegion region) => new Value
 		{
 			Literal = new StringLiteral { TypeName = new TypeName { Name = "str" }, Value = text },
 			Region = region
@@ -230,7 +230,6 @@ namespace Orion.Frontend
 				Template x => ProcessTemplate(x),
 				CodeExpr x => ProcessCode(x),
 				InsertCode x => ProcessInsertCode(x),
-				Assert x => ProcessAssert(x),
 				Call x when x.IsCreate => ProcessCreate(x, messages),
 				//A fixed-array literal keeps its ArrayExpr; only a List<T> literal is rewritten.
 				ArrayExpr x when x.TypeName is { GenericType: "List", Generics.Count: 1 } => ProcessList(x),
@@ -521,43 +520,6 @@ namespace Orion.Frontend
 					Region = node.Region
 				},
 				Region = node.Region
-			};
-		}
-
-		//#assert(cond[, message]) -> if (cond == false) { Build::Error(message); }; no message reports the line.
-		private static Statement ProcessAssert(Assert a)
-		{
-			Expression message = a.Message ?? Str($"assertion failed on line {a.Line}", InputRegion.None);
-
-			return new If
-			{
-				Clause = new BinaryOp
-				{
-					Operand1 = a.Condition,
-					Op = AstOp.Equals,
-					Operand2 = new Value
-					{
-						Literal = new BoolLiteral { TypeName = new TypeName { Name = "bool" }, Value = false },
-						Region = InputRegion.None
-					},
-					Region = a.Region
-				},
-				Body =
-				[
-					new Exec
-					{
-						Expression = new Call
-						{
-							Function = BuildTime.Surface.Builtin(typeof(BuildTime.Builtins.BuildBuiltins), nameof(BuildTime.Builtins.BuildBuiltins.Error)),
-							GenericArgs = new List<TypeName>(),
-							Arguments = [message],
-							ArgumentNames = [null],
-							Region = a.Region
-						},
-						Region = a.Region
-					}
-				],
-				Region = a.Region
 			};
 		}
 
