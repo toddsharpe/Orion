@@ -36,14 +36,14 @@ namespace Orion
 			return null;
 		}
 
-		//Every `.src` under the root, absolute, sorted, skipping `build/` output and programs: a sweep merges into ONE program, so a `#test` inside an app does not run.
-		public static List<string> Sources(string root)
+		//Every `.src` under the root that declares a `#test`, absolute, sorted, skipping `build/` output and programs: the sweep merges them into ONE program and their `#using`s come with them, so a file that tests nothing, like a config `#src` loads, is never merged beside another, and a `#test` inside an app does not run.
+		public static List<string> Tested(string root)
 		{
 			if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
 				return new List<string>();
 
 			return [.. Directory.GetFiles(root, "*.src", SearchOption.AllDirectories)
-				.Where(i => !Scratch(root, i) && !Program(i))
+				.Where(i => !Scratch(root, i) && Testable(i))
 				.Distinct(StringComparer.OrdinalIgnoreCase)
 				.OrderBy(i => i, StringComparer.OrdinalIgnoreCase)];
 		}
@@ -54,8 +54,8 @@ namespace Orion
 				.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
 				.Any(part => part.Equals("build", StringComparison.OrdinalIgnoreCase));
 
-		//Declares an entry, so it is a program rather than something to merge into one; read as text, because a sweep decides what to COMPILE and has compiled nothing yet.
-		private static bool Program(string file)
+		//Declares a `#test` and no entry, an entry making it a program rather than something to merge into one; read as text, because a sweep decides what to COMPILE and has compiled nothing yet.
+		private static bool Testable(string file)
 		{
 			string text;
 			try
@@ -65,11 +65,15 @@ namespace Orion
 			catch (Exception)
 			{
 				//Unreadable here is not a verdict; the compile that follows will say so properly.
-				return false;
+				return true;
 			}
 
-			return text != null && Entry.IsMatch(text);
+			return text != null && Test.IsMatch(text) && !Entry.IsMatch(text);
 		}
+
+		//`#test` at the start of a line, so one in a comment does not count.
+		private static readonly System.Text.RegularExpressions.Regex Test = new System.Text.RegularExpressions.Regex(
+			@"^[ \t]*#test\b", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.Compiled);
 
 		//`i32 main(` at the start of a line, with an optional `#build` in front of it.
 		private static readonly System.Text.RegularExpressions.Regex Entry = new System.Text.RegularExpressions.Regex(

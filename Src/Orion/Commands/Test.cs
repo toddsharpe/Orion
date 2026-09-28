@@ -8,7 +8,7 @@ using System;
 
 namespace Orion.Commands
 {
-	//`orion test`: sweep the source root for `.src` files (`SrcRoot.Sources`) and run their `#test`s as ONE program, so each runs once.
+	//`orion test`: sweep the source root for the `.src` files that declare a `#test` (`SrcRoot.Tested`) and run them as ONE program, so each runs once.
 	internal static class Test
 	{
 		private static readonly Option<string> SrcRootOption = new Option<string>("--src-root", "-s") { Description = "The tree to sweep; discovered from the working directory when unset." };
@@ -38,13 +38,13 @@ namespace Orion.Commands
 				return 1;
 			}
 
-			List<string> sources = SrcRoot.Sources(root);
+			List<string> sources = SrcRoot.Tested(root);
 			Console.WriteLine($"Root: {root}");
-			Console.WriteLine($"\t{Messages.Count(sources.Count, "source file")}");
+			Console.WriteLine($"\t{Messages.Count(sources.Count, "file")} declaring a #test");
 
 			if (sources.Count == 0)
 			{
-				Console.WriteLine($"Nothing to test: no .src file under the root holding {SrcRoot.Marker}.");
+				Console.WriteLine("Nothing to test: no .src file under the root declares a #test.");
 				return 0;
 			}
 
