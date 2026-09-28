@@ -158,9 +158,3 @@
 		trace = false
 	};
 }
-
-//Declaring `main` is how a config tells `orion test` it is a program and must not be merged into one.
-i32 main()
-{
-	return 0;
-}

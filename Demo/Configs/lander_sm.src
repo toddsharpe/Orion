@@ -90,9 +90,3 @@
 		trace = true
 	};
 }
-
-// A config is a program, not a library: without a `main`, `orion test` would merge the configs into one.
-i32 main()
-{
-	return 0;
-}

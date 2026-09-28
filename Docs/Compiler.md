@@ -86,9 +86,9 @@ shape (`ModuleBackend`), and C++ writes a translation unit with a header. See [C
 
 ## Roots, diagnostics, hosts
 
-An `orion.json` marks the source root; `orion test` sweeps it, skipping `build/` and any file with a
-`main`, since a sweep merges libraries into one program. A message carries a file, line and column,
-shown by the CLI with a caret and by the language server as a squiggle.
+An `orion.json` marks the source root; `orion test` merges the files under it that declare a `#test`
+into one program, their `#using`s with them, skipping `build/` and any file with a `main`. A message
+carries a file, line and column, shown by the CLI with a caret and by the language server as a squiggle.
 
 The CLI, the language server ([Src/Orion.LangSvr](../Src/Orion.LangSvr)) behind the VS Code extension
 ([Tools/](../Tools/)), and the playground ([Src/Orion.Web](../Src/Orion.Web)) all run this pipeline. `Compiler.Session` is process-wide and Execute swaps the working directory, so a host runs
