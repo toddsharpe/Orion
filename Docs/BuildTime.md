@@ -80,8 +80,10 @@ the build knows.
 declaration says, so a generator packs a frame from a struct without restating its layout.
 
 **Files and text.** `File::Open`, `ReadLine`, `HasLine`, `ReadAll`; `Csv::Read<T>` (rows into structs);
-`Str::Split`; `Str::To(text, type)`, which reads text *at a type*; `str_md5`; `Time::Now`;
-`Define::Get` and `Define::Has`. Paths resolve against `--root`.
+`Str::Split`, `Str::Fields` (whitespace runs, no empties) and `Str::StartsWith`; `Str::Parse<T>(text)`,
+which reads text at the type named and binds as it; `Str::To(text, type)`, which reads at a discovered
+`Type` for a `${}` hole; `str_md5`; `Time::Now`; `Define::Get` and `Define::Has`. Text reads as the
+invariant culture, so a checked-in `1.371` is the same number on every host. Paths resolve against `--root`.
 
 **Outputs.** `Output::Write(name, text)` files text below the output directory, and the CLI renders a
 `.dot` to PDF given Graphviz. `Graph::New`, `Node` (`entry = true` outlines a start),
