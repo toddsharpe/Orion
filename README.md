@@ -17,6 +17,9 @@ mkdir orion && curl -sL https://github.com/toddsharpe/Orion/releases/latest/down
 orion/bin/Orion compile hello.src --lang cpp -o hello.cpp     # then build against orion/Runtimes/Cpp
 ```
 
+For the editor, install **Orion Language** from the VS Code Marketplace; it updates with each release
+and needs the .NET 9 runtime for its language server ([Tools/vscode-orion](Tools/vscode-orion/README.md)).
+
 ## Build and test
 
 ```

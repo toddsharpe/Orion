@@ -66,3 +66,18 @@ jobs:
       run: |
         gh release create "$GITHUB_REF_NAME" --title "Orion $GITHUB_REF_NAME" --generate-notes || true
         gh release upload "$GITHUB_REF_NAME" *.vsix --clobber
+
+    # The Marketplace publish needs the VSCE_PAT secret, so a tag still builds green before it exists.
+    - name: Check for a Marketplace token
+      id: marketplace
+      if: startsWith(github.ref, 'refs/tags/')
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      run: if [ -n "$VSCE_PAT" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"; fi
+
+    # The same .vsix to the Visual Studio Marketplace, where installed copies update themselves; a version already there is skipped.
+    - name: Publish to the Marketplace
+      if: steps.marketplace.outputs.ready == 'true'
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      run: npx --yes @vscode/vsce publish --packagePath *.vsix --skip-duplicate

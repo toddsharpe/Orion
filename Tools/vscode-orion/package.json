@@ -3,7 +3,11 @@
 	"displayName": "Orion Language",
 	"description": "Syntax highlighting and language server (diagnostics + semantic tokens) for the Orion (.src) metaprogramming language.",
 	"version": "0.1.1",
-	"publisher": "orion",
+	"publisher": "ToddSharpe",
+	"homepage": "https://github.com/toddsharpe/Orion",
+	"bugs": {
+		"url": "https://github.com/toddsharpe/Orion/issues"
+	},
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/toddsharpe/Orion.git"

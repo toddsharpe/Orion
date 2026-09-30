@@ -7,6 +7,14 @@ Editor support for Orion `.src` files:
 - **A language server**: diagnostics, semantic tokens, hover, go-to-definition and signature help,
   served by `Src/Orion.LangSvr`, a C# server on OmniSharp that reuses the real compiler frontend.
 
+## Install
+
+Search the Extensions view for **Orion Language** (publisher `ToddSharpe`), or run
+`code --install-extension ToddSharpe.orion-language`. Every Orion release publishes it, and VS Code
+updates it on its own. The language server runs on .NET, so it needs the
+[.NET 9 runtime](https://dotnet.microsoft.com/download/dotnet/9.0) with `dotnet` on `PATH`;
+highlighting works without it.
+
 ## What the language server does
 
 - **Diagnostics.** On every edit it parses, runs the same pre-passes as the compiler and binds, then
@@ -45,7 +53,8 @@ for the repo's `../vscode-orion.svr`.
 ## Package and install
 
 `.github/workflows/package.yml` publishes the server into `server/`, stamps the version from the tag,
-and runs `vsce package` on every push to `master` (an artifact) and on `v*` tags (a GitHub Release).
+and runs `vsce package` on every push to `master` (an artifact) and on `v*` tags, where the same
+`.vsix` becomes a GitHub Release asset and, with the `VSCE_PAT` secret set, the Marketplace release.
 Locally:
 
 ```sh
