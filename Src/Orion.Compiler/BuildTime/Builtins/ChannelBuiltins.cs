@@ -1,5 +1,7 @@
-﻿using Orion.Diagnostics;
+﻿using Orion.Clr;
+using Orion.Diagnostics;
 using Orion.Symbols;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using static Orion.BuildTime.AstBuild;
@@ -12,6 +14,10 @@ namespace Orion.BuildTime.Builtins
 	{
 		//One channel declaration: its service id, direction, payload bytes, and queue depth.
 		internal record Chan(int Service, bool Publish, int Bytes, int Depth, string Field);
+
+		//The generated table and its row type, named because the platform spells both.
+		public const string InfoName = "ChannelInfo";
+		public const string TableName = "channels";
 
 		private static List<Chan> _channels => Compiler.Session.Channels;
 
@@ -65,7 +71,7 @@ namespace Orion.BuildTime.Builtins
 			bool library = !root.GetAll<SourceFunctionSymbol>().Any(f => f.IsRuntimeEntry);
 			if (_channels.Count == 0)
 			{
-				messages.Trace($"No channels declared{(library ? "; accessors emitted for the library" : "")}");
+				messages.Trace($"No channels declared{(library ? "; the table and accessors emitted for the library" : "")}");
 				if (!library)
 					return;
 			}
@@ -82,9 +88,18 @@ namespace Orion.BuildTime.Builtins
 				return;
 			}
 
+			//The row type is defined under the name the platform spells, so a source type by that name would be defined twice.
+			if (root.Traverse().SelectMany(i => i.GetAll<TypeSymbol>()).Any(i => i.Name == InfoName))
+			{
+				messages.Add(new Message($"`{InfoName}` is the row type of the generated channel table; rename the type this program declares by that name.",
+					InputRegion.None, MessageType.Error));
+				return;
+			}
+
 			Env.Context = new Env.CallContext(host, null, messages);
 
 			Globals(root);
+			Table(root);
 
 			try
 			{
@@ -109,20 +124,38 @@ namespace Orion.BuildTime.Builtins
 			}
 		}
 
-		//The accessors the platform links against; generated, so they are stamped unlocated down to their parameters rather than at a line nobody wrote.
+		//`ChannelInfo channels[N]`, a row per declaration in index order: what each channel is, exported as a constant the platform reads.
+		private static void Table(SymbolTable root)
+		{
+			TypeSymbol i32 = root.Get<TypeSymbol>("i32");
+			StructTypeSymbol info = new StructTypeSymbol(InfoName,
+				[new Field("service", i32), new Field("publish", root.Get<TypeSymbol>("bool")), new Field("bytes", i32), new Field("depth", i32)])
+			{
+				IsExport = true,
+				Region = InputRegion.None,
+			};
+			BuildAssembly.Begin(info);
+			info.Hosted = BuildAssembly.Complete(info);
+			root.Add(info);
+
+			Array rows = Array.CreateInstance(info.Hosted, _channels.Count);
+			for (int i = 0; i < _channels.Count; i++)
+			{
+				object row = Activator.CreateInstance(info.Hosted);
+				info.Hosted.GetField("service").SetValue(row, _channels[i].Service);
+				info.Hosted.GetField("publish").SetValue(row, _channels[i].Publish);
+				info.Hosted.GetField("bytes").SetValue(row, _channels[i].Bytes);
+				info.Hosted.GetField("depth").SetValue(row, _channels[i].Depth);
+				rows.SetValue(row, i);
+			}
+
+			root.Add(GlobalDataSymbol.Constant(TableName, new LiteralSymbol(rows, new ArrayTypeSymbol(info, _channels.Count)) { Dimension = _channels.Count }));
+		}
+
+		//The two the platform calls to move frames, what each channel is being the table's; generated, so they are stamped unlocated down to their parameters rather than at a line nobody wrote.
 		private static IEnumerable<Ast.Function> Accessors()
 		{
-			List<Ast.Function> accessors =
-			[
-				Function("i32", "channel_count", [], [Return(Int(_channels.Count))]),
-
-				Dispatch("i32", "channel_service", Int(-1), c => [Return(Int(c.Service))]),
-				Dispatch("bool", "channel_publish", Bool(false), c => [Return(Bool(c.Publish))]),
-				Dispatch("i32", "channel_bytes", Int(0), c => [Return(Int(c.Bytes))]),
-				Dispatch("i32", "channel_depth", Int(0), c => [Return(Int(c.Depth))]),
-				Push(),
-				Pop(),
-			];
+			List<Ast.Function> accessors = [Push(), Pop()];
 
 			foreach (Ast.Function accessor in accessors)
 			{

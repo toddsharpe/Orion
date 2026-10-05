@@ -6,7 +6,7 @@
 #
 #   solver_init()               every block's #init; false means do not start
 #   solver_cycle(now)           one cycle, stamped with the time every block in it shares
-#   solver_period()             the rate the source declared, folded at build time
+#   solver_period               the rate the source declared, a constant
 #
 # The same two things Platform.js does without, for the same reasons:
 #
@@ -41,11 +41,11 @@ FRAMES_PER_SERVICE = 4
 class _Channel:
 	"""What the program said one channel is. No socket: there is nothing here to open."""
 
-	def __init__(self, program, index):
+	def __init__(self, program, index, info):
 		self.index = index
-		self.service = program.channel_service(index)
-		self.publish = bool(program.channel_publish(index))
-		self.bytes = program.channel_bytes(index)
+		self.service = info.service
+		self.publish = info.publish
+		self.bytes = info.bytes
 		# One scratch frame per channel, reused: the rings are the program's, and this is only the
 		# buffer a frame is copied through on its way in or out of them.
 		self.frame = program.Array([0] * self.bytes, self.bytes)
@@ -56,7 +56,7 @@ class _Bus:
 
 	def __init__(self, program):
 		self.program = program
-		self.channels = [_Channel(program, i) for i in range(program.channel_count())]
+		self.channels = [_Channel(program, i, info) for i, info in enumerate(program.channels)]
 		self.dropped = 0
 		# Delivered between drain and the next fill. One deep per service and not a queue: a subscriber
 		# that did not read last cycle's frame gets this cycle's instead, which is what a datagram bus
@@ -142,7 +142,7 @@ def drive(program, cycles=DEFAULT_CYCLES):
 
 	# A program with no declared rate still has to be stamped with something that advances, or every
 	# cycle claims the same instant and anything deriving a rate from the stamps divides by zero.
-	period = program.solver_period() or 10000000
+	period = program.solver_period or 10000000
 
 	print("orion: %g Hz, %d cycles" % (1000000000.0 / period, cycles))
 

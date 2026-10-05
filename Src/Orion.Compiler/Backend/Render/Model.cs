@@ -8,8 +8,8 @@ namespace Orion.Backend.Render
 	internal record Enum(string Name, Dictionary<string, int> Values);
 	//A struct to render: its name, each field's type, and the view fields a copy shares rather than copies.
 	internal record Struct(string Name, Dictionary<string, string> Fields, HashSet<string> Views = null);
-	//One declaration: type, name, initializer; Comment says where a compiler-minted one came from.
-	internal record Declaration(string Type, string Name, string Initializer, string Comment = null);
+	//One declaration: type, name, initializer; Comment says where a compiler-minted one came from, and Constant marks one nothing writes, for a target that can say so.
+	internal record Declaration(string Type, string Name, string Initializer, string Comment = null, bool Constant = false);
 
 	//A function to render: signature, locals by section, body; Declared marks one a consumer header already declares.
 	internal record Function(string ReturnType, string Name, List<string> Args, Dictionary<string, List<Declaration>> Locals, List<Code> Code, bool Declared = false);

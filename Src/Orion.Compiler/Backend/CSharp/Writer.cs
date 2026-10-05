@@ -35,7 +35,7 @@ namespace Orion.Backend.CSharp
 			AppendLine("public static class Program");
 			BraceCode.Open(this);
 
-			WriteSections(file.Globals, WriteBlockComment, global => AppendLine($"{Access}{Field(global)}"), blankAfter: true);
+			WriteSections(file.Globals, WriteBlockComment, global => AppendLine($"{Access}{(global.Constant ? "readonly " : "")}{Field(global)}"), blankAfter: true);
 
 			//Functions, one blank line between them
 			for (int i = 0; i < file.Functions.Count; i++)

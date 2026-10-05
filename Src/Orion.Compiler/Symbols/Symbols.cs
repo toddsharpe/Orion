@@ -324,9 +324,14 @@ namespace Orion.Symbols
 		}
 	}
 
-	//A variable at file scope: initialized once, readable from every function.
+	//A variable at file scope: initialized once, readable from every function; one with a Value is a constant the program exports, which every backend writes at that value.
 	public record GlobalDataSymbol(string Name, TypeSymbol Type) : NamedDataSymbol(Name, Type)
 	{
+		public LiteralSymbol Value { get; init; }
+
+		//Nothing in the program reads one; it is the platform's, as `channels` and `solver_period` are.
+		public static GlobalDataSymbol Constant(string name, LiteralSymbol value) => new GlobalDataSymbol(name, value.Type) { Value = value };
+
 		public override string ToString()
 		{
 			return $"{Name}:{Type}:global";

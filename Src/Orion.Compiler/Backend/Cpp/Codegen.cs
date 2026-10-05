@@ -44,7 +44,7 @@ namespace Orion.Backend.Cpp
 				return null;
 
 			Writer writer = new Writer();
-			writer.WriteHeader(Header.Generate(root, _types));
+			writer.WriteHeader(Header.Generate(root, Constants(root, "inline "), _types));
 			return writer.ToString();
 		}
 
@@ -83,7 +83,7 @@ namespace Orion.Backend.Cpp
 				},
 				new Dictionary<string, List<Declaration>>
 				{
-					{ "Globals", CreateGlobals(root) },
+					{ "Globals", CreateGlobals(root, exported) },
 					{ "Function handles", [.. FunctionHandles.Held(root, reachable).Select(Handle)] },
 					{ "Array literals", HoistViewedArrays(reachable) },
 				},
@@ -107,11 +107,21 @@ namespace Orion.Backend.Cpp
 		internal static Function ExternDecl(BuiltinFunctionSymbol func) =>
 			new Function(Cpp(func.ReturnType), Cpp(func.Name), [.. func.Parameters.Select(p => Declare(p, []))], null, null);
 
-		private List<Declaration> CreateGlobals(SymbolTable root)
+		//The globals at their zero, and the exported constants too when no header holds them.
+		private List<Declaration> CreateGlobals(SymbolTable root, bool exported)
 		{
-			return [.. root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct()
+			List<Declaration> globals = [.. root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct().Where(i => i.Value == null)
 				.Select(i => new Declaration($"static {Cpp(i.Type)}", i.Name, "{}"))];
+			if (!exported)
+				globals.AddRange(Constants(root, "static "));
+			return globals;
 		}
+
+		//The exported constants at their values: `inline` in the header, so every translation unit including it shares one, and `static` in a .cpp with no header.
+		private List<Declaration> Constants(SymbolTable root, string storage) =>
+			[.. root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct().Where(i => i.Value != null)
+				.Select(i => new Declaration($"{storage}{(Constexpr(i.Type) ? "constexpr " : "const ")}{Cpp(i.Type)}", i.Name,
+					i.Type is ArrayTypeSymbol && !IsAllZero(i.Value) ? ArrayInit(i.Value) : Cpp(i.Value)))];
 
 		private static List<Enum> CreateEnums(SymbolTable root, bool exported)
 		{

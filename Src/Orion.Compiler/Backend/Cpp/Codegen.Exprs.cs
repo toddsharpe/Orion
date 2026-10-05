@@ -221,6 +221,10 @@ namespace Orion.Backend.Cpp
 			if (literal.Type is not ArrayTypeSymbol array || literal.Value is not Array values)
 				return false;
 
+			//Nothing to spell, which `{}` says for every element type.
+			if (values.Length == 0)
+				return true;
+
 			if (array.Element is ArrayTypeSymbol row)
 				return values.Cast<object>().All(v => IsAllZero(new LiteralSymbol(v, row)));
 

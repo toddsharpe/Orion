@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Orion.Backend.JavaScript
 {
-	//Serializes the File model to JavaScript -- enums frozen objects, structs classes, globals `let` -- with Runtimes/JavaScript/Orion.js concatenated ahead by the host, so bare runtime names resolve in one scope.
+	//Serializes the File model to JavaScript -- enums frozen objects, structs classes, globals `let` and exported constants `const` -- with Runtimes/JavaScript/Orion.js concatenated ahead by the host, so bare runtime names resolve in one scope.
 	internal class Writer : SourceWriter
 	{
 		internal void Write(File file)
@@ -71,7 +71,7 @@ namespace Orion.Backend.JavaScript
 			if (string.IsNullOrEmpty(decl.Initializer))
 				AppendLine($"let {decl.Name};");
 			else
-				AppendLine($"let {decl.Name} = {decl.Initializer};");
+				AppendLine($"{(decl.Constant ? "const" : "let")} {decl.Name} = {decl.Initializer};");
 		}
 
 		private void Write(Function function)

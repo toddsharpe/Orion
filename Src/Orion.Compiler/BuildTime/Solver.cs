@@ -415,7 +415,8 @@ namespace Orion.BuildTime
 			Exported(BuildBuiltins.Emit(Entry(CycleName, "void", GenerateCycle(hosted: false), hosted: false,
 				stamp: _stamp ?? _root.Get<TypeSymbol>("i64")), bake: false));
 
-			Exported(BuildBuiltins.Emit(Period(_dt), bake: false));
+			//The rate as a constant, which only the platform reads.
+			_root.Add(GlobalDataSymbol.Constant(PeriodName, new LiteralSymbol(_dt, _root.Get<TypeSymbol>("i64"))));
 		}
 
 		private static void Exported(OrionFunction emitted)
@@ -442,15 +443,6 @@ namespace Orion.BuildTime
 			entry.IsBlock = true;
 			entry.Region = Env.Region;
 			return entry;
-		}
-
-		//`i64 solver_period()`, folded to the declared constant; a function rather than a global so every target spells it the same way.
-		private static Ast.Function Period(long dtNs)
-		{
-			Ast.Function period = Function("i64", PeriodName, [], [Return(Typed("i64", dtNs))]);
-			period.IsBlock = true;
-			period.Region = Env.Region;
-			return period;
 		}
 
 		//Run every block's #init once before the first cycle and hand back whether all of them started.

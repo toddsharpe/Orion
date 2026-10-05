@@ -75,10 +75,12 @@ namespace Orion.Backend.Cpp
 			}
 		}
 
-		//The header a consumer includes: exported types and function declarations, no globals or bodies.
+		//The header a consumer includes: exported types, constants and function declarations, no globals or bodies.
 		internal void WriteHeader(File file)
 		{
 			WriteTypes(file);
+
+			WriteSections(file.Globals, WriteBlockComment, Write, blankAfter: true);
 
 			if (file.Functions.Count > 0)
 			{

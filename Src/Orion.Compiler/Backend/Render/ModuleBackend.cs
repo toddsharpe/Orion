@@ -86,10 +86,10 @@ namespace Orion.Backend.Render
 				.Select(i => new Struct(Identifier(i.Name), i.Fields.ToDictionary(f => Identifier(f.Name), f => TypeName(f.Type)),
 					[.. i.Fields.Where(f => f.Type is SpanTypeSymbol).Select(f => Identifier(f.Name))]))];
 
-		//The module-scope globals, each starting at its type's zero.
+		//The module-scope globals, each starting at its type's zero, and the exported constants at their values.
 		private List<Declaration> Decls(SymbolTable root) =>
 			[.. root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Distinct()
-				.Select(i => new Declaration(TypeName(i.Type), Identifier(i.Name), Zero(i.Type)))];
+				.Select(i => new Declaration(TypeName(i.Type), Identifier(i.Name), i.Value == null ? Zero(i.Type) : Value(i.Value), Constant: i.Value != null))];
 
 		//A function-static local, lifted to module scope for a target with no static storage; a query, not a rewrite -- Relooper.ProducesNothing already dropped the declare-assign from the St body.
 		internal static List<(LocalDataSymbol Symbol, DataSymbol Init)> Statics(IEnumerable<SourceFunctionSymbol> functions)

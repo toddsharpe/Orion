@@ -68,7 +68,7 @@ PLATFORM=("$HERE/Platforms/Linux.cpp" "$HERE/Platforms/Channels.cpp")
 if grep -qE '^[A-Za-z_][A-Za-z0-9_:<>]*[ \t]+main[ \t]*\([^;]*\)[ \t]*$' "$CPP"; then
 	# The executive is the program's own, so the executive file goes. The wire is not the executive:
 	# a program that declared a channel still needs every socket Channels.cpp owns.
-	if grep -q 'channel_count' "$CPP"; then
+	if grep -q 'channel_push' "$CPP"; then
 		PLATFORM=("$HERE/Platforms/Channels.cpp")
 		echo "== standalone with channels: the program owns main, Channels.cpp still owns the wire =="
 	else

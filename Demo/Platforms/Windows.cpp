@@ -8,10 +8,10 @@
 //
 //  solver_init()               every block's #init; false means do not start
 //  solver_cycle(now)           one cycle, stamped with the time every block in it shares
-//  solver_period()             the rate the source declared, folded at build time
+//  solver_period               the rate the source declared, a constant
 //
 //Declared by the program's OWN generated header, included via ORION_PROGRAM_HEADER -- not by hand. The
-//program still owns its state as a global, so none of it crosses; this file links against functions.
+//program still owns its state as a global, so none of it crosses; this file links against functions and reads a constant.
 //
 //  cl /std:c++20 /O2 /EHsc /I Demo\Platforms /I Runtimes\Cpp /I <generated> ^
 //     /DORION_PROGRAM_HEADER=\"<program>.h\" ^
@@ -205,7 +205,7 @@ int main()
 		return 1;
 	}
 
-	const i64 period = solver_period();
+	const i64 period = solver_period;
 
 	//Zero is "until signalled": seed the countdown negative so the loop's `!= 0` test never meets it.
 	i64 budget = CycleBudget > 0 ? CycleBudget : -1;
