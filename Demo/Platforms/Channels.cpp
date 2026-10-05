@@ -6,7 +6,7 @@
 
 #include "Orion_channels.h"
 
-//The program: channel accessors, ServiceEndpoint and the exported types, declared by its own generated header.
+//The program: the `channels` table, channel_push/channel_pop, ServiceEndpoint and the exported types, declared by its own generated header.
 #ifndef ORION_PROGRAM_HEADER
 	#error "define ORION_PROGRAM_HEADER as the generated program's header, e.g. -DORION_PROGRAM_HEADER=\"\\\"counter.h\\\"\""
 #endif
@@ -24,6 +24,7 @@
 	#include <sys/socket.h>
 #endif
 
+#include <array>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -39,10 +40,16 @@
 
 namespace
 {
-	//Fixed capacities: nothing here allocates, so a program past one of these is refused at startup
-	//with the limit named rather than having its extra channels silently dropped.
-	constexpr i32 MaxChannels = 16;
-	constexpr i32 MaxFrame = 2048;
+	//Sized by the program's `channels` table, a constant of its header, so nothing here allocates or refuses a program for passing a guessed limit.
+	constexpr i32 Count = static_cast<i32>(channels.size());
+
+	//The largest frame any channel carries: one buffer serves them all, a cycle moving one frame at a time.
+	constexpr i32 MaxFrame = [] {
+		i32 most = 1;
+		for (const ChannelInfo& channel : channels)
+			most = channel.bytes > most ? channel.bytes : most;
+		return most;
+	}();
 
 	//Under -DORION_EPOCH0 every drained frame is printed, in the format Platform.js and Platform.py
 	//print theirs. Those two have no wire at all, so a frame they move is only ever visible this way --
@@ -55,7 +62,7 @@ namespace
 	constexpr i32 TraceBytes = 32;
 	constexpr i32 TraceFrames = 4;
 
-	i32 _traced[MaxChannels] = {};
+	std::array<i32, channels.size()> _traced = {};
 
 	void _trace(i32 service, i32 index, const u8* frame, i32 bytes)
 	{
@@ -118,19 +125,15 @@ namespace
 		return ::setsockopt(fd, level, name, reinterpret_cast<const char*>(&value), sizeof(value)) == 0;
 	}
 
-	//What the platform owns for each channel, parallel to the program's and indexed the same way.
-	//`bytes`, `depth` and `publish` are read once at startup rather than through an accessor per cycle.
+	//What the platform owns for each channel, its socket, parallel to the program's `channels` and indexed the same way.
 	struct ChannelIo
 	{
 		socket_t fd = InvalidSocket;
 		sockaddr_in group = {};
-		i32 bytes = 0;
-		i32 depth = 0;
-		bool publish = false;
 		i64 dropped = 0;
 	};
 
-	ChannelIo _io[MaxChannels];
+	std::array<ChannelIo, channels.size()> _io;
 
 	//One buffer for every channel, because a cycle touches one frame at a time and nothing here owns
 	//storage outliving the call.
@@ -205,14 +208,6 @@ namespace
 
 bool Channels_Init()
 {
-	const i32 count = channel_count();
-
-	if (count > MaxChannels)
-	{
-		std::cerr << "orion: " << count << " channels, past the limit of " << MaxChannels << std::endl;
-		return false;
-	}
-
 #ifdef _WIN32
 	//Winsock is the one thing that must happen before any socket call. POSIX needs no equivalent.
 	WSADATA winsock = {};
@@ -225,22 +220,11 @@ bool Channels_Init()
 
 	bool ok = true;
 
-	for (i32 i = 0; i < count; i++)
+	for (i32 i = 0; i < Count; i++)
 	{
-		const i32 service = channel_service(i);
+		const ChannelInfo& channel = channels[i];
+		const i32 service = channel.service;
 		ChannelIo& io = _io[i];
-
-		io.bytes = channel_bytes(i);
-		io.depth = channel_depth(i);
-		io.publish = channel_publish(i);
-
-		if (io.bytes <= 0 || io.bytes > MaxFrame)
-		{
-			std::cerr << "orion: service " << service << " carries " << io.bytes
-				<< " bytes, past the " << MaxFrame << "-byte limit" << std::endl;
-			ok = false;
-			continue;
-		}
 
 		//The program's own answer, not the compiler's: `ServiceEndpoint` is Orion in Demo/Services.src,
 		//so what a service means on the wire is a deployment decision this file only consumes. A group of
@@ -266,7 +250,7 @@ bool Channels_Init()
 		}
 
 		//The program says which way the channel goes, so this is never configured and never guessed.
-		if (!(io.publish ? _open_publish(io) : _open_subscribe(io)))
+		if (!(channel.publish ? _open_publish(io) : _open_subscribe(io)))
 		{
 			std::cerr << "orion: opening service " << service << " failed: " << _last_error() << std::endl;
 			ok = false;
@@ -276,10 +260,10 @@ bool Channels_Init()
 		char text[INET_ADDRSTRLEN] = {};
 		inet_ntop(AF_INET, &io.group.sin_addr, text, sizeof(text));
 
-		std::cout << "orion: " << (io.publish ? "send " : "join ")
+		std::cout << "orion: " << (channel.publish ? "send " : "join ")
 			<< text << ":" << ntohs(io.group.sin_port)
-			<< (io.publish ? " <- " : " -> ") << "service " << service
-			<< " (" << io.bytes << " bytes x " << io.depth << ")" << std::endl;
+			<< (channel.publish ? " <- " : " -> ") << "service " << service
+			<< " (" << channel.bytes << " bytes x " << channel.depth << ")" << std::endl;
 	}
 
 	return ok;
@@ -291,23 +275,24 @@ bool Channels_Init()
 //does not take this cycle waits for the next.
 void Channels_Fill()
 {
-	for (i32 i = 0; i < channel_count(); i++)
+	for (i32 i = 0; i < Count; i++)
 	{
+		const ChannelInfo& channel = channels[i];
 		ChannelIo& io = _io[i];
 
-		if (io.publish || io.fd == InvalidSocket)
+		if (channel.publish || io.fd == InvalidSocket)
 			continue;
 
-		for (i32 slot = 0; slot < io.depth; slot++)
+		for (i32 slot = 0; slot < channel.depth; slot++)
 		{
 			//ssize_t on POSIX, int on Winsock; narrowed deliberately, a frame being at most MaxFrame.
-			const int got = static_cast<int>(::recv(io.fd, reinterpret_cast<char*>(_frame), io.bytes, 0));
+			const int got = static_cast<int>(::recv(io.fd, reinterpret_cast<char*>(_frame), channel.bytes, 0));
 			if (got < 0)
 				break;   //nothing pending, which is the normal case at a rate faster than traffic
 
 			//A frame of the wrong size belongs to a program that disagrees about this channel's shape.
 			//Dropping it here rather than pushing it is what stops one bad publisher corrupting a ring.
-			if (got != io.bytes)
+			if (got != channel.bytes)
 			{
 				io.dropped++;
 				continue;
@@ -315,7 +300,7 @@ void Channels_Fill()
 
 			//Drop-newest, at the edge: refusing here is what stops a full ring silently reordering a
 			//command sequence the way dropping the oldest would.
-			if (channel_push(i, std::span<const u8>(_frame, static_cast<size_t>(io.bytes))) == 0)
+			if (channel_push(i, std::span<const u8>(_frame, static_cast<size_t>(channel.bytes))) == 0)
 				io.dropped++;
 		}
 	}
@@ -325,22 +310,23 @@ void Channels_Fill()
 //that is down, or a network unplugged, must not take the control loop with it.
 void Channels_Drain()
 {
-	for (i32 i = 0; i < channel_count(); i++)
+	for (i32 i = 0; i < Count; i++)
 	{
+		const ChannelInfo& channel = channels[i];
 		ChannelIo& io = _io[i];
 
-		if (!io.publish || io.fd == InvalidSocket)
+		if (!channel.publish || io.fd == InvalidSocket)
 			continue;
 
-		for (i32 slot = 0; slot < io.depth; slot++)
+		for (i32 slot = 0; slot < channel.depth; slot++)
 		{
-			if (channel_pop(i, std::span<u8>(_frame, static_cast<size_t>(io.bytes))) == 0)
+			if (channel_pop(i, std::span<u8>(_frame, static_cast<size_t>(channel.bytes))) == 0)
 				break;   //ring empty: this block produced nothing this cycle
 
-			_trace(channel_service(i), i, _frame, io.bytes);
+			_trace(channel.service, i, _frame, channel.bytes);
 
 			const int sent = static_cast<int>(::sendto(
-				io.fd, reinterpret_cast<const char*>(_frame), io.bytes, 0,
+				io.fd, reinterpret_cast<const char*>(_frame), channel.bytes, 0,
 				reinterpret_cast<const sockaddr*>(&io.group), sizeof(io.group)));
 
 			if (sent < 0)
@@ -353,8 +339,8 @@ i64 Channels_Dropped()
 {
 	i64 total = 0;
 
-	for (i32 i = 0; i < channel_count(); i++)
-		total += _io[i].dropped;
+	for (const ChannelIo& io : _io)
+		total += io.dropped;
 
 	return total;
 }

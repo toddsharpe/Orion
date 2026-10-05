@@ -30,8 +30,8 @@ int main()
 	std::array<i32, 4> xs = { { 1, 2, 3, 4 } };
 	std::cout << "total=" << total(xs) << std::endl;
 
-	// The channel accessors are part of the surface too, and used to be hand-declared.
-	std::cout << "channels=" << channel_count() << std::endl;
+	// The channel table is part of the surface too, a constant of the header: a library with none still has it.
+	std::cout << "channels=" << channels.size() << std::endl;
 
 	// The extern the program calls and THIS file defines below; a definition drifting from the Orion signature stops compiling right here.
 	std::cout << "poll=" << poll() << std::endl;

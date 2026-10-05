@@ -130,7 +130,7 @@ u32 entry(u32 v)
 					$"{lang}: a library with nothing exported dropped a function its author wrote.");
 
 				//The root set IS the accessors and nothing else -- asserting they are here makes the two above mean "scaffolding is not an export", not "nothing was emitted".
-				Assert.IsTrue(Defines(lang, result.CodeOutput, "channel_count"),
+				Assert.IsTrue(Defines(lang, result.CodeOutput, "channel_push"),
 					$"{lang}: the accessors are gone, so this no longer tests that scaffolding is discounted.");
 			}
 		}

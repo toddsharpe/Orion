@@ -73,8 +73,8 @@ file-scoped namespace named for the output file, `Services.cs` declaring `namesp
 the enums, the structs and one `public static class Program`; a program with a runtime `main` uses
 `namespace Program` and gains a `Main()` that calls it.
 
-A library, whose `main` was `#build`, offers its `#export`s plus the solver and channel entries, reached
-bare through the namespace:
+A library, whose `main` was `#build`, offers its `#export`s plus the solver and channel entries and the
+`solver_period` and `channels` constants, reached bare through the namespace:
 
 ```csharp
 using static Services.Program;
@@ -82,12 +82,12 @@ using static Services.Program;
 if (!solver_init())
 	return;
 
-solver_cycle(cycle * solver_period());
+solver_cycle(cycle * solver_period);
 
-int bytes = channel_bytes(ch);
-OrionArray<byte> frame = new OrionArray<byte>(new byte[bytes], bytes);
+var info = channels[ch];
+OrionArray<byte> frame = new OrionArray<byte>(new byte[info.bytes], info.bytes);
 if (channel_pop(ch, frame) != 0)
-	Send(channel_service(ch), frame);
+	Send(info.service, frame);
 ```
 
 The frames are byte-for-byte those the other backends produce. The state is a `SolverState` class in

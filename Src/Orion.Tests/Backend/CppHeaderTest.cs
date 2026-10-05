@@ -70,8 +70,9 @@ i32 helper(i32 n)
 			StringAssert.Contains(result.HeaderOutput, "Reading latest(i32 seed);", "the exported function is missing.");
 			//An `#output` parameter is a reference, which is what makes it a second result to a consumer.
 			StringAssert.Contains(result.HeaderOutput, "void bump(i32& n);", "the out parameter is not a reference.");
-			//Every program is given these, and they used to be hand-declared in Orion_channels.h.
-			StringAssert.Contains(result.HeaderOutput, "i32 channel_count();", "the channel accessors are missing.");
+			//Every library is given these, channels or not, so one platform builds against any of them.
+			StringAssert.Contains(result.HeaderOutput, "i32 channel_push(i32 index, std::span<const u8> frame);", "the channel accessors are missing.");
+			StringAssert.Contains(result.HeaderOutput, "inline constexpr std::array<ChannelInfo, 0> channels = {};", "the empty channel table is missing.");
 		}
 
 		//The types companion: the umbrella, every exported enum and struct, and no function at all.

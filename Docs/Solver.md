@@ -105,12 +105,12 @@ state is owned one of two ways.
 ```
 
 **Exported:** `Solver::Export(solver, dt_ns)`, and the state becomes the program's global `_solver`,
-passed to each block, with three entries:
+passed to each block, with two entries and a constant:
 
 ```
 bool solver_init()
-void solver_cycle(i64 cycle_time)   // the parameter only when a block reads cycle_time
-i64  solver_period()                // the declared rate, folded to a constant
+void solver_cycle(i64 cycle_time)
+i64  solver_period                  // the declared rate
 ```
 
 A platform links against those names, never the state's layout. `cycle_time` is the one net it
@@ -135,9 +135,9 @@ const i32 ch = Channel::Tx(service, bytes, depth);   // or Channel::Rx
 ```
 
 Each returns the ring's index, folded in as a literal, so a block calls `channel_push(ch, frame)`. The
-storage becomes globals and the accessors exported functions: `channel_count`, `channel_service`,
-`channel_publish`, `channel_bytes`, `channel_depth`, `channel_push`, `channel_pop`. A library gets them
-all, channels or not, so one platform links against any library.
+storage becomes globals, `channel_push` and `channel_pop` exported functions, and each declaration a
+row of the exported constant `channels`: a `ChannelInfo` of `service`, `publish`, `bytes` and `depth`.
+A library gets them all, channels or not, so one platform builds against any library.
 
 A *service* is an integer the compiler never interprets: what it means on a wire is the deployment's,
 written in Orion ([Demo/Services.src](../Demo/Services.src)).

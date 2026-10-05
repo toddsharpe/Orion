@@ -12,7 +12,8 @@ namespace Orion.Backend.Cpp
 		internal static bool HasExports(SymbolTable root) =>
 			root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()).Any(Declares)
 			|| root.Traverse().SelectMany(i => i.GetAll<StructTypeSymbol>()).Any(i => i.IsExport)
-			|| root.Traverse().SelectMany(i => i.GetAll<EnumTypeSymbol>()).Any(i => i.IsExport);
+			|| root.Traverse().SelectMany(i => i.GetAll<EnumTypeSymbol>()).Any(i => i.IsExport)
+			|| root.Traverse().SelectMany(i => i.GetAll<GlobalDataSymbol>()).Any(i => i.Value != null);
 
 		//Every `#export`ed function except `main`; scaffolding accessors DO count -- Channels.cpp calls `channel_push` and only this file declares it.
 		internal static bool Declares(SourceFunctionSymbol func) =>
@@ -22,8 +23,8 @@ namespace Orion.Backend.Cpp
 		internal static bool DeclaresExtern(BuiltinFunctionSymbol func) =>
 			Representable(func.ReturnType) && func.Parameters.All(p => Representable(p.Type));
 
-		//The exported functions, over the types companion when there is one and the umbrella when there is not; a consumer includes one name either way.
-		internal static File Generate(SymbolTable root, string types = null)
+		//The exported constants and functions, over the types companion when there is one and the umbrella when there is not; a consumer includes one name either way.
+		internal static File Generate(SymbolTable root, List<Declaration> constants, string types = null)
 		{
 			List<SourceFunctionSymbol> reachable = [.. root.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>())];
 
@@ -38,8 +39,11 @@ namespace Orion.Backend.Cpp
 				{
 					{ "Exported structs", types == null ? CreateStructs(root) : [] },
 				},
-				//A header declares no storage: a global is the translation unit's own.
-				new Dictionary<string, List<Declaration>>(),
+				//No storage but the exported constants: a global is the translation unit's own.
+				new Dictionary<string, List<Declaration>>
+				{
+					{ "Exported constants", constants },
+				},
 				CreateFunctions(reachable),
 				//The externs the program calls, declared here so the platform's definition compiles against the same contract; one naming an unexported type stays out, since the header could not spell it.
 				Externs: [.. Codegen.UsedExterns(reachable).Where(DeclaresExtern).Select(Codegen.ExternDecl)]

@@ -6,7 +6,7 @@
 //
 //  solver_init()               every block's #init; false means do not start
 //  solver_cycle(now)           one cycle, stamped with the time every block in it shares
-//  solver_period()             the rate the source declared, folded at build time
+//  solver_period               the rate the source declared, a constant
 //
 //Two things a browser cannot have, and what stands in for them:
 //
@@ -48,7 +48,7 @@
 	//Channels.cpp's job: a socket per channel, filled before dispatch and drained after. Here the
 	//array holds no socket, only what the program said the channel is, which is all the loopback needs.
 
-	let channels = [];
+	let wire = [];
 	let dropped = 0;
 	const printed = new Map();   //service -> frames printed, so the cap is per stream not per run
 	const moved = new Map();     //service -> frames published, for the closing line
@@ -59,16 +59,17 @@
 	const mailbox = new Map();
 
 	function Channels_Init() {
-		channels = [];
-		for (let i = 0; i < channel_count(); i++) {
-			channels.push({
+		wire = [];
+		for (let i = 0; i < channels.Length; i++) {
+			const info = channels[i];
+			wire.push({
 				index: i,
-				service: channel_service(i),
-				publish: channel_publish(i),
-				bytes: channel_bytes(i),
+				service: info.service,
+				publish: info.publish,
+				bytes: info.bytes,
 				//One scratch frame per channel, reused: the rings are the program's, this is only the
 				//buffer a frame is copied through on its way in or out of them.
-				frame: new OrionArray(new Uint8Array(channel_bytes(i)), channel_bytes(i)),
+				frame: new OrionArray(new Uint8Array(info.bytes), info.bytes),
 			});
 		}
 
@@ -78,7 +79,7 @@
 	//Before dispatch: the wire into the rings. A frame stays in the mailbox until someone takes it, so
 	//a subscriber whose ring was full retries next cycle rather than losing it here.
 	function Channels_Fill() {
-		for (const channel of channels) {
+		for (const channel of wire) {
 			if (channel.publish) continue;
 
 			const pending = mailbox.get(channel.service);
@@ -96,7 +97,7 @@
 	//taking one frame -- a block that wrote twice in a cycle wrote two frames, and holding the second
 	//would reorder it behind the next cycle's.
 	function Channels_Drain() {
-		for (const channel of channels) {
+		for (const channel of wire) {
 			if (!channel.publish) continue;
 
 			while (channel_pop(channel.index, channel.frame)) {
@@ -142,7 +143,7 @@
 
 	//A program with no declared rate still has to be stamped with something that advances, or every
 	//cycle claims the same instant and anything deriving a rate from the stamps divides by zero.
-	const period = solver_period() > 0n ? solver_period() : 10000000n;
+	const period = solver_period > 0n ? solver_period : 10000000n;
 
 	console.log("orion: " + (1000000000 / Number(period)) + " Hz, " + budget + " cycles");
 

@@ -49,9 +49,10 @@ entries, the channel accessors and `main` stay external.
 ## The header
 
 When a program exports anything, `--lang cpp` also writes `<output>.h` (or `--header`): the exported
-functions, the solver entries, the channel accessors and the externs the program calls, over
-`<output>_types.h`, which holds the exported structs and enums alone. The `.cpp` includes the header,
-so the C++ compiler checks the two agree; `main` is not in it.
+functions, the solver entries, the channel accessors, the constants `channels` and `solver_period` as
+`inline constexpr`, and the externs the program calls, over `<output>_types.h`, which holds the
+exported structs and enums alone. The `.cpp` includes the header, so the C++ compiler checks the two
+agree; `main` is not in it.
 
 A platform includes the types companion to fill a program's structs without being its translation
 unit. Two units that each define a type two programs share, identically, is what the one-definition
@@ -100,9 +101,10 @@ ones instead.
 ## Driving a library
 
 A program whose `main` is `#build` emits no `main`, so the platform owns the loop and links against
-`bool solver_init()`, `void solver_cycle(i64 cycle_time)` and `i64 solver_period()`. The state stays the
-program's own global. [Demo/Platforms/](../Demo/Platforms/) has Windows and Linux executives and
-`Channels.cpp` for the wire, each including the generated header through `-DORION_PROGRAM_HEADER`:
+`bool solver_init()` and `void solver_cycle(i64 cycle_time)`, reading the rate from `solver_period`. The
+state stays the program's own global. [Demo/Platforms/](../Demo/Platforms/) has Windows and Linux
+executives and `Channels.cpp` for the wire, each including the generated header through
+`-DORION_PROGRAM_HEADER`:
 
 ```
 .\Demo\build.ps1 telemetry -Run
