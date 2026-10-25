@@ -152,7 +152,7 @@ namespace Orion.BuildTime.Builtins
 
 			if (type?.Symbol == null)
 			{
-				Env.Report($"Port '{name}' has no type; TypeBuiltins.Parse reported the name it could not resolve.");
+				Env.Report($"Port '{name}' has no type; Type::Parse or Type::Defer reported the name it could not resolve.");
 				return new Port();
 			}
 

@@ -52,15 +52,44 @@ namespace Orion.BuildTime
 	//A type as a build-time VALUE: what a manifest carries instead of a type's name.
 	public class OrionType
 	{
-		internal TypeSymbol Symbol { get; init; }
+		private TypeSymbol _symbol;
 
-		//The empty handle a builtin answers after reporting; shareable because a handle is immutable and equal by its symbol's name.
+		//A `Type::Defer` name, looked up the first time anything needs more than the name, and the escape that deferred it, where a name nothing declared is reported.
+		private string _deferred;
+		private Diagnostics.InputRegion _deferredAt;
+		private bool _reported;
+
+		internal TypeSymbol Symbol
+		{
+			get => _deferred == null || _symbol != null ? _symbol : Resolve();
+			init => _symbol = value;
+		}
+
+		//The empty handle a builtin answers after reporting; shareable because a handle is immutable and equal by its name.
 		internal static readonly OrionType None = new OrionType { Symbol = null };
 
 		//The handle on a symbol; None for no symbol, so every reader sees one shape.
 		internal static OrionType Of(TypeSymbol symbol) => symbol == null ? None : new OrionType { Symbol = symbol };
 
-		public string Name => Symbol?.Name ?? "void";
+		internal static OrionType Deferred(string name, Diagnostics.InputRegion at) => new OrionType { _deferred = name, _deferredAt = at };
+
+		private TypeSymbol Resolve()
+		{
+			_symbol = TypeBuiltins.Lookup(Env.Context.Function.Table.GetRoot(), _deferred);
+			if (_symbol == null && !_reported)
+			{
+				_reported = true;
+				Env.Report(_deferredAt, $"Type::Defer: no type named '{_deferred}' by the time it was needed. A deferred " +
+					"name must be declared, by a block a Solver builds earlier in its list or by the program, before " +
+					"anything reads more of it than its name.");
+			}
+			return _symbol;
+		}
+
+		//The name as written for a deferred type, so carrying or comparing one never looks it up.
+		public string Name => Key ?? "void";
+
+		private string Key => _deferred ?? _symbol?.Name;
 
 		public TypeKind Kind => Symbol switch
 		{
@@ -91,13 +120,13 @@ namespace Orion.BuildTime
 
 		public OrionType Element => Symbol is BufferTypeSymbol b ? Of(b.Element) : None;
 
-		//Two handles on the same type are the same value, so `dev.type == Type::Of<u16>()` works.
+		//Two handles on the same type are the same value, so `dev.type == Type::Of<u16>()` works; by name, so a deferred one is compared without a lookup.
 		public static bool operator ==(OrionType a, OrionType b) => Equals(a, b);
 		public static bool operator !=(OrionType a, OrionType b) => !Equals(a, b);
 
-		public override bool Equals(object other) => other is OrionType type && type.Symbol?.Name == Symbol?.Name;
-		public override int GetHashCode() => Symbol?.Name?.GetHashCode() ?? 0;
-		public override string ToString() => Symbol?.Name ?? "void";
+		public override bool Equals(object other) => other is OrionType type && type.Key == Key;
+		public override int GetHashCode() => Key?.GetHashCode() ?? 0;
+		public override string ToString() => Name;
 	}
 
 	//A code fragment as a build-time value: it can be stored, chosen between and concatenated; the CLR class is OrionCode to dodge the backend's Code.
