@@ -23,6 +23,9 @@ by `-D` defines.
 ## Types
 
 - `bool`, `i8`…`i64`, `u8`…`u64`, `f32`, `f64`, `str`: primitives.
+- `time`: built in, an `i64` count of nanoseconds under a name of its own, as a `typedef` makes one. It
+  is the cycle stamp's type and every schedule's, so a bare count is not a time until it says so,
+  `10000000:time`.
 - `T[N]`, `T[R,C]`: a fixed array, and a **value**. `i32[2,3]` is 2 rows of `i32[3]`; `f32[Window]`
   names a file-scope `const`. `T[]` and `T[,]` size a local from its initializer, nothing else.
 - `Span<T>`, `ConstSpan<T>`: a view of storage someone else owns; a field or return value holds one only

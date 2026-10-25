@@ -1,0 +1,1 @@
+net 'cycle_time' is the cycle's stamp, a `time`, but its ports declare it i64

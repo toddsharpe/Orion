@@ -22,5 +22,3 @@ struct Channel
 	str units;
 }
 
-//A nanosecond timestamp.
-typedef i64 time;

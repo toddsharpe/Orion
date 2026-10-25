@@ -1,0 +1,16 @@
+// A schedule is nanoseconds, so a bare number in one is refused: `10` would be ten nanoseconds whether meant so or not.
+void Tick(#param str name, #input time now @ "cycle_time")
+{
+	WriteLine(name);
+}
+
+i32 main()
+{
+	#run
+	{
+		Block[] blocks = [ #block Tick(name = "slow") ${ period = 30000000 } ]:Block;
+		Solver solver = Solver::New(blocks);
+		Solver::Export(solver, 10000000:time);
+	}
+	return 0;
+}

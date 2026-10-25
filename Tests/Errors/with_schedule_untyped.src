@@ -1,0 +1,14 @@
+// A copy's schedule is held to a time as a `#block`'s is.
+void Tick(#param str name, #input time now @ "cycle_time")
+{
+	WriteLine(name);
+}
+
+i32 main()
+{
+	#run
+	{
+		Block slow = (#block Tick(name = "slow")).WithSchedule(${ period = 30000000:i64 });
+	}
+	return 0;
+}

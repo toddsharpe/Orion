@@ -369,6 +369,9 @@ namespace Orion.Frontend.Binder
 				}
 			}
 
+			if (ScheduleAt(expr.Callee) is int at && at < expr.Arguments.Count)
+				CheckSchedule(ctx, expr.Arguments[at], expr.Region);
+
 			bool isVoid = funcType.ReturnType == current.Get<TypeSymbol>("void");
 			if (!isVoid)
 			{
@@ -377,6 +380,31 @@ namespace Orion.Frontend.Binder
 			}
 			else
 				expr.Symbol = null;
+		}
+
+		//Which argument of a call is a schedule bag: `#block X(..) ${..}`'s, lowered to Solver::Scheduled, and `.WithSchedule`'s.
+		private static int? ScheduleAt(FunctionSymbol callee) => callee?.Name switch
+		{
+			"Solver::Scheduled" => 2,
+			"Block.WithSchedule" => 1,
+			_ => null,
+		};
+
+		//A schedule is nanoseconds, so each of its fields is a `time`: a bare number would be read as nanoseconds whether it was meant as them or not.
+		private static void CheckSchedule(BindContext ctx, Expression schedule, InputRegion region)
+		{
+			IEnumerable<(string Key, string Type)> fields = schedule switch
+			{
+				ArgsExpr args => args.Fields.Select(i => (i.Key, i.Value.Symbol?.Type?.Name)),
+				Value { Literal: ArgVal { Value: Dictionary<string, Literal> bag } } => bag.Select(i => (i.Key, i.Value.TypeName?.Name)),
+				_ => [],
+			};
+
+			//Only the two a schedule takes: any other key is the Solver's to refuse, by name.
+			string[] keys = [BuildTime.Builtins.SolverBuiltins.PeriodKey, BuildTime.Builtins.SolverBuiltins.PhaseKey];
+			foreach ((string key, string type) in fields.Where(i => keys.Contains(i.Key) && i.Type != null && i.Type != Language.Time.Name))
+				ctx.Messages.Add(new Message($"{Where(ctx)}: the schedule's '{key}' is {type}, not time. Write it as a time, " +
+					$"`30000000:time` or a `const time`: a bare number is read as nanoseconds whether it was meant as them or not.", region, MessageType.Error));
 		}
 
 		//A builtin that only reshapes a value keeps its argument's measure, so two arguments must share one.

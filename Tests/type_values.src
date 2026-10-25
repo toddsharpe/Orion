@@ -7,9 +7,6 @@
 	Type type;
 }
 
-//A nanosecond timestamp.
-typedef i64 time;
-
 #build List<Device> manifest()
 {
 	return [

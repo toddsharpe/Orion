@@ -3,8 +3,6 @@
 // rendering asked the primitive first and wrote the representation -- which re-parsed as `i64` and would
 // not assign to the `time`-typed cell it names.
 //The declarations this needs from Lib/types.src, spelled here so the test stands alone.
-//A nanosecond timestamp.
-typedef i64 time;
 
 void Clock(
 	#param str name,

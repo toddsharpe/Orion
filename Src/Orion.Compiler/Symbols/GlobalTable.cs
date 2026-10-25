@@ -18,6 +18,10 @@ namespace Orion.Symbols
 				global.Add(new SpanTypeSymbol(pair.Value, true));
 			}
 
+			global.Add(Language.Time);
+			global.Add(new SpanTypeSymbol(Language.Time));
+			global.Add(new SpanTypeSymbol(Language.Time, true));
+
 			global.Add(new ArgsTypeSymbol());
 
 			global.Add(new LiteralSymbol(false, global.Get<TypeSymbol>("bool")));
@@ -28,10 +32,11 @@ namespace Orion.Symbols
 			return global;
 		}
 
-		//Whether a root symbol is part of what Create installs rather than the program's own: a typedef, measure, extern, build-hosted enum or non-bool literal is the program's.
+		//Whether a root symbol is part of what Create installs rather than the program's own: a typedef other than `time`, measure, extern, build-hosted enum or non-bool literal is the program's.
 		public static bool IsSurface(Symbol symbol) => symbol switch
 		{
-			AliasTypeSymbol or MeasuredTypeSymbol => false,
+			AliasTypeSymbol alias => ReferenceEquals(alias, Language.Time),
+			MeasuredTypeSymbol => false,
 			PrimitiveTypeSymbol or SpanTypeSymbol or FunctionTypeSymbol or ArgsTypeSymbol or BuiltinTypeSymbol => true,
 			BuiltinFunctionSymbol function => !function.IsExtern,
 			//A program's enum is hosted in the build's dynamic assembly, a CLR-projected one in the compiler's own.

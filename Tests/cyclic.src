@@ -3,7 +3,6 @@
 //extern is what a platform supplies; `StartCycle` turns its own counter into a net every block
 //shares. A paced, platform-stamped loop is `Solver::Export`'s business, where the stamp arrives
 //as `solver_cycle`'s argument.
-typedef i64 time;
 
 const time SECOND = 1000000000;
 const time Hz_100 = SECOND / 100:time;

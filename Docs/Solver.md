@@ -105,7 +105,9 @@ A block runs every cycle unless its `#block` carries a schedule, a second bag af
 #block TelemetryWriter(name = "tx", devices = telem) ${ period = Hz_10, phase = Hz_100 }
 ```
 
-A schedule is a solver's, so `#create` refuses one.
+A schedule is a solver's, so `#create` refuses one. `period` and `phase` are each a `time`, written so,
+`30000000:time` or a `const time`: a bare number would be read as nanoseconds whether it was meant as
+them or not. `cycle_time` is a `time` too, and a port that reads it as anything else is refused.
 
 The guard is `cycle_time % period == phase`. Both must be whole cycles of the exported rate, `phase`
 under `period`, and something must drive `cycle_time`: the platform on an exported solver, or a block
