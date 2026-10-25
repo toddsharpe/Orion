@@ -1,0 +1,28 @@
+// A deferred name nothing declares is reported where Type::Defer wrote it, once something needs more than the name.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+void Report(#param str name, #param List<Device> devices)
+{
+	#run
+	{
+		for (const Device d in devices)
+		{
+			const Port p = Port::In(d.type, d.name);
+		}
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		List<Device> shown = [ Device{ name = "pump.Mode", type = Type::Defer("pump_Mood") } ]:List<Device>;
+		Block[] blocks = [ #block Report(name = "rep", devices = shown) ]:Block;
+		Solver solver = Solver::New(blocks);
+	}
+	return 0;
+}

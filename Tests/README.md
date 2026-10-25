@@ -20,8 +20,8 @@ loops on `Platform_Running()` is held to three cycles.
 
 | | |
 |---|---|
-| `<name>.src` + `<name>.txt` | a program and the stdout every backend must print: 185 of them |
-| `Errors/<name>.src` + `<name>.err` | a program that must *not* compile, and a substring of the expected error: 96 |
+| `<name>.src` + `<name>.txt` | a program and the stdout every backend must print: 186 of them |
+| `Errors/<name>.src` + `<name>.err` | a program that must *not* compile, and a substring of the expected error: 100 |
 | `Headers/` | a program with `#export`s and a C++ consumer that must build against its generated header alone |
 | `Lib/` | the library cases `#using`; not cases themselves |
 | `Configs/` | files cases read at build time, through `#src` or `File::`; not cases themselves |

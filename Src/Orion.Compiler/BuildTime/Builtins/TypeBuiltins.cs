@@ -13,15 +13,23 @@ namespace Orion.BuildTime.Builtins
 
 		public static OrionType Parse(string name)
 		{
-			SymbolTable root = Env.Context.Function.Table.GetRoot();
-			if (root.TryGet(name, out TypeSymbol symbol))
+			if (Lookup(Env.Context.Function.Table.GetRoot(), name) is TypeSymbol symbol)
 				return OrionType.Of(symbol);
-
-			if (Sized(root, name) is TypeSymbol sized)
-				return OrionType.Of(sized);
 
 			Env.Report($"Parse: no type named '{name}'.");
 			return OrionType.None;
+		}
+
+		//`Type::Parse`, looked up when first needed rather than now: for a type a block declares as a Solver builds it, named while the program's list is still being built.
+		public static OrionType Defer(string name)
+		{
+			return OrionType.Deferred(name, Env.Region);
+		}
+
+		//The type a name spells: a declared one, or a sized one over it; null for neither.
+		internal static TypeSymbol Lookup(SymbolTable root, string name)
+		{
+			return root.TryGet(name, out TypeSymbol symbol) ? symbol : Sized(root, name);
 		}
 
 		private static TypeSymbol Sized(SymbolTable root, string name)

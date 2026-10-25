@@ -81,6 +81,9 @@ emitted under; only `Solver::New` builds one ([Solver.md](Solver.md)).
 `.Element`, compared with `==`. `Type::IsStruct`, `IsArray`, `ArrayLength`, `ArrayElement`, `IsAlias`,
 `AliasBase`, `Struct::Fields`, `Struct::FieldType`, `Enum::Members` and `Enum::Value` read what a
 declaration says, so a generator packs a frame from a struct without restating its layout.
+`Type::Defer("Main_State")` is `Type::Parse` looked up when first needed: it carries and compares by
+its name, and only `.Size`, `.Kind`, a port or a reader like those looks it up, so a list built before
+`Solver::New` can name a type a block in that Solver declares as it is built.
 
 **Files and text.** `File::Open`, `ReadLine`, `HasLine`, `ReadAll`; `Csv::Read<T>` (rows into structs);
 `Str::Split`, `Str::Fields` (whitespace runs, no empties) and `Str::StartsWith`; `Str::Parse<T>(text)`,

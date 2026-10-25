@@ -1,0 +1,4 @@
+pump.Mode pump_Mode (4 bytes) = Off
+pump.Mode pump_Mode (4 bytes) = Spin
+pump.Mode pump_Mode (4 bytes) = Hold
+pump.Mode pump_Mode (4 bytes) = Off
