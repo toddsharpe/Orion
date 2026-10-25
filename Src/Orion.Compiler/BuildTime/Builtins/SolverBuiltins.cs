@@ -119,6 +119,8 @@ namespace Orion.BuildTime.Builtins
 		//`#create`: the block specialized now, a function to start or call where it is made.
 		public static OrionFunction Create(string name, object args)
 		{
+			if (Compiler.Session.Templates.TryGetValue(name, out Ast.Function template))
+				Undeclared("#create", name, template, args);
 			return Instantiate(name, args, null, "#create", Env.Region);
 		}
 
@@ -135,14 +137,23 @@ namespace Orion.BuildTime.Builtins
 
 		private static OrionBlock Recipe(string name, object args, object schedule)
 		{
-			if (!Compiler.Session.Templates.ContainsKey(name))
+			if (!Compiler.Session.Templates.TryGetValue(name, out Ast.Function template))
 			{
 				Env.Report($"`#block {name}`: no solver block named '{name}'. A block is a function with a " +
 					$"`#param`{Known()}");
 				return null;
 			}
 
+			Undeclared("#block", name, template, args);
 			return new OrionBlock { Template = name, Args = args, Schedule = schedule, Region = Env.Region };
+		}
+
+		//An argument the template declares no #param for, reported where it is written: a Solver reads only the #params, so a misspelled one would be dropped without a word and the block built on the default.
+		private static void Undeclared(string keyword, string name, Ast.Function template, object args)
+		{
+			List<string> declared = [.. template.Parameters.Where(p => p.Directive == Ast.ParamDirective.Param).Select(p => p.Name)];
+			foreach (string key in Env.Bag(args).Keys.Where(i => !declared.Contains(i)))
+				Env.Report($"`{keyword} {name}({key} = ..)`: `{name}` takes no #param '{key}'; it takes {string.Join(", ", declared)}.");
 		}
 
 		private static OrionFunction Instantiate(string name, object args, object schedule, string keyword, InputRegion region)
