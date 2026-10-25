@@ -301,7 +301,7 @@ void StateReport(
 	{
 		StateMachine m = #src spec machine();
 		const Port st = Port::In(Type::Parse(enum_name), state_net);
-		const Port entry = Port::In(Type::Parse("time"), entry_net);
+		const Port entry = Port::In(Type::Of<time>(), entry_net);
 
 		//Starts at the initial state, so the first transition out of it is the first thing printed.
 		#insert { #state ${Type::Parse(enum_name)} seen = ${Enum::Value(enum_name, m.states[0].name)}; }

@@ -195,6 +195,9 @@ namespace Orion.Frontend.Binder
 				return StrFunctionFor(ctx, hole.Symbol.Type, expr.Region);
 			}
 
+			if (expr.Function == Surface.Builtin(typeof(BuildTime.Builtins.TypeBuiltins), nameof(BuildTime.Builtins.TypeBuiltins.Of)) && expr.GenericArgs.Count == 1)
+				return OfAsWritten(ctx, current, expr);
+
 			if (Surface.IsMathGeneric(expr.Function))
 				return BindMathGeneric(ctx, current, expr);
 
@@ -202,6 +205,19 @@ namespace Orion.Frontend.Binder
 				ctx.Messages.Add(new Message($"{Where(ctx)}: {expr.Function} is internal; use {InternalBuiltinHint(expr.Function)}", expr.Region, MessageType.Error));
 
 			return expr.Function;
+		}
+
+		//`Type::Of<time>()` is the type as written: the CLR sees an alias or a measure as the primitive under it, so one of those is looked up by the name the binder resolved, as `Type::Parse` looks one up.
+		private static string OfAsWritten(BindContext ctx, SymbolTable current, Call expr)
+		{
+			TypeSymbol written = ResolveType(ctx, current, expr.GenericArgs[0]);
+			if (written == null || ClrTypes.FromClrType(current.GetRoot(), BuildAssembly.GetClrType(written)) == written)
+				return expr.Function;
+
+			expr.GenericArgs = [];
+			expr.Arguments = [new Value { Literal = new StringLiteral { Value = written.Name, TypeName = new TypeName { Name = "str" } }, Region = expr.Region }];
+			expr.ArgumentNames = [null];
+			return Surface.Builtin(typeof(BuildTime.Builtins.TypeBuiltins), nameof(BuildTime.Builtins.TypeBuiltins.Parse));
 		}
 
 		//Why a name matched no function: a generic called without type arguments or not instantiable, a builtin spelled with `_`, or nothing at all; null for a method, already reported.
