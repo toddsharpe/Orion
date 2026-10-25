@@ -171,8 +171,13 @@ namespace Orion.BuildTime
 		}
 
 		private static bool Offers(MethodInfo method) =>
-			Surfaced(method) && !method.IsGenericMethodDefinition
+			Surfaced(method) && !method.IsGenericMethodDefinition && ForElement(method)
 			&& Expressible(method.ReturnType) && method.GetParameters().All(i => Expressible(i.ParameterType));
+
+		//A [Blocks] method is on the surface of a List<Block> alone.
+		private static bool ForElement(MethodInfo method) =>
+			!method.IsDefined(typeof(BlocksAttribute), false)
+			|| method.DeclaringType.GetGenericArguments() is [Type element] && element == typeof(OrionBlock);
 
 		private static bool Expressible(Type clr) => !clr.IsByRef && !clr.IsPointer && !clr.IsGenericParameter;
 

@@ -81,7 +81,10 @@ emitted under; only `Solver::New` builds one ([Solver.md](Solver.md)). `.Templat
 builds, and `.Param<T>("x")` the argument it is built with for `#param x`: as written, else the
 template's default. `.With(${ step = 5 })` is a copy with those arguments replaced and its name kept,
 which builds what a `#block` writing them would; `.WithSchedule(${ period = .. })` replaces its
-schedule the same way.
+schedule the same way. A `List<Block>` is edited by name, as a sim edits its app's: `.Find`, `.Has`,
+`.Remove`, `.Replace(name, [..])`, `.InsertBefore` and `.InsertAfter(name, [..])`, and
+`.Change(name, ${..})` for `.Replace(name, [.Find(name).With(..)])`. Each answers a new list, so a
+`const` one takes them, and refuses a name the list lacks or holds twice.
 
 **Types.** `Type::Of<u16>()` and `Type::Parse("f64")` give a `Type` with `.Name`, `.Size`, `.Kind` and
 `.Element`, compared with `==`. `Type::IsStruct`, `IsArray`, `ArrayLength`, `ArrayElement`, `IsAlias`,
