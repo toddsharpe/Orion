@@ -33,7 +33,7 @@ namespace Orion.Frontend
 			HashSet<string> visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			bool failed = false;
 
-			void Gather(string file)
+			void Gather(string file, bool isEntry)
 			{
 				if (failed || !visited.Add(Path.GetFullPath(file)))
 					return;
@@ -77,6 +77,10 @@ namespace Orion.Frontend
 				//Chosen here, before the `#using` walk: a dead branch's includes are never even gathered.
 				unit.Blocks = Conditionals.FoldBlocks(unit.Blocks, session, messages);
 
+				//A program `#using` another's file takes its functions, not its `main`, so a sim can build from its app's.
+				if (!isEntry)
+					unit.Blocks = [.. unit.Blocks.Where(i => i is not Function { Name: Language.Entry })];
+
 				foreach (Using @using in unit.Blocks.OfType<Using>())
 				{
 					if (Path.IsPathRooted(@using.Path) || @using.Path.Split('/', '\\').Any(i => i == ".."))
@@ -108,13 +112,13 @@ namespace Orion.Frontend
 						continue;
 					}
 
-					Gather(full);
+					Gather(full, false);
 				}
 
 				units.Add(new CompilerFile(unit, new InputFile(file, contents)));
 			}
 
-			Gather(entry);
+			Gather(entry, true);
 			if (failed)
 				units.Clear();
 
