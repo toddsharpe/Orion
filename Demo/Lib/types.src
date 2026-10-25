@@ -36,9 +36,6 @@ struct Channel
 	str units;
 }
 
-//A nanosecond timestamp.
-typedef i64 time;
-
 const time SECOND = 1000000000;
 const time Hz_10 = SECOND / 10:time;
 const time Hz_100 = SECOND / 100:time;

@@ -7,9 +7,6 @@
 	Type type;
 }
 
-//A nanosecond timestamp.
-typedef i64 time;
-
 void Src(#param str name, #state i32 t = 0, #output i32 a, #output f64 b)
 {
 	a = t;

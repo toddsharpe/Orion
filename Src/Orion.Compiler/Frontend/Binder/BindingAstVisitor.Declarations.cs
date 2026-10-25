@@ -418,7 +418,9 @@ namespace Orion.Frontend.Binder
 			SymbolTable current = ctx.Scoper.Peek();
 			if (current.TryGet(alias.Name, out TypeSymbol existing))
 			{
-				ctx.Messages.Add(new Message($"Type with the same name {alias.Name} already exists: {existing}.", alias.Region, MessageType.Error));
+				ctx.Messages.Add(new Message(ReferenceEquals(existing, Language.Time)
+					? "`time` is built in: an i64 count of nanoseconds, the type of the Solver's cycle_time and of every schedule. Delete this typedef."
+					: $"Type with the same name {alias.Name} already exists: {existing}.", alias.Region, MessageType.Error));
 				return;
 			}
 

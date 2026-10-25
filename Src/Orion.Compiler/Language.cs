@@ -14,6 +14,9 @@ namespace Orion
 
 		internal static readonly Dictionary<TypeCode, PrimitiveTypeSymbol> Primitives = Enum.GetValues(typeof(TypeCode)).Cast<TypeCode>().ToDictionary(i => i, j => new PrimitiveTypeSymbol(j));
 
+		//`time`, built in: an i64 count of nanoseconds, the type of the Solver's `cycle_time` and of every schedule.
+		internal static readonly AliasTypeSymbol Time = new AliasTypeSymbol("time", Primitives[TypeCode.i64]);
+
 		//`List::New` -> `List_New`, for the places that need an ordinary identifier.
 		public static string Mangled(string name) => name.Replace("::", "_");
 

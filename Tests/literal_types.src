@@ -3,7 +3,6 @@
 // alone used to hand the second one the first one's Orion type -- reported as a bogus
 // "Invalid assignment of ticks = time" whose only cause was the two numbers being equal.
 
-typedef i64 time;
 typedef i64 ticks;
 
 // A root-scope const is visible from every function below it, so its literal is the one most likely

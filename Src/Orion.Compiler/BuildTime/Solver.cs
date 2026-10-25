@@ -210,6 +210,8 @@ namespace Orion.BuildTime
 			}
 
 			_slot = state.FirstOrDefault(i => i.Name == CycleTimeName)?.Type;
+			if (_slot != null && !ReferenceEquals(_slot, Language.Time))
+				Env.Report(messages, $"Solver: net '{CycleTimeName}' is the cycle's stamp, a `time`, but its ports declare it {_slot.Name}; declare them `time`.");
 			CheckSchedules(messages, state, order);
 
 			//A netlist with a wiring error has no meaningful state struct; the errors already stand.
@@ -413,7 +415,7 @@ namespace Orion.BuildTime
 
 			//Always takes the stamp, even where no block reads it: the ABI must be the same for every program, or a platform would link one and fail on the next.
 			Exported(BuildBuiltins.Emit(Entry(CycleName, "void", GenerateCycle(hosted: false), hosted: false,
-				stamp: _stamp ?? _root.Get<TypeSymbol>("i64")), bake: false));
+				stamp: _stamp ?? Language.Time), bake: false));
 
 			//The rate as a constant, which only the platform reads.
 			_root.Add(GlobalDataSymbol.Constant(PeriodName, new LiteralSymbol(_dt, _root.Get<TypeSymbol>("i64"))));
@@ -507,7 +509,7 @@ namespace Orion.BuildTime
 		//Typed as the stamp is, so the comparison needs no cast: `time` is an alias over i64.
 		private Ast.Expression Nanos(long value)
 		{
-			Ast.Expression literal = Typed(_slot?.Name ?? "i64", value, "i64");
+			Ast.Expression literal = Typed(_slot?.Name ?? Language.Time.Name, value, "i64");
 			literal.Region = Env.Region;
 			return literal;
 		}

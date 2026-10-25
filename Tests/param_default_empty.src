@@ -1,6 +1,5 @@
 // A #param default may be an empty collection, and a `T` read back through Function::Out keeps the
 // type it was asked for: a typedef stays the typedef rather than the i64 under it.
-typedef i64 time;
 
 void Tags(#param str name, #param List<str> tags = List::New<str>(), #param Map<str, i32> weights = Map::New<str, i32>(), #output i32 n)
 {

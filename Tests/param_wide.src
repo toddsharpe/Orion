@@ -5,8 +5,6 @@
 //32 bits and said nothing; and a period that DOES fit in 32 bits folded to an i32 literal, which then
 //failed to satisfy the `time` parameter it was written for.
 //The declarations this needs from Lib/types.src, spelled here so the test stands alone.
-//A nanosecond timestamp.
-typedef i64 time;
 
 //Both are `time`, so both have to arrive as one: neither call below writes a cast.
 void Ticker(#param str name, #param time period, #param time small)

@@ -13,9 +13,6 @@
 	Type type;
 }
 
-//A nanosecond timestamp.
-typedef i64 time;
-
 // Map: one output per input, over a fixed array.
 #build List<i32> squares(i32 n)
 {
