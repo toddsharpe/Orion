@@ -13,10 +13,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Source(name = "src"),
-			#create Sink(name = "sink")
-		]:Function;
+		Block[] funcs = [
+			#block Source(name = "src"),
+			#block Sink(name = "sink")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

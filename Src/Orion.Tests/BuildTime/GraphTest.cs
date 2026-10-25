@@ -90,7 +90,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Ramp(name = ""ramp""), #create Watch(name = ""watch"") ]:Function;
+		Block[] blocks = [ #block Ramp(name = ""ramp""), #block Watch(name = ""watch"") ]:Block;
 		Solver solver = Solver::New(blocks);
 		Output::Write(""net.dot"", Graph::Dot(Solver::Graph(solver), []:List<str>));
 	}
@@ -125,7 +125,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Body(name = ""body""), #create Watch(name = ""watch"") ]:Function;
+		Block[] blocks = [ #block Body(name = ""body""), #block Watch(name = ""watch"") ]:Block;
 		Output::Write(""net.dot"", Graph::Dot(Solver::Graph(Solver::New(blocks)), []:List<str>));
 	}
 	return 0;
@@ -158,7 +158,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Ramp(name = ""ramp""), #create Watch(name = ""watch"") ]:Function;
+		Block[] blocks = [ #block Ramp(name = ""ramp""), #block Watch(name = ""watch"") ]:Block;
 		Output::Write(""net.dot"", Graph::Dot(Solver::Graph(Solver::New(blocks)), [""watch""]:List<str>));
 	}
 	return 0;

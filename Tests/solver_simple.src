@@ -18,11 +18,11 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Count(name = "my_count"),
-			#create Even(name = "my_even"),
-			#create Square(name = "square")
-		]:Function;
+		Block[] funcs = [
+			#block Count(name = "my_count"),
+			#block Even(name = "my_even"),
+			#block Square(name = "square")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

@@ -74,6 +74,9 @@ A comprehension may bind the position too, `for const T v, i32 i in xs`. Maps ke
 `.ToArray()` **freezes** a list into a fixed array; `Array::Zeroed<T>(n)` makes one of a length only
 the build knows.
 
+**Blocks.** `#block` yields a `Block`, a solver block's recipe, whose `.Name` is the name it will be
+emitted under; only `Solver::New` builds one ([Solver.md](Solver.md)).
+
 **Types.** `Type::Of<u16>()` and `Type::Parse("f64")` give a `Type` with `.Name`, `.Size`, `.Kind` and
 `.Element`, compared with `==`. `Type::IsStruct`, `IsArray`, `ArrayLength`, `ArrayElement`, `IsAlias`,
 `AliasBase`, `Struct::Fields`, `Struct::FieldType`, `Enum::Members` and `Enum::Value` read what a
@@ -106,7 +109,8 @@ into `<output>.log` with `--log`.
 
 ## Calling what the build built
 
-A `#create`d block ([Solver.md](Solver.md)) is a function the build can call:
+A `#create`d block ([Solver.md](Solver.md)) is specialized at once, a function the build can call; a
+solver takes `#block` recipes instead:
 
 ```
 Function five = #create add_custom(name = "add_five", b = 5);

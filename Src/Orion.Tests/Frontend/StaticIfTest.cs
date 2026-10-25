@@ -12,7 +12,7 @@ i32 main()
 {{
 	#run
 	{{
-		Function[] funcs = [{creates}]:Function;
+		Block[] funcs = [{creates}]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 
@@ -40,7 +40,7 @@ void Scale(#param str name, #param bool squared, #output i32 out @ $""{name}_out
 		out = 7 + 7;
 	}
 }",
-				@"#create Scale(name = ""a"", squared = true), #create Scale(name = ""b"", squared = false)");
+				@"#block Scale(name = ""a"", squared = true), #block Scale(name = ""b"", squared = false)");
 
 			//One instance took each branch. The optimizer folds both, so the assertion is on the result.
 			Assert.AreEqual(1, Harness.Occurrences(cpp, "out = 49;"), cpp);
@@ -63,12 +63,12 @@ void Scale(#param str name, #param bool squared, #output i32 out @ $""{name}_out
 		out = nonexistent(""not an i32"");
 	}
 }",
-				@"#create Scale(name = ""a"", squared = true)");
+				@"#block Scale(name = ""a"", squared = true)");
 
 			Assert.IsFalse(cpp.Contains("nonexistent"), cpp);
 		}
 
-		//The escape that declares the guarded port -- a top-of-body branch is spliced, not nested, so this `#run` stays a top-level statement Solver::Block can find.
+		//The escape that declares the guarded port -- a top-of-body branch is spliced, not nested, so this `#run` stays a top-level statement the specializer can find.
 		private const string GuardedPort = @"
 void Ports(#param str name, #param bool extra, #output i32 always @ $""{name}_always"")
 {
@@ -87,7 +87,7 @@ void Ports(#param str name, #param bool extra, #output i32 always @ $""{name}_al
 		[TestMethod]
 		public void GuardedPortIsDeclaredWhenTheBranchIsTaken()
 		{
-			string cpp = Cpp(GuardedPort, @"#create Ports(name = ""a"", extra = true)");
+			string cpp = Cpp(GuardedPort, @"#block Ports(name = ""a"", extra = true)");
 
 			Assert.IsTrue(cpp.Contains("extra_out"), cpp);
 		}
@@ -96,7 +96,7 @@ void Ports(#param str name, #param bool extra, #output i32 always @ $""{name}_al
 		public void DeadBranchDeclaresNoPort()
 		{
 			//Same template, #param off: a port exists because it was DECLARED, so a folded `if` would still emit it; deleting the branch is what stops Build::Port.
-			string cpp = Cpp(GuardedPort, @"#create Ports(name = ""a"", extra = false)");
+			string cpp = Cpp(GuardedPort, @"#block Ports(name = ""a"", extra = false)");
 
 			Assert.IsFalse(cpp.Contains("extra_out"), cpp);
 		}
@@ -114,7 +114,7 @@ void Maybe(#param str name, #param bool on, #output i32 out @ $""{name}_out"")
 		out = 2;
 	}
 }",
-				@"#create Maybe(name = ""a"", on = false)");
+				@"#block Maybe(name = ""a"", on = false)");
 
 			Assert.IsTrue(cpp.Contains("out = 1;"), cpp);
 			Assert.IsFalse(cpp.Contains("out = 2;"), cpp);
@@ -142,7 +142,7 @@ void Pick(#param str name, #param str mode, #output i32 out @ $""{name}_out"")
 		}
 	}
 }",
-				@"#create Pick(name = ""a"", mode = ""double"")");
+				@"#block Pick(name = ""a"", mode = ""double"")");
 
 			//The whole statement: the emitted TypeCode enum has members numbered 7, 8 and 9.
 			Assert.IsTrue(cpp.Contains("out = 8;"), cpp);
@@ -174,7 +174,7 @@ void Pick(#param str name, #param str mode, #output i32 out @ $""{name}_out"")
 		out = 7;
 	}
 }",
-				@"#create Pick(name = ""a"", mode = ""negate"")");
+				@"#block Pick(name = ""a"", mode = ""negate"")");
 
 			//Static all the way down: the arm the #param chose, and no `if` left in the emitted block.
 			Assert.IsTrue(cpp.Contains("out = 6;"), cpp);
@@ -206,7 +206,7 @@ void Pick(#param str name, #param str mode, #output i32 out @ $""{name}_out"")
 		out = 7;
 	}
 }",
-				@"#create Pick(name = ""a"", mode = ""square"")");
+				@"#block Pick(name = ""a"", mode = ""square"")");
 
 			Assert.IsFalse(cpp.Contains("nonexistent"), cpp);
 		}
@@ -226,7 +226,7 @@ void Range(#param str name, #param i32 n, #output i32 out @ $""{name}_out"")
 		out = 200;
 	}
 }",
-				@"#create Range(name = ""a"", n = 4), #create Range(name = ""b"", n = 5)");
+				@"#block Range(name = ""a"", n = 4), #block Range(name = ""b"", n = 5)");
 
 			Assert.AreEqual(1, Harness.Occurrences(cpp, "out = 100;"), cpp);
 			Assert.AreEqual(1, Harness.Occurrences(cpp, "out = 200;"), cpp);
@@ -251,7 +251,7 @@ void Gen(#param str name, #param bool wide, #output i32 out @ $""{name}_out"")
 		}
 	}
 }",
-				@"#create Gen(name = ""a"", wide = true)");
+				@"#block Gen(name = ""a"", wide = true)");
 
 			Assert.IsTrue(cpp.Contains("out = 64;"), cpp);
 			Assert.IsFalse(cpp.Contains("out = 8;"), cpp);
@@ -291,7 +291,7 @@ void Bad(#param str name, #output i32 out @ $""{name}_out"")
 		out = 2;
 	}
 }",
-				@"#create Bad(name = ""a"")"));
+				@"#block Bad(name = ""a"")"));
 
 			result.AssertError("#if: the condition is not a build-time constant");
 		}

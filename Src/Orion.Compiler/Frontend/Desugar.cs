@@ -230,7 +230,7 @@ namespace Orion.Frontend
 				Template x => ProcessTemplate(x),
 				CodeExpr x => ProcessCode(x),
 				InsertCode x => ProcessInsertCode(x),
-				Call x when x.IsCreate => ProcessCreate(x, messages),
+				Call x when x.IsCreate || x.IsBlock => ProcessCreate(x, messages),
 				//A fixed-array literal keeps its ArrayExpr; only a List<T> literal is rewritten.
 				ArrayExpr x when x.TypeName is { GenericType: "List", Generics.Count: 1 } => ProcessList(x),
 				//A comprehension is consumed by its declaration, expanding into a Group of two statements.
@@ -344,9 +344,10 @@ namespace Orion.Frontend
 			};
 		}
 
-		//`#create Block(n = 3)` -> Solver::Block("Block", ${n = 3}); the template never binds, so this is the only way in.
+		//`#create Kalman(n = 3)` -> Solver::Create("Kalman", ${n = 3}), specialized now; `#block Kalman(n = 3)` -> Solver::Block("Kalman", ${n = 3}), a recipe the Solver it reaches specializes. The template never binds, so these are the only ways in.
 		private static Expression ProcessCreate(Call call, List<Message> messages)
 		{
+			string keyword = call.IsBlock ? "#block" : "#create";
 			Dictionary<string, Expression> fields = new Dictionary<string, Expression>();
 			for (int i = 0; i < call.Arguments.Count; i++)
 			{
@@ -355,8 +356,8 @@ namespace Orion.Frontend
 				if (name == null)
 				{
 					messages.Add(new Message(
-						$"`#create {call.Function}` takes named arguments, e.g. " +
-						$"`#create {call.Function}(name = \"a\")`; a #param is named, never positional.",
+						$"`{keyword} {call.Function}` takes named arguments, e.g. " +
+						$"`{keyword} {call.Function}(name = \"a\")`; a #param is named, never positional.",
 						call.Arguments[i].Region, MessageType.Error));
 					continue;
 				}
@@ -364,23 +365,33 @@ namespace Orion.Frontend
 				fields[name] = call.Arguments[i];
 			}
 
-			//A written bag picks the other entry, so an unscheduled `#create` lowers exactly as it always did.
+			//A schedule is the slot a Solver runs a block on, so only a block bound for one takes it.
+			if (call.IsCreate && call.Schedule != null)
+				messages.Add(new Message(
+					$"`#create {call.Function}` was given a schedule, which only a solver block takes: write " +
+					$"`#block {call.Function}(..) ${{ period = .. }}` and hand it to a `Solver::New`.",
+					call.Schedule.Region, MessageType.Error));
+
 			List<Expression> arguments =
 			[
 				Str(call.Function, call.Region),
 				new ArgsExpr { Fields = fields, Region = call.Region },
 			];
 
-			if (call.Schedule != null)
+			//A written bag picks the other entry, so an unscheduled `#block` lowers as it always did.
+			if (call.IsBlock && call.Schedule != null)
 				arguments.Add(call.Schedule);
 
-			//IsCreate rides along; only binding knows if this is a build CALL. See BindingAstVisitor.Visit(Call).
+			//IsCreate and IsBlock ride along; only binding knows if this is a build CALL. See BindingAstVisitor.Visit(Call).
 			return new Call
 			{
-				IsCreate = true,
-				Function = BuildTime.Surface.Builtin(typeof(BuildTime.Builtins.SolverBuiltins), call.Schedule == null
-					? nameof(BuildTime.Builtins.SolverBuiltins.Block)
-					: nameof(BuildTime.Builtins.SolverBuiltins.Scheduled)),
+				IsCreate = call.IsCreate,
+				IsBlock = call.IsBlock,
+				Function = BuildTime.Surface.Builtin(typeof(BuildTime.Builtins.SolverBuiltins), call.IsCreate
+					? nameof(BuildTime.Builtins.SolverBuiltins.Create)
+					: call.Schedule == null
+						? nameof(BuildTime.Builtins.SolverBuiltins.Block)
+						: nameof(BuildTime.Builtins.SolverBuiltins.Scheduled)),
 				GenericArgs = new List<TypeName>(),
 				Arguments = arguments,
 				ArgumentNames = [.. arguments.Select(_ => (string)null)],

@@ -25,11 +25,11 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Const(name = "n", value = 12),
-			#create CanDivide(name = "by2", source = "n_out"),
-			#create CanDivide(name = "by5", source = "n_out", div = 5)
-		]:Function;
+		Block[] funcs = [
+			#block Const(name = "n", value = 12),
+			#block CanDivide(name = "by2", source = "n_out"),
+			#block CanDivide(name = "by5", source = "n_out", div = 5)
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

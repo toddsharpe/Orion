@@ -7,6 +7,30 @@ namespace Orion.BuildTime
 {
 	//The values a generator holds: the three handles (OrionFunction, OrionType, OrionCode), whose public properties are what the build reflects over, and Port, Instance and Scalar. See Docs/BuildTime.md.
 
+	//A solver block's recipe as a build-time value: what `#block` yields. Nothing is specialized or emitted until a `Solver::New` takes it, so a block made and never handed to one costs nothing.
+	public class OrionBlock
+	{
+		internal string Template { get; init; }
+		internal object Args { get; init; }
+		internal object Schedule { get; init; }
+
+		//Where the `#block` was written, so what goes wrong when a Solver builds it is reported there.
+		internal Diagnostics.InputRegion Region { get; init; }
+
+		//The instance name the block is emitted as: its `name`, as the specializer spells it, else the template's.
+		public string Name
+		{
+			get
+			{
+				string written = Env.Bag(Args).TryGetValue("name", out object name) ? name as string : null;
+				string sanitized = Frontend.Monomorphizer.Sanitize(written ?? string.Empty);
+				return sanitized.Length > 0 ? sanitized : Template;
+			}
+		}
+
+		public override string ToString() => Name;
+	}
+
 	//A function as a build-time value: what `#create` yields.
 	public class OrionFunction
 	{

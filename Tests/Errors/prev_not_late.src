@@ -13,10 +13,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create First(name = "first"),
-			#create Second(name = "second")
-		]:Function;
+		Block[] funcs = [
+			#block First(name = "first"),
+			#block Second(name = "second")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

@@ -30,10 +30,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [
-			#create Source(name = "src"),
-			#create Tap(name = "tap", source = "src_out", gain = 3)
-		]:Function;
+		Block[] blocks = [
+			#block Source(name = "src"),
+			#block Tap(name = "tap", source = "src_out", gain = 3)
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

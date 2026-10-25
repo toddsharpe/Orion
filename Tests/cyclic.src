@@ -40,12 +40,12 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks =
+		Block[] blocks =
 		[
-			#create StartCycle(name = "clock", dt_ns=Hz_100),
-			#create Ramp(name = "ramp"),
-			#create Watch(name = "watch")
-		]:Function;
+			#block StartCycle(name = "clock", dt_ns=Hz_100),
+			#block Ramp(name = "ramp"),
+			#block Watch(name = "watch")
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

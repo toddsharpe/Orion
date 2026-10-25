@@ -38,9 +38,9 @@ void Block(
 			Assert.IsTrue(Compiler.Session.Templates.ContainsKey("Block"));
 		}
 
-		//`#create` is the only way to reach a template, and it is Desugar that lowers it.
+		//`#create` and `#block` are the only ways to reach a template, and it is Desugar that lowers them: `#create` to a function made now.
 		[TestMethod]
-		public void CreateLowersToSolverBlockWithAnArgsExpr()
+		public void CreateLowersToSolverCreateWithAnArgsExpr()
 		{
 			TranslationUnit tu = Parse(@"
 void run()
@@ -53,7 +53,7 @@ void run()
 			Assert.IsFalse(messages.HasError());
 
 			Call call = (Call)((Exec)Fn(tu, "run").Body[0]).Expression;
-			Assert.AreEqual("Solver::Block", call.Function);
+			Assert.AreEqual("Solver::Create", call.Function);
 			Assert.AreEqual(2, call.Arguments.Count);
 			Assert.AreEqual("Block", call.Arguments[0].DescendantsAndSelf().OfType<StringLiteral>().Single().Value);
 
@@ -61,14 +61,49 @@ void run()
 			CollectionAssert.AreEquivalent(new[] { "name", "val" }, args.Fields.Keys.ToList());
 		}
 
-		//A schedule bag picks the other entry, so an unscheduled `#create` lowers exactly as it always did.
+		//`#block` to a recipe a Solver builds.
 		[TestMethod]
-		public void CreateWithAScheduleLowersToSolverScheduled()
+		public void BlockLowersToSolverBlockWithAnArgsExpr()
 		{
 			TranslationUnit tu = Parse(@"
 void run()
 {
-    #create Block(name = ""a"") ${ period = 100, phase = 10 };
+    #block Block(name = ""a"", val = 5);
+}");
+			List<Message> messages = new List<Message>();
+			Desugar.Run(tu, messages);
+
+			Assert.IsFalse(messages.HasError());
+
+			Call call = (Call)((Exec)Fn(tu, "run").Body[0]).Expression;
+			Assert.AreEqual("Solver::Block", call.Function);
+			Assert.AreEqual(2, call.Arguments.Count);
+			CollectionAssert.AreEquivalent(new[] { "name", "val" }, ((ArgsExpr)call.Arguments[1]).Fields.Keys.ToList());
+		}
+
+		//A schedule is a solver block's, so `#create` refuses one and says to write `#block`.
+		[TestMethod]
+		public void CreateRefusesASchedule()
+		{
+			TranslationUnit tu = Parse(@"
+void run()
+{
+    #create Block(name = ""a"") ${ period = 100 };
+}");
+			List<Message> messages = new List<Message>();
+			Desugar.Run(tu, messages);
+
+			Assert.IsTrue(messages.Any(m => m.Type == MessageType.Error && m.Text.Contains("only a solver block takes")));
+		}
+
+		//A schedule bag picks the other entry, so an unscheduled `#block` lowers exactly as it always did.
+		[TestMethod]
+		public void BlockWithAScheduleLowersToSolverScheduled()
+		{
+			TranslationUnit tu = Parse(@"
+void run()
+{
+    #block Block(name = ""a"") ${ period = 100, phase = 10 };
 }");
 			List<Message> messages = new List<Message>();
 			Desugar.Run(tu, messages);
@@ -212,7 +247,7 @@ void Block(
 				Specializer.ToLiteral(3, new TypeName { Name = "i32", IsArray = true, Dimensions = [4] }));
 		}
 
-		//An escape stays where it was written; Solver::Block emits and runs it once the #params are known.
+		//An escape stays where it was written; the specializer emits and runs it once the #params are known.
 		[TestMethod]
 		public void ExtractLeavesEscapesInTheTemplateBody()
 		{

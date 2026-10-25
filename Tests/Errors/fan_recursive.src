@@ -14,7 +14,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [#create Sensor(name = "s")]:Function;
+		Block[] funcs = [#block Sensor(name = "s")]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

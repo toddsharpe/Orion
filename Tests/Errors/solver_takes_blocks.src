@@ -1,0 +1,18 @@
+// A Solver takes `#block` recipes; a function `#create` made is already built, so it is not one.
+void Tick(#param str name, #state i32 n, #output i32 out @ "tick")
+{
+	n = n + 1;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function[] funcs = [#create Tick(name = "t")]:Function;
+		Solver solver = Solver::New(funcs);
+		Solver::Solve(solver);
+	}
+
+	return 0;
+}

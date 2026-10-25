@@ -17,8 +17,10 @@ module Syntax =
     type BuildRun =
         //#run triangle(5)
         | BuildRun
-        //#create Kalman(instance = "k") - instantiate a solver block template; only ever marks a call
+        //#create Kalman(instance = "k") - instantiate a solver block template now; only ever marks a call
         | BuildCreate
+        //#block Kalman(name = "k") ${ period = .. } - a solver block's recipe, specialized only by the Solver it reaches
+        | BuildBlock
 
     //How a parameter gets its value. A net is a named signal; Input and Output are ports onto one.
     type Binding =

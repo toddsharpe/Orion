@@ -323,52 +323,52 @@ void StateReport(
 	const List<Device> telem = #src "Configs/rocket_telem.src" devices();
 
 	// Listing order IS execution order: sensors -> commands -> machine -> pad calcs -> flight calcs -> detectors -> report.
-	Function[] blocks =
+	Block[] blocks =
 	[
 		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
-		#create CycleStart(name = "cycle", dt_ns = CycleStep),
+		#block CycleStart(name = "cycle", dt_ns = CycleStep),
 
-		#create FakeBaro(name = "baro", path = "Sim/Rocket/baro.csv"),
-		#create FakeImu(name = "imu", path = "Sim/Rocket/imu.csv"),
-		#create FakeMag(name = "mag", path = "Sim/Rocket/mag.csv"),
-		#create FakeGps(name = "gps", path = "Sim/Rocket/gps.csv"),
-		#create FakeCmds(name = "cmds", path = "Sim/Rocket/cmd.csv"),
+		#block FakeBaro(name = "baro", path = "Sim/Rocket/baro.csv"),
+		#block FakeImu(name = "imu", path = "Sim/Rocket/imu.csv"),
+		#block FakeMag(name = "mag", path = "Sim/Rocket/mag.csv"),
+		#block FakeGps(name = "gps", path = "Sim/Rocket/gps.csv"),
+		#block FakeCmds(name = "cmds", path = "Sim/Rocket/cmd.csv"),
 
 		// Decides which of the fourteen calcs below run this cycle, and defines `MainSm_State` for StateReport.
-		#create StateMachine(name = "MainSm", spec = "Configs/rocket_sm.src"),
+		#block StateMachine(name = "MainSm", spec = "Configs/rocket_sm.src"),
 
 		// `dispatch_calcs_pad`.
-		#create GpsReady(name = "gpsready"),
-		#create BaroBias(name = "barobias"),
-		#create GyroBias(name = "gyrobias"),
-		#create PadLocation(name = "pad"),
+		#block GpsReady(name = "gpsready"),
+		#block BaroBias(name = "barobias"),
+		#block GyroBias(name = "gyrobias"),
+		#block PadLocation(name = "pad"),
 
 		// `dispatch_calcs_flight`. `alpha` is per SAMPLE, and 100 Hz is the rate its default was written for.
-		#create Altitude(name = "alt"),
-		#create Range(name = "range"),
-		#create Orientation(name = "orient"),
-		#create Heading(name = "heading"),
-		#create SpinRate(name = "spin"),
+		#block Altitude(name = "alt"),
+		#block Range(name = "range"),
+		#block Orientation(name = "orient"),
+		#block Heading(name = "heading"),
+		#block SpinRate(name = "spin"),
 
 		// One per state, each enabled in exactly one, after Altitude so they see this cycle's velocity.
-		#create LaunchDetect(name = "launch"),
-		#create CoastDetect(name = "coast"),
-		#create ApogeeDetect(name = "apogee"),
-		#create LandedDetect(name = "landed"),
+		#block LaunchDetect(name = "launch"),
+		#block CoastDetect(name = "coast"),
+		#block ApogeeDetect(name = "apogee"),
+		#block LandedDetect(name = "landed"),
 
 		// `dispatch_calcs_landed`.
-		#create LandedLocation(name = "site"),
+		#block LandedLocation(name = "site"),
 
 		// Reporting is last, so it sees what the cycle decided, and on a 10 Hz slot: 100 Hz of it is noise.
-		#create StateReport(name = "state", spec = "Configs/rocket_sm.src",
+		#block StateReport(name = "state", spec = "Configs/rocket_sm.src",
 			state_net = "MainSm.CurrentState", entry_net = "MainSm.StateEntryTime",
 			enum_name = "MainSm_State") ${ period = ReportStep },
-		#create ReportEvery(name = "report", title = "--- cycle", every = 50, fields = telem) ${ period = ReportStep },
-		#create Trajectory(name = "traj", every = 50) ${ period = ReportStep },
+		#block ReportEvery(name = "report", title = "--- cycle", every = 50, fields = telem) ${ period = ReportStep },
+		#block Trajectory(name = "traj", every = 50) ${ period = ReportStep },
 
 		// The same devices packed rather than printed: the writer derives layout and schema from this list at build time.
-		#create TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry")) ${ period = ReportStep }
-	]:Function;
+		#block TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry")) ${ period = ReportStep }
+	]:Block;
 
 	Solver solver = Solver::New(blocks);
 

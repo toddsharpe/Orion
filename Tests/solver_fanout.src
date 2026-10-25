@@ -44,12 +44,12 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Sensor(name = "gps"),
-			#create Whole(name = "whole"),
-			#create Scalar(name = "scalar"),
-			#create Group(name = "group")
-		]:Function;
+		Block[] funcs = [
+			#block Sensor(name = "gps"),
+			#block Whole(name = "whole"),
+			#block Scalar(name = "scalar"),
+			#block Group(name = "group")
+		]:Block;
 
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);

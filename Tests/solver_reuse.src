@@ -29,11 +29,11 @@ i32 main()
 		const i32 v = 5;
 		i32 n = 0;
 		n++;
-		Function[] funcs = [
-			#create Const(name = "seed", value = v),
-			#create AddN(name = "a", source = "seed_out", n = n),
-			#create AddN(name = "b", source = "seed_out", n = 100)
-		]:Function;
+		Block[] funcs = [
+			#block Const(name = "seed", value = v),
+			#block AddN(name = "a", source = "seed_out", n = n),
+			#block AddN(name = "b", source = "seed_out", n = 100)
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

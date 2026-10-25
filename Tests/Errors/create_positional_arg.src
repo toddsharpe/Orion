@@ -1,5 +1,5 @@
 // A #param is picked by name. Specialization erases the #param list, so a position has nothing to
-// match against, and `#create` says so where the argument was written.
+// match against, and `#block` says so where the argument was written.
 void Counter(#param str name, #param i32 step, #output i32 count @ $"{name}_count")
 {
 	count = step;
@@ -9,7 +9,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Counter("a", 1) ]:Function;
+		Block[] blocks = [ #block Counter("a", 1) ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 	}

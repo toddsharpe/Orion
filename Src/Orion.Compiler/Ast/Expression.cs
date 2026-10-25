@@ -322,6 +322,7 @@ namespace Orion.Ast
 				//The option's Value is the Pos, whose Value is the marker itself.
 				IsBuildCall = call.Item1?.Value.Value.IsBuildRun == true,
 				IsCreate = call.Item1?.Value.Value.IsBuildCreate == true,
+				IsBlock = call.Item1?.Value.Value.IsBuildBlock == true,
 				Schedule = call.Item4 == null ? null : Create(call.Item4.Value.Value),
 				Function = name,
 				FuncHole = hole != null ? Create(hole.Item1.Value) : null,
@@ -459,6 +460,7 @@ namespace Orion.Ast
 		internal NamedDataSymbol IndirectTarget { get; set; }
 		public bool IsBuildCall { get; set; }
 		public bool IsCreate { get; set; }
+		public bool IsBlock { get; set; }
 		internal Expression Schedule { get; set; }
 		public string Function { get; set; }
 		internal Expression FuncHole { get; set; }

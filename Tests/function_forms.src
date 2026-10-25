@@ -138,11 +138,11 @@ i32 main()
 	banner("solver: static / mixed / data-driven templates");
 	#run
 	{
-		Function[] blocks = [
-			#create Counter(name = "count", step = 5),
-			#create Scale(name = "scale", source = "count_out", factor = 2),
-			#create Show(name = "show", source = "scale_out", label = "scaled")
-		]:Function;
+		Block[] blocks = [
+			#block Counter(name = "count", step = 5),
+			#block Scale(name = "scale", source = "count_out", factor = 2),
+			#block Show(name = "show", source = "scale_out", label = "scaled")
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

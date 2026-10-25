@@ -28,7 +28,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Src(name = "s"), #create Mix(name = "m", source = "s_out") ]:Function;
+		Block[] blocks = [ #block Src(name = "s"), #block Mix(name = "m", source = "s_out") ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

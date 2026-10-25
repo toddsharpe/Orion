@@ -155,7 +155,7 @@ u32 dead(u32 v)
 
 #build i32 main()
 {
-	Function[] blocks = [ #create tick(name = ""t"") ]:Function;
+	Block[] blocks = [ #block tick(name = ""t"") ]:Block;
 	Solver solver = Solver::New(blocks);
 	Solver::Export(solver, 10000000:i64);
 	return 0;

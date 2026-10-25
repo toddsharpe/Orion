@@ -1,4 +1,4 @@
-//A `#param` folds to a literal at `#create`, and the fold has to keep two things a value alone does
+//A `#param` folds to a literal at `#block`, and the fold has to keep two things a value alone does
 //not carry: its width, and the type the block declared.
 //
 //`time` is an i64 alias. A period of five seconds is past 2^31, so folding it as an i32 kept its low
@@ -27,11 +27,11 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks =
+		Block[] blocks =
 		[
-			#create Ticker(name = "t", period = 5000000000:i64, small = 10000000),
-			#create Counter(name = "c", start = 4000000000:u32, step = 200:u8)
-		]:Function;
+			#block Ticker(name = "t", period = 5000000000:i64, small = 10000000),
+			#block Counter(name = "c", start = 4000000000:u32, step = 200:u8)
+		]:Block;
 
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);

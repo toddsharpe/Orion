@@ -35,11 +35,11 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Plant(name = "plant"),
-			#create Controller(name = "ctrl", gain = 1),
-			#create Show(name = "show")
-		]:Function;
+		Block[] funcs = [
+			#block Plant(name = "plant"),
+			#block Controller(name = "ctrl", gain = 1),
+			#block Show(name = "show")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

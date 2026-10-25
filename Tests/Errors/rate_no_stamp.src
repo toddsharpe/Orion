@@ -8,9 +8,9 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Tick(name = "slow") ${ period = 30000000 }
-		]:Function;
+		Block[] funcs = [
+			#block Tick(name = "slow") ${ period = 30000000 }
+		]:Block;
 
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);

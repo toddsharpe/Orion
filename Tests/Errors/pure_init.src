@@ -8,7 +8,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Src(name = "s") ]:Function;
+		Block[] blocks = [ #block Src(name = "s") ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 	}

@@ -7,13 +7,13 @@ using System;
 
 namespace Orion.Frontend
 {
-	//Reusable solver blocks: a #param function is a template, specialized at build time by Solver::Block.
+	//Reusable solver blocks: a #param function is a template, specialized at build time by `#create`, or by the Solver::New a `#block` reaches.
 	public static class Specializer
 	{
-		//A `#run { }` statement: the escape Solver::Block emits and runs while walking the specialized body.
+		//A `#run { }` statement: the escape the specialization emits and runs while walking the specialized body.
 		public static bool IsEscape(Statement s) => s is Exec { Expression: RunExpr };
 
-		//Register every #param template on the session and take it out of the unit; Solver::Block specializes once `#create` supplies values.
+		//Register every #param template on the session and take it out of the unit; one is specialized once `#create` or a `#block` supplies values.
 		public static void Extract(TranslationUnit tu, CompileSession session, List<Message> messages)
 		{
 			session.Templates.Clear();
@@ -181,7 +181,7 @@ namespace Orion.Frontend
 			//...and hoist its `#build` locals under the TEMPLATE's name: the cell the main pass declared.
 			BuildLocals.Hoist(clone, template.Name, session, messages);
 
-			//An escape stays in the body below; Solver::Block emits and runs it once the ports are settled.
+			//An escape stays in the body below; the specialization emits and runs it once the ports are settled.
 			List<Parameter> ports = clone.Parameters.Where(p => p.Directive != ParamDirective.Param).ToList();
 			foreach (Parameter port in ports)
 			{

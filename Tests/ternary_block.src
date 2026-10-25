@@ -115,10 +115,10 @@ i32 main()
 	// And through a block, where the fold order is what used to break it.
 	#run
 	{
-		Function[] blocks = [
-			#create Source(name = "src"),
-			#create Choose(name = "pick")
-		]:Function;
+		Block[] blocks = [
+			#block Source(name = "src"),
+			#block Choose(name = "pick")
+		]:Block;
 
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);

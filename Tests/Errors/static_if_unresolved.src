@@ -16,7 +16,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [#create Bad(name = "a")]:Function;
+		Block[] funcs = [#block Bad(name = "a")]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 	}

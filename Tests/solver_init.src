@@ -47,11 +47,11 @@ void Plain(
 i32 main()
 {
 	#run {
-		Function[] blocks = [
-			#create Failer(name = "fl"),
-			#create Opener(name = "op"),
-			#create Plain(name = "pl")
-		]:Function;
+		Block[] blocks = [
+			#block Failer(name = "fl"),
+			#block Opener(name = "op"),
+			#block Plain(name = "pl")
+		]:Block;
 
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);

@@ -19,10 +19,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Source(name = "src"),
-			#create Show(name = "show")
-		]:Function;
+		Block[] funcs = [
+			#block Source(name = "src"),
+			#block Show(name = "show")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

@@ -8,7 +8,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Gain(name = "g", n = 1), #create Gain(name = "g", n = 2) ]:Function;
+		Block[] blocks = [ #block Gain(name = "g", n = 1), #block Gain(name = "g", n = 2) ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 	}

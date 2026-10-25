@@ -37,11 +37,11 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [
-			#create Clock(name = "clk", step = 100:time),
-			#create Counter(name = "cnt"),
-			#create Dwell(name = "dwell", hold = 3000000000:time)
-		]:Function;
+		Block[] blocks = [
+			#block Clock(name = "clk", step = 100:time),
+			#block Counter(name = "cnt"),
+			#block Dwell(name = "dwell", hold = 3000000000:time)
+		]:Block;
 
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);

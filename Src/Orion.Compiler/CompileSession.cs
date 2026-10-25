@@ -48,7 +48,7 @@ namespace Orion
 		//Each #assert's place, by the index its failure reports with: binding registers it, Build::Fail reads it.
 		internal readonly List<InputRegion> Asserts = new List<InputRegion>();
 
-		//The `#param` solver-block templates by name: Specializer.Extract registers them, Solver::Block specializes one per `#create`.
+		//The `#param` solver-block templates by name: Specializer.Extract registers them, and one is specialized per `#create`, or per `#block` a Solver::New takes.
 		public readonly Dictionary<string, Ast.Function> Templates = new Dictionary<string, Ast.Function>();
 
 		//The function and callsite build-time code is running for, and the messages its reports land in: Env.Context.

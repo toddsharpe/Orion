@@ -24,10 +24,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [
-			#create Counter(name = "count", step = 5),
-			#create Report(name = "report", source = "count_out")
-		]:Function;
+		Block[] blocks = [
+			#block Counter(name = "count", step = 5),
+			#block Report(name = "report", source = "count_out")
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

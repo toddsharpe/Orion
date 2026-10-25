@@ -1,4 +1,4 @@
-// A block runs every cycle unless its `#create` carries a schedule: the `${...}` bag after the args.
+// A block runs every cycle unless its `#block` carries a schedule: the `${...}` bag after the args.
 #using "Lib/types.src"
 
 // 10 ms a cycle, so a period of 30 ms is every third one.
@@ -20,19 +20,19 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Clock(name = "clock"),
+		Block[] funcs = [
+			#block Clock(name = "clock"),
 
 			// Every cycle: no bag at all, and an empty one, which mean the same thing.
-			#create Tick(name = "fast"),
-			#create Tick(name = "also") ${},
+			#block Tick(name = "fast"),
+			#block Tick(name = "also") ${},
 
 			// Every third cycle, on the cycle.
-			#create Tick(name = "third") ${ period = 3:time * Step },
+			#block Tick(name = "third") ${ period = 3:time * Step },
 
 			// The same rate, one cycle later, so the two never land together.
-			#create Tick(name = "offset") ${ period = 3:time * Step, phase = Step }
-		]:Function;
+			#block Tick(name = "offset") ${ period = 3:time * Step, phase = Step }
+		]:Block;
 
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);

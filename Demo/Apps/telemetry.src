@@ -70,16 +70,16 @@ void Mode(
 	telem.Add(Device { name = "mode_state", type = Type::Of<AppState>() });
 	telem.Add(Device { name = "cycle_time", type = Type::Of<time>() });
 
-	Function[] blocks =
+	Block[] blocks =
 	[
 		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
-		#create CycleStart(name = "cycle", dt_ns = Hz_100),
+		#block CycleStart(name = "cycle", dt_ns = Hz_100),
 		//Two seconds per half at 100 Hz: long enough to settle, short enough that a step is never far away.
-		#create Setpoint(name = "sp", low = 20.0, high = 60.0, hold = 200),
-		#create Lag(name = "plant", source = "sp_value", tau = 0.5, dt = dt),
-		#create Mode(name = "mode", source = "plant_out", ready_above = 25.0),
-		#create TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry"))
-	]:Function;
+		#block Setpoint(name = "sp", low = 20.0, high = 60.0, hold = 200),
+		#block Lag(name = "plant", source = "sp_value", tau = 0.5, dt = dt),
+		#block Mode(name = "mode", source = "plant_out", ready_above = 25.0),
+		#block TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry"))
+	]:Block;
 
 	Solver solver = Solver::New(blocks);
 	Solver::Export(solver, Hz_100);

@@ -237,30 +237,30 @@ void Heartbeat(
 		//100 Hz is what the platform holds the loop to, so dt is 0.01s; `Solver::Export` is told the same.
 		const f64 dt = 0.01;
 
-		Function[] blocks =
+		Block[] blocks =
 		[
 			//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
-			#create CycleStart(name = "cycle", dt_ns = Hz_100),
+			#block CycleStart(name = "cycle", dt_ns = Hz_100),
 			//Two seconds per half at 100 Hz: long enough to settle, short enough that a step is never far away.
-			#create Setpoint(name = "sp", low = 20.0, high = 60.0, hold = 200),
-			#create Pid(
+			#block Setpoint(name = "sp", low = 20.0, high = 60.0, hold = 200),
+			#block Pid(
 				name = "ctrl", kp = 2.0, ki = 4.0, kd = 0.05,
 				i_limit = 50.0, out_limit = 100.0, dt = dt,
 				setpoint_src = "sp_value", measured_src = "plant_out"),
-			#create Plant(name = "plant", gain = 1.0, tau = 0.5, dt = dt, command_src = "ctrl_out"),
-			#create Sensors(name = "adc", channels = raw, source = "plant_out"),
-			#create Calibrate(name = "cal", raw = raw, scaled = scaled, gain = 0.025, offset = 0.0),
-			#create Stats(name = "stats", sources = scaled),
-			#create Mode(
+			#block Plant(name = "plant", gain = 1.0, tau = 0.5, dt = dt, command_src = "ctrl_out"),
+			#block Sensors(name = "adc", channels = raw, source = "plant_out"),
+			#block Calibrate(name = "cal", raw = raw, scaled = scaled, gain = 0.025, offset = 0.0),
+			#block Stats(name = "stats", sources = scaled),
+			#block Mode(
 				name = "mode", mean_src = "stats_mean", peak_src = "stats_max",
 				ready_above = 5.0, fault_above = 90.0),
-			#create Heartbeat(
+			#block Heartbeat(
 				name = "beat", every = 100,
 				setpoint_src = "sp_value", measured_src = "plant_out"),
-			#create TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry")),
+			#block TelemetryWriter(name = "tx", devices = telem, service = ServiceOf("Vehicle.Telemetry")),
 			//A second channel on its own service, reading nets the blocks above already drive.
-			#create TelemetryWriter(name = "health", devices = health, service = ServiceOf("Vehicle.Health"))
-		]:Function;
+			#block TelemetryWriter(name = "health", devices = health, service = ServiceOf("Vehicle.Health"))
+		]:Block;
 
 		//Export rather than Solve: the state becomes a global, and this is where the rate is stated.
 		Solver solver = Solver::New(blocks);
