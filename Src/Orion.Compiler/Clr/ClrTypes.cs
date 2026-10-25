@@ -39,6 +39,9 @@ namespace Orion.Clr
 			{ typeof(BuildTime.Scalar), "Scalar" },
 		};
 
+		//A CLR class Orion has a name for, such as the handles: Type, Code, Block.
+		internal static bool IsNamed(Type clr) => Names.ContainsKey(clr);
+
 		//Handles the runtime library declares as pointers -- `typedef _Function* Function` in Orion.h.
 		private static readonly HashSet<Type> Pointers = [typeof(BuildTime.OrionFunction)];
 

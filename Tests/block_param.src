@@ -1,0 +1,37 @@
+// A recipe's arguments read back: `.Template`, and `.Param<T>("x")` as written or as the template's default, on any receiver.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+void Counter(#param str name, #param i32 step, #param List<Device> devices = List::New<Device>(), #param i64 seed = 7:i64, #state i32 n, #output i32 out @ $"{name}_out")
+{
+	n = n + step;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		List<Device> wired = [ Device{ name = "a", type = Type::Of<u16>() }, Device{ name = "b", type = Type::Of<f32>() } ]:List<Device>;
+		Block[] blocks = [ #block Counter(name = "up", step = 3, devices = wired), #block Counter(name = "down", step = -1) ]:Block;
+
+		const Block up = blocks[0];
+		#insert { WriteLine(${up.Name} + " builds " + ${up.Template} + " stepping " + to_str(${up.Param<i32>("step")})); }
+
+		// What it was not given reads as the default a Solver would build it with.
+		#insert { WriteLine("down: " + to_str(${blocks[1].Param<List<Device>>("devices").Length}) + " devices, seed " + to_str(${blocks[1].Param<i64>("seed")})); }
+
+		// A list argument is the list it was given, so it can be extended for a copy.
+		List<Device> more = up.Param<List<Device>>("devices") + [ Device{ name = "c", type = Type::Of<bool>() } ]:List<Device>;
+		for (const Device d in more)
+		{
+			#insert { WriteLine("  " + ${d.name} + " " + ${d.type.Name}); }
+		}
+	}
+	return 0;
+}

@@ -1,0 +1,16 @@
+// A #param read as a type it is not is reported, naming the type it is.
+void Counter(#param str name, #param i32 step, #state i32 n, #output i32 out @ "out")
+{
+	n = n + step;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Block up = #block Counter(name = "up", step = 3);
+		str step = up.Param<str>("step");
+	}
+	return 0;
+}

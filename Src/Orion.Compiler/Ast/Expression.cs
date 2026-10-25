@@ -122,6 +122,11 @@ namespace Orion.Ast
 					Region = InputRegion.Create(postfix.Item1.Start, postfix.Item1.End)
 				},
 				Expr.Call call => CreateCall(call),
+				Expr.GenericMember generic => new Invalid
+				{
+					Reason = $"'{generic.Item2.Value}' is named with type arguments, so it is a method and must be called",
+					Region = InputRegion.Create(generic.Item1.Start, generic.Item2.End)
+				},
 				Expr.Src src => new SrcExpr
 				{
 					Path = Create(src.Item1.Value),
@@ -308,6 +313,12 @@ namespace Orion.Ast
 			Expr.GenericName generic = callee as Expr.GenericName;
 			string name = generic != null ? generic.Item1.Value : Path(callee);
 
+			//`f(x).g(y)`, `a[0].g()` and `b.g<T>()`: a method of whatever the receiver evaluates to, which is passed as its first argument, as a dotted name's receiver is.
+			Expr.GenericMember method = callee as Expr.GenericMember;
+			Pos<Expr> receiver = method?.Item1 ?? (name == null && callee is Expr.Member member ? member.Item1 : null);
+			if (receiver != null)
+				return CreateMethodCall(call, receiver, method?.Item2.Value ?? ((Expr.Member)callee).Item2.Value, method?.Item3);
+
 			//`${f}(x)`: the callee is a build-time handle, so the name arrives with the fill.
 			Expr.Hole hole = callee as Expr.Hole;
 			if (name == null && hole == null)
@@ -329,6 +340,25 @@ namespace Orion.Ast
 				GenericArgs = generic != null ? [.. generic.Item2.Select(i => TypeName.Create(i.Value))] : [],
 				Arguments = call.Item3.Select(i => Create(i.Value.Item2.Value)).ToList(),
 				ArgumentNames = call.Item3.Select(i => i.Value.Item1?.Value.Value).ToList(),
+				Region = InputRegion.Create(
+					[
+						(call.Item1?.Value.Start, call.Item1?.Value.End),
+						(call.Item2.Start, call.Item2.End),
+						.. call.Item3.Select(i => (i.Start, i.End))
+					])
+			};
+		}
+
+		private static Call CreateMethodCall(Expr.Call call, Pos<Expr> receiver, string name, IEnumerable<Pos<Orion.Lang.Syntax.TypeName>> typeArgs)
+		{
+			return new Call
+			{
+				IsMethod = true,
+				IsBuildCall = call.Item1?.Value.Value.IsBuildRun == true,
+				Function = name,
+				GenericArgs = typeArgs == null ? [] : [.. typeArgs.Select(i => TypeName.Create(i.Value))],
+				Arguments = [Create(receiver.Value), .. call.Item3.Select(i => Create(i.Value.Item2.Value))],
+				ArgumentNames = [null, .. call.Item3.Select(i => i.Value.Item1?.Value.Value)],
 				Region = InputRegion.Create(
 					[
 						(call.Item1?.Value.Start, call.Item1?.Value.End),
@@ -461,6 +491,9 @@ namespace Orion.Ast
 		public bool IsBuildCall { get; set; }
 		public bool IsCreate { get; set; }
 		public bool IsBlock { get; set; }
+
+		//A method of the first argument's type, named by Function alone: the receiver was an expression, not a dotted name.
+		public bool IsMethod { get; set; }
 		internal Expression Schedule { get; set; }
 		public string Function { get; set; }
 		internal Expression FuncHole { get; set; }

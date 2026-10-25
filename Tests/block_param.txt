@@ -1,0 +1,5 @@
+up builds Counter stepping 3
+down: 0 devices, seed 7
+  a u16
+  b f32
+  c bool
