@@ -64,7 +64,8 @@ which specializes each, in the order given:
 ```
 
 Nothing is built until a `Solver::New` takes a recipe, so one made and left out of every list emits
-nothing, and its `#init` asks nothing. A `Block`'s `.Name` is the name it will be emitted under, so a
+nothing, and its `#init` asks nothing. An argument its template declares no `#param` for is an error
+where the `#block` is written, since a solver reads only the `#param`s and would build the default. A `Block`'s `.Name` is the name it will be emitted under, so a
 build can pick a list's blocks by name. An instance's name is one block's, so two recipes reaching one
 solver under a name with different `#param`s are an error; the same recipe twice is one instance.
 `#create` is for a block the build calls or starts itself (see [BuildTime.md](BuildTime.md)): it
