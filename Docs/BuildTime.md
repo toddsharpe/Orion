@@ -116,8 +116,9 @@ List<Device> telem = #src "Configs/demo.src" telem_config();
 The path may be computed; the file shares the caller's types but binds names in its own scope.
 
 **Failing.** A failed `#assert(cond, "why")` fails the build at the assert, showing a comparison's two
-sides: `why (0 == 2 is false)`. `Build::Error(text)` reports at the running callsite and carries on;
-`Build::Failed()` asks whether any has. `WriteLine` during the build prints under "Build output", or
+sides: `why (0 == 2 is false)`. `Build::Error(text)` reports at the statement that called it and
+carries on; `Build::Failed()` asks whether any has. Every error the build raises is at the statement
+that raised it, not the `#run` around it, and a `#test` claims the ones its run raised. `WriteLine` during the build prints under "Build output", or
 into `<output>.log` with `--log`.
 
 ## Calling what the build built

@@ -13,6 +13,7 @@ namespace Orion.Clr
 	//Tacs -> IL for the build-time executor, not a backend: it runs re-entrantly during the build itself.
 	internal static class Emitter
 	{
+		private static readonly MethodInfo MarkLine = typeof(BuildTime.BuildLines).GetMethod(nameof(BuildTime.BuildLines.At));
 		private static readonly MethodInfo StrAt = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_at));
 		private static readonly MethodInfo StrSet = typeof(BuildTime.Builtins.CoreBuiltins).GetMethod(nameof(BuildTime.Builtins.CoreBuiltins.str_set));
 
@@ -96,8 +97,19 @@ namespace Orion.Clr
 
 			Dictionary<LabelSymbol, Label> labels = function.Table.Traverse().SelectMany(i => i.GetAll<LabelSymbol>()).ToDictionary(k => k, v => ilGen.DefineLabel());
 
+			//Marked as a statement starts, and again after a call, which ran code that marked its own.
+			InputRegion marked = null;
 			foreach (LinkedListNode<Tac> current in function.Tacs.EnumerateNodes())
 			{
+				if (current.Value.Region is InputRegion at && at != InputRegion.None && at != marked)
+				{
+					ilGen.Emit(OpCodes.Ldc_I4, BuildTime.BuildLines.Of(at));
+					ilGen.Emit(OpCodes.Call, MarkLine);
+					marked = current.Value is CallTac ? null : at;
+				}
+				else if (current.Value is CallTac)
+					marked = null;
+
 				switch (current.Value)
 				{
 					case NewTac tac when tac.Symbol.Type is StructTypeSymbol s:

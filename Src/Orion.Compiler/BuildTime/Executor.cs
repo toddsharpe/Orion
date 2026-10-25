@@ -52,16 +52,15 @@ namespace Orion.BuildTime
 		//Run one build method, turning the three ways it can fail into messages; a `#run` region and a `#build` entry report a failed assertion the same way.
 		private static bool Invoke(MethodInfo method, List<Message> messages)
 		{
-			try
+			return Env.Running(() =>
 			{
 				method.Invoke(null, null);
 				return true;
-			}
-			catch (Exception ex)
+			}, ex =>
 			{
 				Classify(ex, null, messages);
 				return false;
-			}
+			});
 		}
 
 		//One message per failure, none for a stop already reported; `subject` is the `Function::` caller's prefix, null for the executor's own wording.
@@ -81,7 +80,7 @@ namespace Orion.BuildTime
 			else
 				text = $"{subject} threw {ex.InnerException?.Message ?? ex.Message}.";
 
-			messages.Add(new Message(text, Env.Region, MessageType.Error));
+			messages.Add(new Message(text, Env.Region, MessageType.Error) { Origin = Env.Callsite });
 		}
 
 		//Execute, and splice away, every build call in one function. False means it gave up part way.
@@ -159,16 +158,15 @@ namespace Orion.BuildTime
 							}
 						}
 
-						object value = null;
-						try
-						{
-							value = Call(func, args);
-						}
-						catch (Exception ex)
+						bool ran = true;
+						object value = Env.Running(() => Call(func, args), ex =>
 						{
 							Classify(ex, null, messages);
+							ran = false;
+							return null;
+						});
+						if (!ran)
 							return false;
-						}
 
 						//A builtin that reported answers null on a non-void signature, so the shape check only holds on a clean run.
 						Trace.Assert(messages.HasError() || value != null == !Language.IsVoid(call.Function.ReturnType));

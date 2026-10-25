@@ -1,6 +1,7 @@
 ﻿using Orion.Diagnostics;
 using Orion.IR;
 using Orion.Symbols;
+using System;
 using System.Collections.Generic;
 
 namespace Orion.BuildTime
@@ -16,10 +17,13 @@ namespace Orion.BuildTime
 		//The block a #build escape is assembling; null means #insert splices into the callsite instead.
 		internal static Ast.Function Builder { get => Compiler.Session.Builder; set => Compiler.Session.Builder = value; }
 
-		//Where the build-time code currently running came from, for messages it raises.
-		internal static InputRegion Region => Context?.Callsite?.Value?.Region ?? InputRegion.None;
+		//The statement the build-time code currently running is at, for messages it raises; its callsite when no statement has marked itself.
+		internal static InputRegion Region => Compiler.Session?.BuildLine ?? Callsite;
 
-		//Report from build-time code, pointing at the callsite that is executing.
+		//The callsite the build-time code running came from, a `#run` or the one a `#test` was hoisted as: every report keeps it as its origin, which a #test claims it by.
+		internal static InputRegion Callsite => Context?.Callsite?.Value?.Region ?? InputRegion.None;
+
+		//Report from build-time code, pointing at the statement that is executing.
 		internal static void Report(string text, MessageType type = MessageType.Error)
 		{
 			Report(Context.Messages, text, type);
@@ -28,13 +32,32 @@ namespace Orion.BuildTime
 		//The same report into a list the caller holds: one captured before the frontend re-entered, or a solver's.
 		internal static void Report(List<Message> messages, string text, MessageType type = MessageType.Error)
 		{
-			messages.Add(new Message(text, Region, type));
+			messages.Add(new Message(text, Region, type) { Origin = Callsite });
 		}
 
-		//Report at a place of the call's choosing, as a failed #assert does at itself; the callsite running stays its origin, which a #test claims it by.
+		//Report at a place of the call's choosing, as a failed #assert does at itself.
 		internal static void Report(InputRegion region, string text)
 		{
-			Context.Messages.Add(new Message(text, region, MessageType.Error) { Origin = Region });
+			Context.Messages.Add(new Message(text, region, MessageType.Error) { Origin = Callsite });
+		}
+
+		//Runs compiled build code, whose statements mark the line as they run, and puts the caller's line back after: what the caller reports next is at its own statement. `failed` sees the line the code stopped at.
+		internal static T Running<T>(Func<T> run, Func<Exception, T> failed)
+		{
+			InputRegion caller = Compiler.Session.BuildLine;
+			Compiler.Session.BuildLine = null;
+			try
+			{
+				return run();
+			}
+			catch (Exception ex)
+			{
+				return failed(ex);
+			}
+			finally
+			{
+				Compiler.Session.BuildLine = caller;
+			}
 		}
 
 		//An `${...}` argument bag as a builtin receives it, typed object; anything else reads as an empty one.

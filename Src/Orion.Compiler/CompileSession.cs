@@ -54,6 +54,10 @@ namespace Orion
 		//The function and callsite build-time code is running for, and the messages its reports land in: Env.Context.
 		internal BuildTime.Env.CallContext BuildContext;
 
+		//The statement build-time code is running, as its IL last marked it, and every statement's region by the index the IL marks it with; null between runs, where the callsite is the place.
+		internal InputRegion BuildLine;
+		internal readonly List<InputRegion> BuildLines = new List<InputRegion>();
+
 		//The block a `#build` escape is assembling, or null when `#insert` splices into the callsite: Env.Builder.
 		internal Ast.Function Builder;
 

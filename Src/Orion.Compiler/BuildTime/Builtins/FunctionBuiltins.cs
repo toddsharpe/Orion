@@ -172,16 +172,14 @@ namespace Orion.BuildTime.Builtins
 				return false;
 			}
 
-			try
-			{
-				value = function.Info.Invoke(null, slots.Length == 0 ? null : slots);
-				return true;
-			}
-			catch (Exception ex)
+			bool ran = true;
+			value = Env.Running(() => function.Info.Invoke(null, slots.Length == 0 ? null : slots), ex =>
 			{
 				Executor.Classify(ex, $"{called}: '{function.Name}'", Env.Context.Messages);
-				return false;
-			}
+				ran = false;
+				return null;
+			});
+			return ran;
 		}
 
 		private static bool Bind(SourceFunctionSymbol function, object args, string called, out object[] slots)
