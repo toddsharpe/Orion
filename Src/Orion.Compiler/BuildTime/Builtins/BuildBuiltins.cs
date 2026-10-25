@@ -177,11 +177,11 @@ namespace Orion.BuildTime.Builtins
 			Env.CallContext caller = Env.Context;
 			try
 			{
-				function.Symbol.Info.Invoke(null, arguments.Length == 0 ? null : arguments);
-			}
-			catch (Exception ex)
-			{
-				Executor.Classify(ex, null, Env.Context.Messages);
+				Env.Running(() => function.Symbol.Info.Invoke(null, arguments.Length == 0 ? null : arguments), ex =>
+				{
+					Executor.Classify(ex, null, Env.Context.Messages);
+					return null;
+				});
 			}
 			finally
 			{

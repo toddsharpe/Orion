@@ -70,16 +70,14 @@ namespace Orion.BuildTime
 					}
 				}
 
-				try
+				return Env.Running(() => entry.Invoke(null, call.ToArray()), ex =>
 				{
-					return entry.Invoke(null, call.ToArray());
-				}
-				catch (TargetInvocationException ex)
-				{
+					if (ex is not TargetInvocationException)
+						System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(ex);
 					Exception inner = ex.InnerException ?? ex;
 					Env.Report(messages, $"#src \"{path}\" {name}: threw {inner.GetType().Name}: {inner.Message}");
 					return null;
-				}
+				});
 			}
 			finally
 			{

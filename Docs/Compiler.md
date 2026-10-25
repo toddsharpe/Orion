@@ -47,7 +47,7 @@ three-address code: one operation per TAC, temps for intermediates, labels and g
 `BuildRegions` lifts every `#run { }` into a build-only function. `TacAnalyze` adds missing returns
 and checks the port rules — an `#input` is never written, a `#pure` never read and always written —
 and that no `Span` outlives what it views. `Generate` emits MSIL for build functions into an
-in-memory assembly, and `Execute` walks the TACs from `main`, running each build call whose arguments
+in-memory assembly, each statement marking its line as it starts so a report is at it, and `Execute` walks the TACs from `main`, running each build call whose arguments
 are known and splicing its result ([BuildTime.md](BuildTime.md)). `Channels` then emits ring storage,
 the push and pop accessors and the `channels` table, and `Blocks` reports an `#init` nothing will run.
 
