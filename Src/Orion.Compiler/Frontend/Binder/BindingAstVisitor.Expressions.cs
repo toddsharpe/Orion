@@ -118,12 +118,51 @@ namespace Orion.Frontend.Binder
 				return expr.Function;
 
 			NamedDataSymbol receiver = Resolve(ctx, path, expr.Region);
-			if (receiver?.Type is not BuiltinTypeSymbol type || !type.Methods.TryGetValue(name, out BuiltinFunctionSymbol method))
+			if (receiver?.Type is not BuiltinTypeSymbol type)
 				return expr.Function;
 
 			expr.Arguments.Insert(0, new Variable { SymbolName = path, Symbol = receiver, Region = expr.Region });
 			expr.ArgumentNames.Insert(0, null);
-			return method.Name;
+			if (type.Methods.TryGetValue(name, out BuiltinFunctionSymbol method))
+				return method.Name;
+
+			//A method the builtin lacks, or one it has only with type arguments, is reported as any receiver's is.
+			expr.IsMethod = true;
+			expr.Function = name;
+			return BindReceiverMethod(ctx, ctx.Scoper.Peek(), expr);
+		}
+
+		//`f(x).g(y)` and `b.g<T>(y)`: the method's function on the type the receiver, already the first argument, evaluates to; a generic one is instantiated for the type arguments as written. A method it does not have is reported here, and named so nothing resolves it.
+		private static string BindReceiverMethod(BindContext ctx, SymbolTable current, Call expr)
+		{
+			Expression receiver = expr.Arguments[0];
+			if (receiver.Symbol == null)
+				Visit(ctx, receiver);
+
+			TypeSymbol type = receiver.Symbol?.Type;
+			string missing = $"{type?.Name ?? "void"}.{expr.Function}";
+			if (type is BuiltinTypeSymbol builtin)
+			{
+				if (expr.GenericArgs.Count == 0 && builtin.Methods.TryGetValue(expr.Function, out BuiltinFunctionSymbol method))
+					return method.Name;
+
+				if (expr.GenericArgs.Count > 0 && builtin.GenericMethods.ContainsKey(expr.Function))
+				{
+					List<TypeSymbol> typeArgs = [.. expr.GenericArgs.Select(i => ResolveType(ctx, current, i))];
+					if (!typeArgs.Contains(null))
+						return Surface.InstantiateGenericMethod(current.GetRoot(), builtin, expr.Function, typeArgs).Name;
+				}
+
+				if (expr.GenericArgs.Count == 0 && builtin.GenericMethods.ContainsKey(expr.Function))
+				{
+					ctx.Messages.Add(new Message($"{Where(ctx)}: {type.Name}.{expr.Function} is generic, so it is called with type arguments, e.g. .{expr.Function}<i32>(...)", expr.Region, MessageType.Error));
+					return missing;
+				}
+			}
+
+			if (receiver.Symbol != null)
+				ctx.Messages.Add(new Message($"{Where(ctx)}: {type?.Name ?? "void"} has no method '{expr.Function}'", expr.Region, MessageType.Error));
+			return missing;
 		}
 
 		//The name a call is looked up by, or null for a `__str` already refused: a `#insert` of a Code, a builtin receiver's method, `__str` and a math stem each name the function they reach; at most one applies.
@@ -140,6 +179,9 @@ namespace Orion.Frontend.Binder
 					? Surface.Builtin(typeof(BuildTime.Builtins.CodeBuiltins), nameof(BuildTime.Builtins.CodeBuiltins.Insert))
 					: expr.Function;
 			}
+
+			if (expr.IsMethod)
+				return BindReceiverMethod(ctx, current, expr);
 
 			if (expr.Callee == null && expr.Function.Contains('.'))
 				return BindMethod(ctx, expr);
@@ -162,9 +204,13 @@ namespace Orion.Frontend.Binder
 			return expr.Function;
 		}
 
-		//Why a name matched no function: a generic called without type arguments or not instantiable, a builtin spelled with `_`, or nothing at all.
+		//Why a name matched no function: a generic called without type arguments or not instantiable, a builtin spelled with `_`, or nothing at all; null for a method, already reported.
 		private static string Undefined(BindContext ctx, SymbolTable current, Call expr)
 		{
+			//A method its receiver lacks was reported as the receiver was bound.
+			if (expr.IsMethod)
+				return null;
+
 			bool template = ctx.Session.Generics.Templates.ContainsKey(expr.Function);
 			if (template && expr.GenericArgs.Count == 0)
 				return $"{Where(ctx)}: Generic call to {expr.Function} requires explicit type arguments, e.g. {expr.Function}<i32>(...)";
@@ -251,7 +297,8 @@ namespace Orion.Frontend.Binder
 			}
 			else if (!current.TryGet(expr.Function, out FunctionSymbol callee))
 			{
-				ctx.Messages.Add(new Message(Undefined(ctx, current, expr), expr.Region, MessageType.Error));
+				if (Undefined(ctx, current, expr) is string undefined)
+					ctx.Messages.Add(new Message(undefined, expr.Region, MessageType.Error));
 				funcType = DefaultFunctionType;
 				unresolved = true;
 			}

@@ -101,7 +101,7 @@ namespace Orion.BuildTime.Builtins
 		}
 
 		//A new, empty instance of the collection a `#param` is declared as; null when the name is not one.
-		private static object Empty(Ast.TypeName declared)
+		internal static object Empty(Ast.TypeName declared)
 		{
 			TypeSymbol type = Resolve(Env.Context.Function.Table.GetRoot(), declared);
 			return type is BuiltinTypeSymbol builtin && Surface.IsCollection(type) ? Activator.CreateInstance(builtin.Type) : null;
@@ -122,7 +122,7 @@ namespace Orion.BuildTime.Builtins
 			return Instantiate(name, args, null, "#create", Env.Region);
 		}
 
-		//`#block`: the recipe alone; the template is checked now, so a misspelt one is reported where it is written even if no Solver takes it.
+		//`#block`: the recipe alone; the template is checked now, so a misspelled one is reported where it is written even if no Solver takes it.
 		public static OrionBlock Block(string name, object args)
 		{
 			return Recipe(name, args, null);

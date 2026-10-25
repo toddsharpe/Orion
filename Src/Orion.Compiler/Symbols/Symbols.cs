@@ -110,6 +110,9 @@ namespace Orion.Symbols
 		public BuiltinIndex Index { get; set; }
 		public Dictionary<string, MethodInfo> Operators { get; set; } = [];
 		public Dictionary<string, BuiltinFunctionSymbol> Methods { get; set; } = [];
+
+		//Methods called with type arguments, `b.Param<i32>(..)`, instantiated per call as a generic builtin is.
+		public Dictionary<string, MethodInfo> GenericMethods { get; set; } = [];
 		public bool ByPointer { get; set; }
 
 		public override string ToString()

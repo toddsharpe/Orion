@@ -161,16 +161,18 @@ namespace Orion.BuildTime
 			{ Orion.Ast.AstOp.NotEquals, "op_Inequality" },
 		};
 
-		//Only a build type has a surface, and only a signature Orion can express: not object's, not Deconstruct's.
-		private static bool Offers(MethodInfo method)
+		//Only a build type has a surface, a builtin's class or a handle Orion names, and only a signature Orion can express: not object's, not Deconstruct's.
+		private static bool Surfaced(MethodInfo method)
 		{
-			if (method.IsSpecialName
-				|| method.DeclaringType?.Namespace != typeof(Builtins.BuildList<>).Namespace
-				|| method.Name is "ToString" or "Equals" or "GetHashCode" or "GetType")
-				return false;
-
-			return Expressible(method.ReturnType) && method.GetParameters().All(i => Expressible(i.ParameterType));
+			Type declaring = method.DeclaringType;
+			return !method.IsSpecialName
+				&& (declaring?.Namespace == typeof(Builtins.BuildList<>).Namespace || (declaring != null && ClrTypes.IsNamed(declaring)))
+				&& method.Name is not ("ToString" or "Equals" or "GetHashCode" or "GetType");
 		}
+
+		private static bool Offers(MethodInfo method) =>
+			Surfaced(method) && !method.IsGenericMethodDefinition
+			&& Expressible(method.ReturnType) && method.GetParameters().All(i => Expressible(i.ParameterType));
 
 		private static bool Expressible(Type clr) => !clr.IsByRef && !clr.IsPointer && !clr.IsGenericParameter;
 
@@ -209,6 +211,9 @@ namespace Orion.BuildTime
 				symbol.Methods[method.Name] = function;
 				root.Add(function);
 			}
+
+			foreach (MethodInfo method in clr.GetMethods(SurfaceFlags).Where(i => i.IsGenericMethodDefinition && Surfaced(i)))
+				symbol.GenericMethods[method.Name] = method;
 
 			//Operators are static, so they are a separate pass over the same declaration site.
 			symbol.Operators = clr.GetMethods(OperatorFlags)
@@ -284,6 +289,29 @@ namespace Orion.BuildTime
 			Type[] clrArgs = [.. args.Select(BuildAssembly.GetClrType)];
 			Type clr = open.MakeGenericType(clrArgs);
 			return ClrTypes.FromClrType(root, clr);
+		}
+
+		//Instantiate a builtin's generic method (`b.Param<i32>`) for one set of type arguments: a function whose first parameter is the receiver, as a method's is, cached in the root table.
+		internal static BuiltinFunctionSymbol InstantiateGenericMethod(SymbolTable root, BuiltinTypeSymbol symbol, string name, List<TypeSymbol> typeArgs)
+		{
+			string mangled = $"{symbol.Name}.{name}<{string.Join(",", typeArgs.Select(i => i.Name))}>";
+			if (root.TryGet(mangled, out BuiltinFunctionSymbol existing))
+				return existing;
+
+			MethodInfo open = symbol.GenericMethods[name];
+			MethodInfo concrete = open.MakeGenericMethod([.. typeArgs.Select(BuildAssembly.GetClrType)]);
+			TypeSymbol retType = open.ReturnType.IsGenericParameter
+				? typeArgs[open.ReturnType.GenericParameterPosition]
+				: ClrTypes.FromClrType(root, concrete.ReturnType);
+			List<ParamDataSymbol> parameters = [
+				new ParamDataSymbol("this", symbol, ParamDirection.None),
+				.. concrete.GetParameters().Select(i => Formal(root, i))];
+			parameters[0].Mutates = open.IsDefined(typeof(MutatingAttribute), false);
+
+			BuiltinFunctionSymbol function = new BuiltinFunctionSymbol(mangled, retType, parameters, concrete) { IsBuild = true };
+			function.FuncType = Language.MakeFunctionType(root, function);
+			root.Add(function);
+			return function;
 		}
 
 		//Instantiate a generic builtin function (List::New<i32>, ...) into a concrete, callable BuiltinFunctionSymbol backed by the closed MethodInfo.

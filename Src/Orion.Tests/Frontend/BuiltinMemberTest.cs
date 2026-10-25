@@ -1,4 +1,5 @@
-﻿
+﻿using System.Collections.Generic;
+
 namespace Orion.Tests.Frontend
 {
 	//A builtin's Orion surface is whatever its CLR class declares public, with `internal` the way to stay invisible and no table to keep in step; these pin both halves.
@@ -32,6 +33,70 @@ i32 main()
 
 			//The whole thing folded at build time, so the runtime code holds only the answer.
 			StringAssert.Contains(result.CodeOutput, "\"25922\"");
+		}
+
+		[TestMethod]
+		public void AMethodIsCalledOnWhateverItsReceiverEvaluatesTo()
+		{
+			//A call's result and a parenthesized sum are receivers as a variable is, passed as the method's first argument.
+			CompilerResult result = Harness.Compile(@"
+#build str probe()
+{
+    const i32[3] arr = [1, 2, 3]:i32[3];
+    List<i32> a = [4]:List<i32>;
+    List<i32> b = [5]:List<i32>;
+    return to_str(List::FromArray<i32>(arr).Contains(2)) + to_str((a + b).Contains(5)) + to_str((a + b).Contains(6));
+}
+
+i32 main()
+{
+    WriteLine(#run probe());
+    return 0;
+}");
+			result.AssertNoErrors();
+			StringAssert.Contains(result.CodeOutput, "\"truetruefalse\"");
+		}
+
+		[TestMethod]
+		public void AComparisonOnAMemberIsNotATypeArgument()
+		{
+			//`.Length<limit` is only a generic method ahead of a `(`, so it stays a comparison.
+			CompilerResult result = Harness.Compile(@"
+#build str probe()
+{
+    List<i32> xs = [1, 2]:List<i32>;
+    i32 limit = 3;
+    return to_str(xs.Length<limit) + to_str(xs.Length < 1);
+}
+
+i32 main()
+{
+    WriteLine(#run probe());
+    return 0;
+}");
+			result.AssertNoErrors();
+			StringAssert.Contains(result.CodeOutput, "\"truefalse\"");
+		}
+
+		[TestMethod]
+		public void AMethodTheReceiverLacksIsReportedOnce()
+		{
+			const string program = @"
+#build i32 probe()
+{
+    List<i32> xs = [1]:List<i32>;
+    BODY;
+    return 0;
+}
+
+i32 main() { return #run probe(); }";
+
+			foreach (string body in new[] { "xs.Frob()", "List::New<i32>().Frob(1)" })
+			{
+				List<string> errors = Harness.Compile(program.Replace("BODY", body)).Errors();
+				Assert.AreEqual(1, errors.Count, string.Join(" | ", errors));
+				StringAssert.Contains(errors[0], "List<i32> has no method 'Frob'");
+			}
 		}
 
 		[TestMethod]

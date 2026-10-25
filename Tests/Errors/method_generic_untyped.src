@@ -1,0 +1,16 @@
+// A generic method called without type arguments is told how to call it.
+void Counter(#param str name, #param i32 step, #state i32 n, #output i32 out @ "out")
+{
+	n = n + step;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Block up = #block Counter(name = "up", step = 3);
+		i32 step = up.Param("step");
+	}
+	return 0;
+}

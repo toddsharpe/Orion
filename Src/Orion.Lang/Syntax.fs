@@ -145,6 +145,8 @@ module Syntax =
         | Element of Pos<Expr> * Pos<Expr> list
         //p.x, a[0].name
         | Member of Pos<Expr> * Pos<Identifier>
+        //b.Param<i32> - a method named with type arguments, so only ever a call's callee
+        | GenericMember of Pos<Expr> * Pos<Identifier> * Pos<TypeName> list
         //cast<u16>(x) - a numeric conversion, not a call: `cast` is reserved and the arity is fixed here
         | Cast of Pos<TypeName> * Pos<Expr>
         //to_str(x) - stringify; the source type is resolved during binding, so it is never written out

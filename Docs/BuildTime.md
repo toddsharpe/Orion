@@ -71,11 +71,15 @@ Map<K,V>   Map::New<K,V>(), Map<str,i32>{ "a" = 1 }, .Has .GetOrAdd .Keys .Lengt
 ```
 
 A comprehension may bind the position too, `for const T v, i32 i in xs`. Maps keep insertion order.
+A method is called on whatever its receiver evaluates to, `List::FromArray<i32>(xs).Contains(2)`, and
+a generic one with its type arguments, `b.Param<i32>("step")`.
 `.ToArray()` **freezes** a list into a fixed array; `Array::Zeroed<T>(n)` makes one of a length only
 the build knows.
 
 **Blocks.** `#block` yields a `Block`, a solver block's recipe, whose `.Name` is the name it will be
-emitted under; only `Solver::New` builds one ([Solver.md](Solver.md)).
+emitted under; only `Solver::New` builds one ([Solver.md](Solver.md)). `.Template` is the template it
+builds, and `.Param<T>("x")` the argument it is built with for `#param x`: as written, else the
+template's default.
 
 **Types.** `Type::Of<u16>()` and `Type::Parse("f64")` give a `Type` with `.Name`, `.Size`, `.Kind` and
 `.Element`, compared with `==`. `Type::IsStruct`, `IsArray`, `ArrayLength`, `ArrayElement`, `IsAlias`,

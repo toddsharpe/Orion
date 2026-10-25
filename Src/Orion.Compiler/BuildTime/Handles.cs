@@ -1,6 +1,7 @@
 using Orion.BuildTime.Builtins;
 using Orion.Symbols;
 using System.Collections.Generic;
+using System.Linq;
 using System;
 
 namespace Orion.BuildTime
@@ -10,7 +11,8 @@ namespace Orion.BuildTime
 	//A solver block's recipe as a build-time value: what `#block` yields. Nothing is specialized or emitted until a `Solver::New` takes it, so a block made and never handed to one costs nothing.
 	public class OrionBlock
 	{
-		internal string Template { get; init; }
+		//The template it builds: `Counter` for `#block Counter(..)`.
+		public string Template { get; internal init; }
 		internal object Args { get; init; }
 		internal object Schedule { get; init; }
 
@@ -27,6 +29,41 @@ namespace Orion.BuildTime
 				return sanitized.Length > 0 ? sanitized : Template;
 			}
 		}
+
+		//The argument the block is built with for `#param name`: as written, else the template's default, as a Solver applies it.
+		public T Param<T>(string name)
+		{
+			Ast.Parameter declared = Declared(name, $"Param<{Named(typeof(T))}>");
+			object value = Env.Bag(Args).TryGetValue(name, out object written) ? written : Default(declared);
+			if (value is T typed)
+				return typed;
+
+			Env.Report(value == null
+				? $"`{Name}`.Param(\"{name}\"): it was not given '{name}', and `{Template}` has no default for it."
+				: $"`{Name}`.Param<{Named(typeof(T))}>(\"{name}\"): '{name}' is {Named(value.GetType())}, not {Named(typeof(T))}.");
+			throw new BuildStoppedException();
+		}
+
+		//The template's `#param name`, reported and stopped on when it takes none.
+		private Ast.Parameter Declared(string name, string call)
+		{
+			Ast.Parameter declared = Compiler.Session.Templates[Template].Parameters
+				.FirstOrDefault(i => i.Directive == Ast.ParamDirective.Param && i.Name == name);
+			if (declared != null)
+				return declared;
+
+			Env.Report($"`{Name}`.{call}(\"{name}\"): `{Template}` takes no #param '{name}'.");
+			throw new BuildStoppedException();
+		}
+
+		private static object Default(Ast.Parameter declared)
+		{
+			if (declared.Default is Ast.Value { Literal: not null } literal)
+				return literal.Literal.Boxed;
+			return Frontend.Specializer.IsEmptyCollection(declared.Default) ? SolverBuiltins.Empty(declared.TypeName) : null;
+		}
+
+		private static string Named(Type clr) => Clr.ClrTypes.FromClrType(Env.Context.Function.Table.GetRoot(), clr).Name;
 
 		public override string ToString() => Name;
 	}

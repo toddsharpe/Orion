@@ -253,10 +253,11 @@ module Parser =
             fun a b -> { Value = a.Value + "::" + b.Value; Start = a.Start; End = b.End }
     //`Code::Parse(` - the `(` is what tells a namespaced call from the enum value `Phase::Coast`.
     let pqualifiedcall = %% +.pqualified -- (followedBy (pstring "(")) -|> IdentifierName
+    //The `<i32, T[4]>` a generic name or method is called with.
+    let ptypeargs = %% (str "<") -- +.(qty.[1..] / comma * (attempt psizetype <|> ptype)) -- (str ">") -|> fun x -> x |> Seq.toList
     //`List::New<i32>` - only ahead of a `(`, so `a < b` is never misread as a generic name.
     let pgenericname =
-        let pargs = %% (str "<") -- +.(qty.[1..] / comma * (attempt psizetype <|> ptype)) -- (str ">") -|> fun x -> x |> Seq.toList
-        %% +.(attempt pqualified <|> pidentifier) -- +.pargs -- (followedBy (pstring "(")) -|> fun n ts -> GenericName(n, ts)
+        %% +.(attempt pqualified <|> pidentifier) -- +.ptypeargs -- (followedBy (pstring "(")) -|> fun n ts -> GenericName(n, ts)
     //A leading `name =` marks a named argument. `notFollowedBy "="` keeps `a == b` positional.
     let pargname = attempt (pidentifier .>> pstring "=" .>> notFollowedBy (pstring "=") .>> ws)
     //`3` or `instance = "d2"`
@@ -390,9 +391,11 @@ module Parser =
         //One postfix step - `.x`, `[i]` or `(args)` - as a function wrapping the expression it follows.
         let ppostfix =
             let pmember = %% (str ".") -- +.pidentifier -|> fun f b -> Member(b, f)
+            //`.Param<i32>(`, ahead of a `(` as a generic name is, so `a.b < c` stays a comparison.
+            let pgenericmember = %% (str ".") -- +.pidentifier -- +.ptypeargs -- (followedBy (pstring "(")) -|> fun f ts b -> GenericMember(b, f, ts)
             let pelement = %% (str "[") -- +.(qty.[1..] / comma * pexpr) -- (str "]") -|> fun i b -> Element(b, i |> Seq.toList)
             let pcallargs = %% (str "(") -- +.(qty.[0..] / comma * withPos pargument) -- (str ")") -|> fun a b -> Call(None, b, a |> Seq.toList, None)
-            (attempt pmember <|> attempt pelement <|> pcallargs) |> withPos
+            (attempt pgenericmember <|> attempt pmember <|> attempt pelement <|> pcallargs) |> withPos
         //Chaining the steps is what makes `f(x).y[0]` expressible without a special case per shape.
         let pchain =
             (attempt pprimary <|> pparen) >>= fun b ->
