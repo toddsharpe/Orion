@@ -87,7 +87,8 @@ schedule the same way. A `List<Block>` is edited by name, as a sim edits its app
 `const` one takes them, and refuses a name the list lacks or holds twice.
 
 **Types.** `Type::Of<u16>()` and `Type::Parse("f64")` give a `Type` with `.Name`, `.Size`, `.Kind` and
-`.Element`, compared with `==`. `Type::IsStruct`, `IsArray`, `ArrayLength`, `ArrayElement`, `IsAlias`,
+`.Element`, compared with `==`. `Type::Of<T>()` is T as written, so `Type::Of<time>()` is `time`, not
+the `i64` under it. `Type::IsStruct`, `IsArray`, `ArrayLength`, `ArrayElement`, `IsAlias`,
 `AliasBase`, `Struct::Fields`, `Struct::FieldType`, `Enum::Members` and `Enum::Value` read what a
 declaration says, so a generator packs a frame from a struct without restating its layout.
 `Type::Defer("Main_State")` is `Type::Parse` looked up when first needed: it carries and compares by

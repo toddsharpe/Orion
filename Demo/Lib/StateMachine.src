@@ -379,9 +379,9 @@ void StateMachine(#param str name, #param str spec)
 		Build::Enum(cmdEnum, commands);
 
 		//State and entry stamp are `#output`s, not cells, because they are telemetry -- and both persist.
-		Port::In(Type::Parse("time"), "sm_now", "cycle_time");
+		Port::In(Type::Of<time>(), "sm_now", "cycle_time");
 		Port::Out(Type::Parse(stateEnum), "sm_state", $"{name}.CurrentState");
-		Port::Out(Type::Parse("time"), "sm_entry", $"{name}.StateEntryTime");
+		Port::Out(Type::Of<time>(), "sm_entry", $"{name}.StateEntryTime");
 
 		#insert { #state i32 sm_tick = 0; }
 		#insert { #state ${Type::Parse(cmdEnum)} sm_cmd = ${Enum::Value(cmdEnum, "NoCmd")}; }
