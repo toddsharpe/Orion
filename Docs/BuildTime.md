@@ -79,7 +79,9 @@ the build knows.
 **Blocks.** `#block` yields a `Block`, a solver block's recipe, whose `.Name` is the name it will be
 emitted under; only `Solver::New` builds one ([Solver.md](Solver.md)). `.Template` is the template it
 builds, and `.Param<T>("x")` the argument it is built with for `#param x`: as written, else the
-template's default.
+template's default. `.With(${ step = 5 })` is a copy with those arguments replaced and its name kept,
+which builds what a `#block` writing them would; `.WithSchedule(${ period = .. })` replaces its
+schedule the same way.
 
 **Types.** `Type::Of<u16>()` and `Type::Parse("f64")` give a `Type` with `.Name`, `.Size`, `.Kind` and
 `.Element`, compared with `==`. `Type::IsStruct`, `IsArray`, `ArrayLength`, `ArrayElement`, `IsAlias`,

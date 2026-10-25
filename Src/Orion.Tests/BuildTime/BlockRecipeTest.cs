@@ -33,6 +33,20 @@ void Tick(#param str name, #param i32 step, #state i32 n, #output i32 out @ $""{
 		}
 
 		[TestMethod]
+		public void ACopyGeneratesWhatWritingItOutWould()
+		{
+			string written = Harness.Emit(BackendLanguage.Cpp, Program(@"
+	Block t = #block Tick(name = ""t"", step = 5);
+	Solver::Export(Solver::New([t]:Block), 10000000:i64);
+"));
+			string copied = Harness.Emit(BackendLanguage.Cpp, Program(@"
+	Block t = (#block Tick(name = ""t"", step = 1)).With(${ step = 5 });
+	Solver::Export(Solver::New([t]:Block), 10000000:i64);
+"));
+			Assert.AreEqual(written, copied);
+		}
+
+		[TestMethod]
 		public void TwoRecipesShareANameUntilBothReachOneSolver()
 		{
 			Harness.Compile(Program(@"

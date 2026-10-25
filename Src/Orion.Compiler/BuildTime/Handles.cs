@@ -44,6 +44,35 @@ namespace Orion.BuildTime
 			throw new BuildStoppedException();
 		}
 
+		//A copy built with these arguments in place of its own, the rest kept, as a `#block` that wrote them would be; the name stays, since it is how a list finds the block.
+		public OrionBlock With(object args)
+		{
+			Dictionary<string, object> values = new Dictionary<string, object>(Env.Bag(Args));
+			foreach ((string key, object value) in Env.Bag(args))
+			{
+				if (key == "name")
+				{
+					Env.Report($"`{Name}`.With: a copy keeps its name, which is how a list finds it; a block named otherwise is a `#block` of its own.");
+					throw new BuildStoppedException();
+				}
+
+				Declared(key, "With");
+				values[key] = value;
+			}
+
+			return new OrionBlock { Template = Template, Args = values, Schedule = Schedule, Region = Env.Region };
+		}
+
+		//A copy run on this schedule, its `period` or `phase` replaced and the other kept.
+		public OrionBlock WithSchedule(object schedule)
+		{
+			Dictionary<string, object> values = new Dictionary<string, object>(Env.Bag(Schedule));
+			foreach ((string key, object value) in Env.Bag(schedule))
+				values[key] = value;
+
+			return new OrionBlock { Template = Template, Args = Args, Schedule = values, Region = Env.Region };
+		}
+
 		//The template's `#param name`, reported and stopped on when it takes none.
 		private Ast.Parameter Declared(string name, string call)
 		{
