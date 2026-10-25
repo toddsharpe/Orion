@@ -1,4 +1,4 @@
-// A block template whose body varies by #param. `#if` picks the branch when `#create` supplies the
+// A block template whose body varies by #param. `#if` picks the branch when `#block` supplies the
 // value, so the untaken one is deleted before it binds -- one template, three shapes of block.
 
 void Count(#param str name, #state i32 prev = 0, #output i32 n)
@@ -50,14 +50,14 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Count(name = "c"),
-			#create Scale(name = "sq", mode = "square"),
-			#create Scale(name = "db", mode = "double"),
-			#create Scale(name = "id", mode = "pass"),
-			#create Report(name = "rp", report = true),
-			#create Report(name = "off", report = false)
-		]:Function;
+		Block[] funcs = [
+			#block Count(name = "c"),
+			#block Scale(name = "sq", mode = "square"),
+			#block Scale(name = "db", mode = "double"),
+			#block Scale(name = "id", mode = "pass"),
+			#block Report(name = "rp", report = true),
+			#block Report(name = "off", report = false)
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

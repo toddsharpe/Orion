@@ -34,6 +34,7 @@ namespace Orion.Clr
 			{ typeof(BuildTime.OrionCode), "Code" },
 			{ typeof(BuildTime.OrionEnum), "Enum" },
 			{ typeof(BuildTime.OrionFunction), "Function" },
+			{ typeof(BuildTime.OrionBlock), "Block" },
 			{ typeof(BuildTime.Instance), "Instance" },
 			{ typeof(BuildTime.Scalar), "Scalar" },
 		};

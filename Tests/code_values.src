@@ -46,7 +46,7 @@ i32 main()
 			Device{ name = "b", type = Type::Of<f64>() }
 		]:List<Device>;
 
-		Function[] blocks = [ #create Src(name = "src"), #create Report(name = "rep", devices = wired) ]:Function;
+		Block[] blocks = [ #block Src(name = "src"), #block Report(name = "rep", devices = wired) ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 		#insert {

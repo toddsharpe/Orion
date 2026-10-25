@@ -44,17 +44,18 @@ is a double drive.
 
 ## Instantiating and wiring
 
-`#create` specializes a template at build time and yields a `Function`. Hand the handles to a solver:
+`#block` records a template and its `#param`s as a `Block`, a recipe. Hand the recipes to a solver,
+which specializes each, in the order given:
 
 ```
 #build i32 main()
 {
-	Function[] blocks =
+	Block[] blocks =
 	[
-		#create CycleStart(name = "cycle", dt_ns = Hz_100),
-		#create Ramp(name = "ramp"),
-		#create Watch(name = "watch")
-	]:Function;
+		#block CycleStart(name = "cycle", dt_ns = Hz_100),
+		#block Ramp(name = "ramp"),
+		#block Watch(name = "watch")
+	]:Block;
 
 	Solver solver = Solver::New(blocks);
 	Solver::Export(solver, Hz_100);
@@ -62,8 +63,12 @@ is a double drive.
 }
 ```
 
-An instance's name is the name it is emitted under, so reusing one with different `#param`s is an
-error; the same `#create` twice is one instance.
+Nothing is built until a `Solver::New` takes a recipe, so one made and left out of every list emits
+nothing, and its `#init` asks nothing. A `Block`'s `.Name` is the name it will be emitted under, so a
+build can pick a list's blocks by name. An instance's name is one block's, so two recipes reaching one
+solver under a name with different `#param`s are an error; the same recipe twice is one instance.
+`#create` is for a block the build calls or starts itself (see [BuildTime.md](BuildTime.md)): it
+specializes at once and yields a `Function`, which a solver does not take.
 
 Solving makes a `SolverState` struct, one cell per net, and checks it: two drivers of a
 net, an `#input` nobody drives (listing the nets there are), and two nets that would spell one field
@@ -79,11 +84,13 @@ one. The code is the same either way; `#prev` is a checked claim about the sched
 
 ## Running a block on a slot
 
-A block runs every cycle unless its `#create` carries a schedule, a second bag after the arguments:
+A block runs every cycle unless its `#block` carries a schedule, a second bag after the arguments:
 
 ```
-#create TelemetryWriter(name = "tx", devices = telem) ${ period = Hz_10, phase = Hz_100 }
+#block TelemetryWriter(name = "tx", devices = telem) ${ period = Hz_10, phase = Hz_100 }
 ```
+
+A schedule is a solver's, so `#create` refuses one.
 
 The guard is `cycle_time % period == phase`. Both must be whole cycles of the exported rate, `phase`
 under `period`, and something must drive `cycle_time`: the platform on an exported solver, or a block

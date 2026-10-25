@@ -14,7 +14,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] fs = [ #create Flags(name = "f", code = 7) ]:Function;
+		Block[] fs = [ #block Flags(name = "f", code = 7) ]:Block;
 		Solver solver = Solver::New(fs);
 		Solver::Solve(solver);
 	}

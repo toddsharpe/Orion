@@ -24,12 +24,12 @@ i32 main()
 	#run
 	{
 		const i32 v = 3;
-		Function[] funcs = [
-			#create Const(name = "s", value = v),
-			#create Double(name = "d1", source = "s_out"),
-			#create Double(name = "d2", source = "d1_out"),
-			#create Double(name = "d3", source = "d2_out")
-		]:Function;
+		Block[] funcs = [
+			#block Const(name = "s", value = v),
+			#block Double(name = "d1", source = "s_out"),
+			#block Double(name = "d2", source = "d1_out"),
+			#block Double(name = "d3", source = "d2_out")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

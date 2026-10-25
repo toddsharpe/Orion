@@ -13,10 +13,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Early(name = "early"),
-			#create Late(name = "late")
-		]:Function;
+		Block[] funcs = [
+			#block Early(name = "early"),
+			#block Late(name = "late")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

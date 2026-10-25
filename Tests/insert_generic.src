@@ -61,7 +61,7 @@ i32 main()
 
 	#run
 	{
-		Function[] blocks = [#create Block(name = "b", n = 7, raw = 2.5)]:Function;
+		Block[] blocks = [#block Block(name = "b", n = 7, raw = 2.5)]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

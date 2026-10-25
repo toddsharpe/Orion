@@ -184,18 +184,18 @@ void Metres(#param str name, #param str source, #input f64<m> altitude @ source,
 	]:Device;
 
 	// Wired by net name and specialized by #param; listing order is execution order within a cycle.
-	Function[] blocks =
+	Block[] blocks =
 	[
 		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
-		#create CycleStart(name = "cycle", dt_ns = Hz_100),
-		#create Descent(name = "plant", thrust_src = "ctrl_out"),
-		#create Guidance(name = "guid", source = "plant_alt"),
-		#create Controller(name = "ctrl", setpoint = "guid_out", measurement = "plant_vel",
+		#block CycleStart(name = "cycle", dt_ns = Hz_100),
+		#block Descent(name = "plant", thrust_src = "ctrl_out"),
+		#block Guidance(name = "guid", source = "plant_alt"),
+		#block Controller(name = "ctrl", setpoint = "guid_out", measurement = "plant_vel",
 			kp = 0.8, ki = 0.05, kd = 0.2),
-		#create Metres(name = "alt", source = "plant_alt"),
-		#create StateMachine(name = "seq", spec = "Configs/lander_sm.src"),
-		#create Telemetry(name = "tlm", fields = fields)
-	]:Function;
+		#block Metres(name = "alt", source = "plant_alt"),
+		#block StateMachine(name = "seq", spec = "Configs/lander_sm.src"),
+		#block Telemetry(name = "tlm", fields = fields)
+	]:Block;
 
 	Solver solver = Solver::New(blocks);
 

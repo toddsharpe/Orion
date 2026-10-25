@@ -1,0 +1,56 @@
+// A `#block` is a recipe: nothing is specialized until a Solver takes it, so one left out is never built, and its #init asks nothing.
+
+// Counts from the seed its startup sets, so the run shows the Solver started it.
+void Counter(#param str name, #param i32 step, #state i32 n, #output i32 out @ $"{name}_out")
+{
+	#init
+	{
+		n = 100;
+		return true;
+	}
+
+	n = n + step;
+	out = n;
+}
+
+void Watch(#param str name, #input i32 up @ "up_out")
+{
+	WriteLine("up " + to_str(up));
+}
+
+i32 main()
+{
+	#run
+	{
+		Block[] all = [
+			#block Counter(name = "up", step = 1),
+			#block Counter(name = "down", step = -1),
+			#block Watch(name = "watch")
+		]:Block;
+		#assert(all[1].Name == "down", "a recipe knows the name it would be emitted as");
+
+		// Every block but `down`, which no Solver takes.
+		List<Block> kept = List::New<Block>();
+		for (const Block b in all)
+		{
+			if (b.Name != "down")
+			{
+				kept.Add(b);
+			}
+		}
+
+		Solver solver = Solver::New(kept.ToArray());
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 i = 0; i < 3; i++)
+			{
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

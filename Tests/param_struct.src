@@ -38,11 +38,11 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks =
+		Block[] blocks =
 		[
-			#create Count(name = "count"),
-			#create Watch(name = "watch", geo = Geometry{ imu = 7, mount = Mount{ axis = 5 }, trim = [1, 2, 3]:i32 })
-		]:Function;
+			#block Count(name = "count"),
+			#block Watch(name = "watch", geo = Geometry{ imu = 7, mount = Mount{ axis = 5 }, trim = [1, 2, 3]:i32 })
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

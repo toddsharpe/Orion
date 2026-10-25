@@ -40,14 +40,14 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [
-			#create Nums(name = "n", nums = [1, 2, 3]:i32),
-			#create Pt(name = "p", p = Point{ x = 7, y = 9 }),
-			#create Fields(name = "f", fields = [
+		Block[] blocks = [
+			#block Nums(name = "n", nums = [1, 2, 3]:i32),
+			#block Pt(name = "p", p = Point{ x = 7, y = 9 }),
+			#block Fields(name = "f", fields = [
 				Field{ name = "alpha", value = 100 },
 				Field{ name = "beta",  value = 200 }
 			]:Field)
-		]:Function;
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

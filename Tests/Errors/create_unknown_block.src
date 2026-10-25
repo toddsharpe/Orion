@@ -1,4 +1,4 @@
-// `#create` names its template by hand, and a template is out of the symbol table by binding time,
+// `#block` names its template by hand, and a template is out of the symbol table by binding time,
 // so the name is checked where the registry is: build time, when the block is asked for.
 void Counter(#param str name, #state i32 c, #output i32 count @ $"{name}_count")
 {
@@ -10,7 +10,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Countr(name = "a") ]:Function;
+		Block[] blocks = [ #block Countr(name = "a") ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 	}

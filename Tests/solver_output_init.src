@@ -44,10 +44,10 @@ i32 main()
 		#assert(Instance::Get<Mode>(cold, "mode") == Mode::Warm, "and an enum one, by member rather than ordinal");
 		#assert(Instance::Get<i32>(cold, "tick") == 0, "while a #state port with no initializer is still zero");
 
-		Function[] funcs = [
-			#create Watch(name = "watch"),
-			#create Reference(name = "ref", measured = 90000.0:f32)
-		]:Function;
+		Block[] funcs = [
+			#block Watch(name = "watch"),
+			#block Reference(name = "ref", measured = 90000.0:f32)
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

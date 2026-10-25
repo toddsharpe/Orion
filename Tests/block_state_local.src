@@ -11,10 +11,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [
-			#create Counter(name = "a", step = 1),
-			#create Counter(name = "b", step = 10)
-		]:Function;
+		Block[] blocks = [
+			#block Counter(name = "a", step = 1),
+			#block Counter(name = "b", step = 10)
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

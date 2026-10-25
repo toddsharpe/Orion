@@ -28,13 +28,13 @@ first; a file-scope `#if` picks its blocks against the defines here. The F# tree
 AST, one class per syntax case, with `for..in` already a counted loop over a view.
 
 **Desugar** lowers interpolation to `+` and the stringifiers, a comprehension to a loop, `#create` to
-a `Solver::Block` call, `#code` to a registered fragment, `#src` to a build call, and `#test` to a
+a `Solver::Create` call and `#block` to a `Solver::Block` one, `#code` to a registered fragment, `#src` to a build call, and `#test` to a
 file-scope `#run` when tests run; it hoists file-scope `#run`s into the entry and turns a built
 file-scope `const` into a local of each function naming it. **Conditionals** folds each ordinary
 function's `#if`s; a generic's fold per instance in the **Monomorphizer**, which clones one function
 or struct per type argument and keeps the templates, since build-time code may name a new instance.
 **BuildLocals** hoists `#build` locals to cells; **Specializer** sets `#param` templates aside until
-`#create` supplies values.
+`#create`, or a `Solver::New` given a `#block`, supplies values.
 
 **Binding** resolves every name into nested symbol tables and types every node. The builtin surface
 is reflected from [BuildTime/Builtins](../Src/Orion.Compiler/BuildTime/Builtins): `FileBuiltins`

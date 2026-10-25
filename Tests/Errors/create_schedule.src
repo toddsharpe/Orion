@@ -1,0 +1,16 @@
+// A schedule is the slot a Solver runs a block on, so a function made now with `#create` cannot take one.
+void Tick(#param str name, #state i32 n, #output i32 out @ "tick")
+{
+	n = n + 1;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function tick = #create Tick(name = "t") ${ period = 10 };
+	}
+
+	return 0;
+}

@@ -188,7 +188,7 @@ namespace Orion.Frontend.Binder
 			string reshaping = Surface.IsMathGeneric(expr.Function) && Surface.MeasurePreserving.Contains(expr.Function)
 				? expr.Function : null;
 
-			if (expr.IsCreate)
+			if (expr.IsCreate || expr.IsBlock)
 				expr.IsBuildCall = !buildContext;
 
 			bool buildCall = buildContext || expr.IsBuildCall;

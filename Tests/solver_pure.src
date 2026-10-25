@@ -25,10 +25,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Band(name = "band"),
-			#create Watch(name = "watch")
-		]:Function;
+		Block[] funcs = [
+			#block Band(name = "band"),
+			#block Watch(name = "watch")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

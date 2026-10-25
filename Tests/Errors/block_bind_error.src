@@ -11,7 +11,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [#create B(name = "b")]:Function;
+		Block[] blocks = [#block B(name = "b")]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

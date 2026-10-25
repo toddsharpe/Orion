@@ -66,11 +66,11 @@ i32 main()
 			Device{ name = "Baro.BiasPressure", type = Type::Of<f32>() }
 		]:Device;
 
-		Function[] blocks = [
-			#create Baro(name = "baro"),
-			#create Bias(name = "bias"),
-			#create Telemetry(name = "tlm", fields = fields)
-		]:Function;
+		Block[] blocks = [
+			#block Baro(name = "baro"),
+			#block Bias(name = "bias"),
+			#block Telemetry(name = "tlm", fields = fields)
+		]:Block;
 
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);

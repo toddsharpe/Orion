@@ -136,16 +136,16 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [
-			#create Command(name = "cmd"),
-			#create Gyro(name = "gyro", source = "cmd_out"),
-			#create Kalman(name = "kf_tight",  source = "gyro_out", q = 0.01, r = 0.5),
-			#create Kalman(name = "kf_smooth", source = "gyro_out", q = 0.01, r = 4.0),
-			#create PID(name = "pid", setpoint = "cmd_out", measurement = "kf_smooth_out",
+		Block[] blocks = [
+			#block Command(name = "cmd"),
+			#block Gyro(name = "gyro", source = "cmd_out"),
+			#block Kalman(name = "kf_tight",  source = "gyro_out", q = 0.01, r = 0.5),
+			#block Kalman(name = "kf_smooth", source = "gyro_out", q = 0.01, r = 4.0),
+			#block PID(name = "pid", setpoint = "cmd_out", measurement = "kf_smooth_out",
 				kp = 0.8, ki = 0.05, kd = 0.2),
-			#create Display(name = "telemetry", manifest = "demo_claude_solver.watch"),
-			#create Pack(name = "packer", manifest = "demo_claude_solver.watch")
-		]:Function;
+			#block Display(name = "telemetry", manifest = "demo_claude_solver.watch"),
+			#block Pack(name = "packer", manifest = "demo_claude_solver.watch")
+		]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 

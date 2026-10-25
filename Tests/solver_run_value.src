@@ -40,11 +40,11 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Src(name = "s", value = 3),
-			#create Stage(name = "a", source = "s_out", scale = 5),
-			#create Stage(name = "b", source = "a_out", scale = 10)
-		]:Function;
+		Block[] funcs = [
+			#block Src(name = "s", value = 3),
+			#block Stage(name = "a", source = "s_out", scale = 5),
+			#block Stage(name = "b", source = "a_out", scale = 10)
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 

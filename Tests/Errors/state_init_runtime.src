@@ -11,7 +11,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Blk(name = "k") ]:Function;
+		Block[] blocks = [ #block Blk(name = "k") ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 	}

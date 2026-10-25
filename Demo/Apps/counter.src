@@ -25,13 +25,13 @@ void Watch(#param str name, #input i32 level @ "level", #input time cycle_time)
 
 #build i32 main()
 {
-	Function[] blocks =
+	Block[] blocks =
 	[
 		//Reads the stamp the platform hands each cycle and turns it into the executive's own health.
-		#create CycleStart(name = "cycle", dt_ns = Hz_100),
-		#create Ramp(name = "ramp"),
-		#create Watch(name = "watch")
-	]:Function;
+		#block CycleStart(name = "cycle", dt_ns = Hz_100),
+		#block Ramp(name = "ramp"),
+		#block Watch(name = "watch")
+	]:Block;
 
 	Solver solver = Solver::New(blocks);
 

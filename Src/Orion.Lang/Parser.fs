@@ -194,9 +194,12 @@ module Parser =
     let pbuildonly = (pstring "#build" >>. ws >>% BuildOnly) |> withPos
     //`#run`: the call or scope it marks runs at build time, splicing its result in.
     let prun = (pstring "#run" >>. ws >>% BuildRun) |> withPos
-    //`#create`: instantiate a solver block template. A call only, so `#run { }` keeps its own parser.
+    //`#create`: instantiate a solver block template now. A call only, so `#run { }` keeps its own parser.
     let pcreate = (pstring "#create" >>. ws >>% BuildCreate) |> withPos
-    let pbuildrun = attempt prun <|> pcreate
+    //`#block`: a solver block's recipe, which only the Solver it reaches specializes.
+    let pblockrecipe = (pstring "#block" >>. ws >>% BuildBlock) |> withPos
+    let pmake = pcreate <|> pblockrecipe
+    let pbuildrun = attempt prun <|> pmake
     //`#param`, `#input`, `#prev`, `#output`, `#pure`, `#state`: how a parameter gets its value.
     let pbinding =
         let impl =
@@ -402,9 +405,9 @@ module Parser =
                     match directive, e.Value with
                     | Some d, Call (None, f, args, sched) -> { Value = Call(Some d, f, args, sched); Start = d.Start; End = e.End }
                     | _ -> e
-        //`#create B(..) ${ period = .. }` - its own term, or any call would swallow a following `${`.
+        //`#block B(..) ${ period = .. }` - its own term, or any call would swallow a following `${`; `#create` parses the same, and refuses a schedule later.
         let pcreatecall =
-            %% +.pcreate -- +.pchain -- +.(opt (attempt (withPos pargsexpr))) -|>
+            %% +.pmake -- +.pchain -- +.(opt (attempt (withPos pargsexpr))) -|>
                 fun d e sched ->
                     match e.Value with
                     | Call (None, f, args, None) ->

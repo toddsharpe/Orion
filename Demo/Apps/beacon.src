@@ -27,11 +27,11 @@ void Beacon(
 
 #build i32 main()
 {
-	Function[] blocks =
+	Block[] blocks =
 	[
-		#create CycleStart(name = "cycle", dt_ns = Hz_100),
-		#create Beacon(name = "beacon", service = ServiceOf("Vehicle.Telemetry"))
-	]:Function;
+		#block CycleStart(name = "cycle", dt_ns = Hz_100),
+		#block Beacon(name = "beacon", service = ServiceOf("Vehicle.Telemetry"))
+	]:Block;
 
 	Solver solver = Solver::New(blocks);
 	Solver::Export(solver, Hz_100);

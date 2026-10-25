@@ -8,9 +8,9 @@ void Tick(#param str name, #input time now @ "cycle_time")
 
 #build i32 main()
 {
-	Function[] funcs = [
-		#create Tick(name = "slow") ${ period = 100000000:time, evrey = 3 }
-	]:Function;
+	Block[] funcs = [
+		#block Tick(name = "slow") ${ period = 100000000:time, evrey = 3 }
+	]:Block;
 
 	Solver solver = Solver::New(funcs);
 	Solver::Export(solver, 10000000:time);

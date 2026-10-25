@@ -18,10 +18,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Sensor(name = "gps"),
-			#create Other(name = "other")
-		]:Function;
+		Block[] funcs = [
+			#block Sensor(name = "gps"),
+			#block Other(name = "other")
+		]:Block;
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

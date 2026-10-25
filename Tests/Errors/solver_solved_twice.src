@@ -8,10 +8,10 @@ i32 main()
 {
 	#run
 	{
-		Solver first = Solver::New([ #create Gain(name = "a", n = 1) ]:Function);
+		Solver first = Solver::New([ #block Gain(name = "a", n = 1) ]:Block);
 		Solver::Solve(first);
 
-		Solver second = Solver::New([ #create Gain(name = "b", n = 2) ]:Function);
+		Solver second = Solver::New([ #block Gain(name = "b", n = 2) ]:Block);
 		Solver::Solve(second);
 	}
 	return 0;

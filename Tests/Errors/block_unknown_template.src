@@ -1,0 +1,16 @@
+// A misspelt template is reported where the `#block` is written, even when no Solver takes it.
+void Tick(#param str name, #state i32 n, #output i32 out @ "tick")
+{
+	n = n + 1;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Block typo = #block Tock(name = "t");
+	}
+
+	return 0;
+}

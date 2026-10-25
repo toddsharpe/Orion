@@ -49,10 +49,10 @@ i32 main()
 {
 	#run
 	{
-		Function[] funcs = [
-			#create Source(name = "src"),
-			#create Show(name = "show", net = "wide")
-		]:Function;
+		Block[] funcs = [
+			#block Source(name = "src"),
+			#block Show(name = "show", net = "wide")
+		]:Block;
 
 		Solver solver = Solver::New(funcs);
 		Solver::Solve(solver);

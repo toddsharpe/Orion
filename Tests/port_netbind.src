@@ -19,7 +19,7 @@ i32 main()
 {
 	#run
 	{
-		Function[] blocks = [ #create Src(name = "src"), #create Sink(name = "sink", source = "src_out") ]:Function;
+		Block[] blocks = [ #block Src(name = "src"), #block Sink(name = "sink", source = "src_out") ]:Block;
 		Solver solver = Solver::New(blocks);
 		Solver::Solve(solver);
 		#insert Solver::Struct(solver);

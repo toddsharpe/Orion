@@ -33,13 +33,13 @@ void Report(
 	telem.Add(Device { name = "mode_state", type = Type::Of<AppState>() });
 	telem.Add(Device { name = "cycle_time", type = Type::Of<time>() });
 
-	Function[] blocks =
+	Block[] blocks =
 	[
 		//Publishes the cycle health the platform used to keep to itself. See Lib/Common.src.
-		#create CycleStart(name = "cycle", dt_ns = Hz_100),
-		#create TelemetryReader(name = "rx", devices = telem, service = ServiceOf("Vehicle.Telemetry")),
-		#create Report(name = "report", source = "rx")
-	]:Function;
+		#block CycleStart(name = "cycle", dt_ns = Hz_100),
+		#block TelemetryReader(name = "rx", devices = telem, service = ServiceOf("Vehicle.Telemetry")),
+		#block Report(name = "report", source = "rx")
+	]:Block;
 
 	Solver solver = Solver::New(blocks);
 	Solver::Export(solver, Hz_100);

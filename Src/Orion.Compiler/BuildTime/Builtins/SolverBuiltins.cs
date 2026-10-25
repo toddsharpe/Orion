@@ -11,9 +11,13 @@ namespace Orion.BuildTime.Builtins
 	[BuildOnly]
 	public static class SolverBuiltins
 	{
-		public static Solver New(IReadOnlyList<OrionFunction> funcs)
+		//The blocks are specialized here, in the order given, each reported against its own `#block`: a recipe no Solver takes is never built.
+		public static Solver New(IReadOnlyList<OrionBlock> blocks)
 		{
-			List<SourceFunctionSymbol> underlying = [.. funcs.Where(i => i != null).Select(i => i.Function)];
+			List<SourceFunctionSymbol> underlying = [.. blocks
+				.Where(i => i != null)
+				.Select(i => Instantiate(i.Template, i.Args, i.Schedule, "#block", i.Region)?.Function)
+				.Where(i => i != null)];
 			return new Solver(underlying, Env.Context.Function.Table.GetRoot());
 		}
 
@@ -57,7 +61,7 @@ namespace Orion.BuildTime.Builtins
 			return BuildBuiltins.Failed() ? CodeBuiltins.Empty() : CodeBuiltins.Of(solver.ViewState());
 		}
 
-		//One `#create`d block: the template it came from, its specialization and schedule as text, the function, and where it was created.
+		//One specialized block, `#create`d or built from a `#block` by a Solver: the template it came from, its specialization and schedule as text, the function, and where it was written.
 		internal record Cached(string Template, string Params, OrionFunction Func, InputRegion Region);
 
 		private static Dictionary<string, Cached> _blocks => Compiler.Session.SolverBlocks;
@@ -74,17 +78,17 @@ namespace Orion.BuildTime.Builtins
 
 		internal const string PhaseKey = "phase";
 
-		private static (long Period, long Phase) Schedule(string block, object args)
+		private static (long Period, long Phase) Schedule(string block, object args, InputRegion region)
 		{
 			Dictionary<string, object> values = Env.Bag(args);
 			foreach (string key in values.Keys.Where(i => i is not (PeriodKey or PhaseKey)))
-				Env.Report($"`#create {block}` was given the schedule property '{key}'. A schedule bag takes " +
+				Env.Report(region, $"`#block {block}` was given the schedule property '{key}'. A schedule bag takes " +
 					$"`{PeriodKey}` and `{PhaseKey}`, both times, and nothing else.");
 
-			return (Whole(block, values, PeriodKey), Whole(block, values, PhaseKey));
+			return (Whole(block, values, PeriodKey, region), Whole(block, values, PhaseKey, region));
 		}
 
-		private static long Whole(string block, Dictionary<string, object> values, string key)
+		private static long Whole(string block, Dictionary<string, object> values, string key, InputRegion region)
 		{
 			if (!values.TryGetValue(key, out object value))
 				return 0;
@@ -92,7 +96,7 @@ namespace Orion.BuildTime.Builtins
 			if (value is IConvertible and not (string or bool))
 				return Convert.ToInt64(value);
 
-			Env.Report($"`#create {block}`: schedule property '{key}' is not a time.");
+			Env.Report(region, $"`#block {block}`: schedule property '{key}' is not a time.");
 			return 0;
 		}
 
@@ -112,23 +116,42 @@ namespace Orion.BuildTime.Builtins
 			return inner.Contains(null) ? null : Surface.ResolveGenericType(root, name.GenericType, inner);
 		}
 
-		public static OrionFunction Block(string name, object args)
+		//`#create`: the block specialized now, a function to start or call where it is made.
+		public static OrionFunction Create(string name, object args)
 		{
-			return Instantiate(name, args, null);
+			return Instantiate(name, args, null, "#create", Env.Region);
 		}
 
-		public static OrionFunction Scheduled(string name, object args, object schedule)
+		//`#block`: the recipe alone; the template is checked now, so a misspelt one is reported where it is written even if no Solver takes it.
+		public static OrionBlock Block(string name, object args)
 		{
-			return Instantiate(name, args, schedule);
+			return Recipe(name, args, null);
 		}
 
-		private static OrionFunction Instantiate(string name, object args, object schedule)
+		public static OrionBlock Scheduled(string name, object args, object schedule)
+		{
+			return Recipe(name, args, schedule);
+		}
+
+		private static OrionBlock Recipe(string name, object args, object schedule)
+		{
+			if (!Compiler.Session.Templates.ContainsKey(name))
+			{
+				Env.Report($"`#block {name}`: no solver block named '{name}'. A block is a function with a " +
+					$"`#param`{Known()}");
+				return null;
+			}
+
+			return new OrionBlock { Template = name, Args = args, Schedule = schedule, Region = Env.Region };
+		}
+
+		private static OrionFunction Instantiate(string name, object args, object schedule, string keyword, InputRegion region)
 		{
 			Dictionary<string, object> values = Env.Bag(args);
 
 			if (!Compiler.Session.Templates.TryGetValue(name, out Ast.Function template))
 			{
-				Env.Report($"`#create {name}`: no solver block named '{name}'. A block is a function with a " +
+				Env.Report(region, $"`{keyword} {name}`: no solver block named '{name}'. A block is a function with a " +
 					$"`#param`{Known()}");
 				return null;
 			}
@@ -144,12 +167,12 @@ namespace Orion.BuildTime.Builtins
 					env[p.Name] = Frontend.Specializer.ToLiteral(fresh, p.TypeName);
 				else
 				{
-					Env.Report($"Solver block '{name}' is missing #param '{p.Name}'.");
+					Env.Report(region, $"Solver block '{name}' is missing #param '{p.Name}'.");
 					return null;
 				}
 			}
 
-			(long period, long phase) = Schedule(name, schedule);
+			(long period, long phase) = Schedule(name, schedule, region);
 
 			string mangled = Frontend.Specializer.Mangle(template, env);
 			string described = $"{Frontend.Specializer.Describe(template, env)}@{period}+{phase}";
@@ -157,7 +180,7 @@ namespace Orion.BuildTime.Builtins
 			{
 				if (cached.Template != name)
 				{
-					Env.Report($"`#create {name}(name = \"{env["name"].Boxed}\")`: block '{cached.Template}' is " +
+					Env.Report(region, $"`{keyword} {name}(name = \"{env["name"].Boxed}\")`: block '{cached.Template}' is " +
 						$"already instantiated under that name. An instance name is one block's, and it is the " +
 						$"name the block is emitted as, so give them different instances.");
 					return null;
@@ -165,7 +188,7 @@ namespace Orion.BuildTime.Builtins
 
 				if (cached.Params != described)
 				{
-					Env.Report($"Solver block '{name}' is instantiated twice as instance '{env["name"].Boxed}' " +
+					Env.Report(region, $"Solver block '{name}' is instantiated twice as instance '{env["name"].Boxed}' " +
 						$"({cached.Params}) and ({described}); each instance names one block, so give them different instances.");
 					return null;
 				}
@@ -191,7 +214,7 @@ namespace Orion.BuildTime.Builtins
 				built.Function.Phase = phase;
 			}
 
-			_blocks[mangled] = new Cached(name, described, built, Env.Region);
+			_blocks[mangled] = new Cached(name, described, built, region);
 			return built;
 		}
 
@@ -211,8 +234,8 @@ namespace Orion.BuildTime.Builtins
 					continue;
 
 				messages.Add(new Message(
-					$"Block '{block.Name}' declares #init, but nothing runs it. Hand the block to a " +
-					$"`Solver::New`, which calls every one from `solver_init`, or start it where it is " +
+					$"Block '{block.Name}' declares #init, but nothing runs it. Make it a `#block` and hand " +
+					$"it to a `Solver::New`, which calls every one from `solver_init`, or start it where it is " +
 					$"created -- `#insert {{ ${{f.Init}}(); }}` names this instance's startup.",
 					instance.Region, MessageType.Error));
 			}
