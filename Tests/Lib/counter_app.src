@@ -1,0 +1,25 @@
+// A program a case `#using`s for its block list: its own `main` is skipped there, and runs only when this file is the entry.
+void Counter(#param str name, #param i32 step, #state i32 n, #output i32 out @ $"{name}_out")
+{
+	n = n + step;
+	out = n;
+}
+
+void Watch(#param str name, #input i32 a @ "a_out")
+{
+	WriteLine("a_out " + to_str(a));
+}
+
+#build List<Block> CounterBlocks()
+{
+	return [
+		#block Counter(name = "a", step = 1),
+		#block Watch(name = "watch")
+	]:List<Block>;
+}
+
+i32 main()
+{
+	WriteLine("the app's main, which a program using this file never runs");
+	return 0;
+}

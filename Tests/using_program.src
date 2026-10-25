@@ -1,0 +1,17 @@
+// A program `#using` another program's file takes its functions and skips its `main`, so it builds from that program's block list.
+#using "Lib/counter_app.src"
+
+i32 main()
+{
+	#run
+	{
+		const List<Block> blocks = CounterBlocks().Change("a", ${ step = 5 });
+		Solver solver = Solver::New(blocks.ToArray());
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { for (i32 i = 0; i < 2; i++) { solver_cycle(state); } }
+	}
+
+	return 0;
+}

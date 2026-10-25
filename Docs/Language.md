@@ -12,7 +12,9 @@ from the **source root**: the nearest directory above the entry holding an `orio
 no `..` and is never rooted; `-I` adds trees searched after the root.
 
 `i32 main()` is the entry. `#build i32 main()` runs during the compile and leaves no runtime `main`,
-making the file a *library* a platform drives ([Solver.md](Solver.md)).
+making the file a *library* a platform drives ([Solver.md](Solver.md)). A `main` is the entry file's
+alone: `#using` another program's file takes its functions and skips its `main`, so a sim can build
+from its app's block list.
 
 File scope holds `#using`, `struct`, `enum`, `typedef`, `#measure`, `const`, `extern`, functions,
 `#run { }`, `#test`, and `#if (SIM)` choosing declarations, `#using`s included,
