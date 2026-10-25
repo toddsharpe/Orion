@@ -70,6 +70,20 @@ solver under a name with different `#param`s are an error; the same recipe twice
 `#create` is for a block the build calls or starts itself (see [BuildTime.md](BuildTime.md)): it
 specializes at once and yields a `Function`, which a solver does not take.
 
+A recipe can be read and copied before a solver takes it, so one program's list can start from
+another's: a sim takes its app's blocks and states how it differs.
+
+```
+const List<Block> app = TalonBlocks(geo);
+const List<Block> sim = app
+	.Remove("boardin")
+	.Replace("boardout", [board, net]:Block)
+	.Change("tx", ${ devices = app.Find("tx").Param<List<Device>>("devices") + truth });
+```
+
+Each edit names a block and answers a new list; a name the list lacks or holds twice fails the build,
+so an edit to a block the app no longer has cannot pass unnoticed.
+
 Solving makes a `SolverState` struct, one cell per net, and checks it: two drivers of a
 net, an `#input` nobody drives (listing the nets there are), and two nets that would spell one field
 once `.` becomes `_` are errors. `#state` ports become private cells, `{instance}_{port}`, that

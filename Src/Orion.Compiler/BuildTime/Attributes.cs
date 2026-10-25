@@ -8,6 +8,12 @@ namespace Orion.BuildTime
 	{
 	}
 
+	//A List method that finds its elements by name, and so the part of the surface only a List<Block> has.
+	[AttributeUsage(AttributeTargets.Method)]
+	public sealed class BlocksAttribute : Attribute
+	{
+	}
+
 	//A method that writes its receiver, and so the part of the surface a const collection refuses.
 	[AttributeUsage(AttributeTargets.Method)]
 	public sealed class MutatingAttribute : Attribute

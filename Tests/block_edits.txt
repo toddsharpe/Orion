@@ -1,0 +1,8 @@
+first builds Counter
+a2 builds Counter
+a3 builds Counter
+c builds Counter
+watch builds Watch
+app holds 3, b true; sim b false, c steps 30
+c_out 30
+c_out 60
