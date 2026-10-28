@@ -54,6 +54,18 @@ namespace Orion.Tests.LangSvr
 			Assert.AreEqual("void Block(#param str name, #input i32 x, #output i32 y)", Lang.Hover(src, "Block"));
 		}
 
+		private const string Recipe =
+			"void Ramp(#param str name, #output i32 level)\n{\n    level = 1;\n}\n" +
+			"#build i32 main()\n{\n    Block[] blocks = [#block Ramp(name = \"ramp\")]:Block;\n    return 0;\n}\n";
+
+		[TestMethod]
+		public void BlockRecipeShowsItsTemplate()
+			=> Assert.AreEqual("void Ramp(#param str name, #output i32 level)", Lang.Hover(Recipe, "Ramp(name"));
+
+		[TestMethod]
+		public void BlockDirectiveShowsWhatItLowersTo()
+			=> StringAssert.StartsWith(Lang.Hover(Recipe, "#block"), "builtin Block Solver::Block(");
+
 		[TestMethod]
 		public void PrevPortRendersAsPrev()
 		{

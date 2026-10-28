@@ -22,7 +22,8 @@ namespace Orion.LangSvr
 
 			//1) The deepest bound leaf under the cursor; declaration nodes resolve by identifier text below.
 			Node best = OrionScope.Smallest(analysis.Ast.DescendantsAndSelf(), BoundRegion, line, col);
-			if (best != null)
+			string ident = OrionScope.IdentifierAt(analysis.Text, line0Based, char0Based);
+			if (best != null && !NamesRecipe(best, ident))
 			{
 				string leaf = best is Call call && call.Callee != null
 					? (call.Callee is BuiltinFunctionSymbol ? "builtin " : "") + Signature(call.Callee)
@@ -31,7 +32,6 @@ namespace Orion.LangSvr
 			}
 
 			//2) No bound leaf: resolve against the enclosing function's declarations -- a #param solver block never binds, so its ports and locals are only describable from syntax -- and before file scope, so a shadowing local wins.
-			string ident = OrionScope.IdentifierAt(analysis.Text, line0Based, char0Based);
 			if (ident != null)
 			{
 				string declared = Declaration(OrionScope.Enclosing(analysis, line, col), ident, analysis.Text);
@@ -69,6 +69,10 @@ namespace Orion.LangSvr
 			Expression e when e.Symbol != null && e.Symbol.Type != null => e.Region,
 			_ => null,
 		};
+
+		private static bool NamesRecipe(Node n, string ident) =>
+			n is Call call && (call.IsBlock || call.IsCreate) &&
+			call.Arguments.FirstOrDefault()?.Symbol is LiteralSymbol { Value: string recipe } && recipe == ident;
 
 		// The scopes a hover can fall back to (declarations + control-flow/blocks); null = not a scope.
 		private static InputRegion ScopeRegion(Node n) => n switch
