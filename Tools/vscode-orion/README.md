@@ -74,4 +74,8 @@ The `.vsix` holds `out/extension.js`, bundled with its dependencies, and `server
   `${...}` holes highlight, and the rest falls back to ordinary tokens.
 - Highlighting knows the builtin types and `Type[]`; a user struct's name in a declaration stays a
   plain identifier, and the semantic tokens classify variables, not types.
+- Keywords and types are matched by spelling. A name after `.` is never one, so `s.time` stays plain,
+  but a field declared with a type's name, `TimeSample time;`, colours as the type.
 - The playground's Monarch grammar is a hand-port of this one, so a change here is mirrored there.
+  `HighlightingTests` fails when the two disagree on a directive, keyword or type, or when either
+  misses a directive or keyword `Parser.fs` accepts.

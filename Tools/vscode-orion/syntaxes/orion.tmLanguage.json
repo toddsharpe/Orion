@@ -7,6 +7,7 @@
 		{ "include": "#strings" },
 		{ "include": "#argsinterp" },
 		{ "include": "#directives" },
+		{ "include": "#member" },
 		{ "include": "#keywords" },
 		{ "include": "#constants" },
 		{ "include": "#types" },
@@ -82,7 +83,7 @@
 		"directives": {
 			"comment": "# directives: pbuildonly/pbuildrun/pbinding/pstorage/ptemplatestmt/pusing/pmeasure/pfiletest in Parser.fs",
 			"name": "keyword.control.directive.orion",
-			"match": "#(build|run|create|code|param|input|output|prev|pure|state|insert|assert|src|init|using|if|export|measure|test)\\b"
+			"match": "#(build|run|create|block|code|param|input|output|prev|pure|state|insert|assert|src|init|using|if|export|measure|test)\\b"
 		},
 
 		"keywords": {
@@ -90,7 +91,7 @@
 				{
 					"comment": "Reserved control words (Parser.fs pidentifier reserved list + else)",
 					"name": "keyword.control.orion",
-					"match": "\\b(if|else|for|while|do|switch|case|default|break|continue|return)\\b"
+					"match": "\\b(if|else|for|in|while|do|switch|case|default|break|continue|return)\\b"
 				},
 				{
 					"comment": "cast<T>(x) and to_str(x) are conversion operators, not calls, so both are reserved",
@@ -99,7 +100,7 @@
 				},
 				{
 					"name": "keyword.declaration.orion",
-					"match": "\\b(struct|enum)\\b"
+					"match": "\\b(struct|enum|typedef|extern)\\b"
 				},
 				{
 					"name": "storage.modifier.orion",
@@ -118,12 +119,12 @@
 				{
 					"comment": "Primitive type codes (Parser.fs ptypecode) + void/bool/str",
 					"name": "storage.type.primitive.orion",
-					"match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|bool|str|void)\\b"
+					"match": "\\b(i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|bool|str|void|time)\\b"
 				},
 				{
 					"comment": "Built-in library/build-time types",
 					"name": "support.type.orion",
-					"match": "\\b(HFunc|Solver|File|List|Map|Action|Func|Span|Code|Type|Enum|Port)\\b"
+					"match": "\\b(Function|Solver|File|List|Map|Action|Func|Span|ConstSpan|Code|Type|Enum|Port|Block|Instance|Scalar)\\b"
 				},
 				{
 					"comment": "Identifier used as an array-element type: Foo[]",
@@ -150,6 +151,10 @@
 				"2": { "name": "keyword.operator.scope.orion" },
 				"3": { "name": "constant.other.enum.orion" }
 			}
+		},
+
+		"member": {
+			"match": "(?<=\\.)[A-Za-z_]\\w*\\b(?!\\s*\\()"
 		},
 
 		"function-call": {

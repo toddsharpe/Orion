@@ -197,15 +197,15 @@
 		tokenPostfix: '.orion',
 
 		keywords: [
-			'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'default',
-			'break', 'continue', 'return', 'struct', 'enum', 'const', 'cast', 'to_str'
+			'if', 'else', 'for', 'in', 'while', 'do', 'switch', 'case', 'default',
+			'break', 'continue', 'return', 'struct', 'enum', 'typedef', 'extern', 'const', 'cast', 'to_str'
 		],
 		typeKeywords: [
 			'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64',
-			'f32', 'f64', 'bool', 'str', 'void'
+			'f32', 'f64', 'bool', 'str', 'void', 'time'
 		],
 		//Same set as the tmLanguage `support.type` match: drift leaves a type coloured by the extension but not here, which is how Map, Span and the Code/Type/Port trio went missing.
-		builtinTypes: ['Function', 'Solver', 'File', 'List', 'Map', 'Action', 'Func', 'Span', 'Code', 'Type', 'Enum', 'Port'],
+		builtinTypes: ['Function', 'Solver', 'File', 'List', 'Map', 'Action', 'Func', 'Span', 'ConstSpan', 'Code', 'Type', 'Enum', 'Port', 'Block', 'Instance', 'Scalar'],
 		constants: ['true', 'false'],
 
 		brackets: [
@@ -217,7 +217,7 @@
 		tokenizer: {
 			root: [
 				// # directives, character-for-character identical to the `directives` match in Tools/vscode-orion/syntaxes/orion.tmLanguage.json.
-				[/#(build|run|create|code|param|input|output|prev|pure|state|insert|assert|src|init|using|if|export|measure|test)\b/, 'keyword.directive'],
+				[/#(build|run|create|block|code|param|input|output|prev|pure|state|insert|assert|src|init|using|if|export|measure|test)\b/, 'keyword.directive'],
 
 				// comments
 				[/\/\/.*$/, 'comment'],
@@ -236,6 +236,8 @@
 				// numeric literal with optional :typecode suffix (128:i64, 3.14:f32)
 				[/\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?(?::(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64))?\b/, 'number'],
 
+				[/(\.)([A-Za-z_]\w*)\b(?!\s*\()/, ['delimiter', 'identifier']],
+
 				// identifier used as an array-element type  Foo[]
 				[/[A-Za-z_]\w*(?=\[\])/, 'type'],
 
@@ -243,7 +245,14 @@
 				[/\b(?:cast|to_str)\b/, 'keyword'],
 
 				// call: identifier immediately before (
-				[/[A-Za-z_]\w*(?=\s*\()/, 'function'],
+				[/[A-Za-z_]\w*(?=\s*\()/, {
+					cases: {
+						'@keywords': 'keyword',
+						'@typeKeywords': 'type',
+						'@builtinTypes': 'type',
+						'@default': 'function'
+					}
+				}],
 
 				// identifiers / keywords / types / constants
 				[/[A-Za-z_]\w*/, {
@@ -257,7 +266,7 @@
 				}],
 
 				// operators (longest-first handled by the alternation order)
-				[/@|\+=|-=|\*=|\/=|%=|==|!=|<=|>=|<<|>>|&&|\|\||\+\+|--|\?\?|[-+*/%=<>&|^!?:]/, 'operator'],
+				[/@|\+=|-=|\*=|\/=|%=|==|!=|&=|\|=|\^=|<=|>=|<<|>>|&&|\|\||\+\+|--|[-+*/%=<>&|^!?:]/, 'operator'],
 
 				// brackets + punctuation
 				[/[{}()\[\]]/, '@brackets'],
@@ -586,7 +595,7 @@
 	}
 
 	// Client-side completion over keywords, types, directives, snippets and identifiers already in the file -- every directive the parser accepts and only those, per pbuildonly/pbinding/ptemplatestmt/pusing/pmeasure/pfiletest.
-	const DIRECTIVES = ['#assert', '#build', '#code', '#create', '#export', '#if', '#init', '#input', '#insert', '#measure', '#output', '#param', '#prev', '#pure', '#run', '#src', '#state', '#test', '#using'];
+	const DIRECTIVES = ['#assert', '#block', '#build', '#code', '#create', '#export', '#if', '#init', '#input', '#insert', '#measure', '#output', '#param', '#prev', '#pure', '#run', '#src', '#state', '#test', '#using'];
 
 	function registerCompletion() {
 		const KEYWORDS = ORION_MONARCH.keywords;
