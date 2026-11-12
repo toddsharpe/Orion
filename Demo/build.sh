@@ -81,7 +81,8 @@ echo "== compiling =="
 # -I "$BUILD": the transpile wrote the program's own header there, and the platform TUs include
 # it. The header is named after the program, so the platform layer is told which one rather than
 # assuming -- the macro has to expand to a quoted string, hence the escaped quotes.
-g++ -std=c++20 -O2 -Wall -Wextra -Wno-unused-parameter \
+# -ffp-contract=off: the other backends round every operation, and a g++ built for x86-64-v3 (Ubuntu 26.04's, GitHub's runner) fuses a*b+c into one FMA by default.
+g++ -std=c++20 -O2 -ffp-contract=off -Wall -Wextra -Wno-unused-parameter \
 	-DORION_CYCLES="$CYCLES" -DORION_EPOCH0="$EPOCH0" \
 	-DORION_PROGRAM_HEADER="\"$PROGRAM.h\"" \
 	-I "$HERE/Platforms" -I "$ROOT/Runtimes/Cpp" -I "$BUILD" \

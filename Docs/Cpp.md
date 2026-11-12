@@ -96,7 +96,10 @@ Each host defines the two ABIs: `Windows.cpp` and `Linux.cpp` for the executives
 `_float_str`, six significant figures and always a decimal point, which the other runtimes mirror.
 Integers wrap in hardware, the semantics the script targets emulate. The `f32` transcendentals narrow
 the `f64` result to agree bit-for-bit elsewhere; `ORION_FAST_F32` takes the native single-precision
-ones instead.
+ones instead. Nothing is fused either: the script targets round every operation, so a C++ build that
+should agree with them passes `-ffp-contract=off`, since a `g++` built for x86-64-v3, as Ubuntu 26.04's
+is, contracts `a * b + c` into one fused multiply-add by default; MSVC 2022 contracts only under
+`/fp:contract` or `/fp:fast`.
 
 ## Driving a library
 
