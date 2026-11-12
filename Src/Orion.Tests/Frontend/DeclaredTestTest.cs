@@ -1,4 +1,5 @@
 using Orion.Diagnostics;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Orion.Tests.Frontend
@@ -62,6 +63,79 @@ i32 main()
 			CompilerResult result = Harness.CompileTesting(Failing);
 			Assert.IsTrue(result.Phases.SelectMany(i => i.Messages).Errors()
 				.Any(m => result.Declared[0].Claims(m)), "no error message carried the #test's declaration line");
+		}
+
+		private const string TwoFailing = @"
+void Tick(#param str name, #output i32 n)
+{
+	n = 1;
+}
+
+#build bool t_first()
+{
+	#assert(1 + 1 == 3, ""the first fails"");
+	return true;
+}
+
+#build bool t_second()
+{
+	Function f = #create Tick(name = ""tick"");
+	#assert(1 + 1 == 3, ""the second fails too"");
+	return true;
+}
+
+#build bool t_third()
+{
+	Function f = #create Tick(name = ""tock"");
+	return true;
+}
+
+#test t_first ""first""
+#test t_second ""second""
+#test t_third ""third""
+
+i32 main()
+{
+	return 0;
+}
+";
+
+		//Every test runs and answers for itself, however an earlier one went: a build step that stops on an error stops on its own test's, not on one an earlier test failed with.
+		[TestMethod]
+		public void AFailedTestDoesNotHideTheNext()
+		{
+			CompilerResult result = Harness.CompileTesting(TwoFailing);
+			List<Message> errors = [.. result.Phases.SelectMany(i => i.Messages).Errors()];
+			Assert.AreEqual(3, result.Declared.Count);
+			Assert.IsTrue(errors.Any(m => result.Declared[0].Claims(m) && m.Text.Contains("the first fails")), string.Join("\n", errors.Select(i => i.Text)));
+			Assert.IsTrue(errors.Any(m => result.Declared[1].Claims(m) && m.Text.Contains("the second fails too")), string.Join("\n", errors.Select(i => i.Text)));
+			Assert.IsFalse(errors.Any(result.Declared[2].Claims), string.Join("\n", errors.Select(i => i.Text)));
+			Assert.IsTrue(result.Declared.All(i => i.Ran), "a test that ran did not say so");
+		}
+
+		private const string NeverReached = @"
+#build bool t_math()
+{
+	#assert(1 + 1 == 2, ""arithmetic broke"");
+	return true;
+}
+
+#test t_math ""arithmetic holds""
+
+i32 main()
+{
+	return undefined_name;
+}
+";
+
+		//A test the build never reached has no message of its own, so only its not having run tells a runner it did not pass.
+		[TestMethod]
+		public void ATestTheBuildNeverReachedDidNotRun()
+		{
+			CompilerResult result = Harness.CompileTesting(NeverReached);
+			Assert.IsTrue(result.Phases.SelectMany(i => i.Messages).HasError(), "the program built");
+			Assert.AreEqual(1, result.Declared.Count);
+			Assert.IsFalse(result.Declared[0].Ran, "a test the build never reached said it ran");
 		}
 
 		//The happy path: tests run, pass, and the compile is clean.
