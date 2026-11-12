@@ -126,5 +126,5 @@ sinh cosh tanh exp log log2 log10 inf nan is_nan is_inf is_finite`; `popcount cl
 
 `#test Pid_SelfTest "PID loop"` names a `#build` function and its report line. `orion compile` runs a
 program's tests during the build and fails if one does (`--no-test` skips them); `orion test` runs every
-library's under the source root. None reaches the output. [Tests/](../Tests/) is the real
-specification.
+library's under the source root, each answering for itself whatever an earlier one did. None reaches the
+output. [Tests/](../Tests/) is the real specification.

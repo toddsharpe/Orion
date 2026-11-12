@@ -96,18 +96,23 @@ namespace Orion.Commands
 			//An error is matched to a test by the `#test` line its hoisted `#run` carries; what is left is a build error.
 			HashSet<Message> claimed = new HashSet<Message>();
 			int failed = 0;
+			int skipped = 0;
 
+			//A test with no message of its own passed only if it ran: one the build never reached has said nothing, which is not the same.
 			foreach (DeclaredTest test in result.Declared)
 			{
 				List<Message> mine = [.. errors.Where(test.Claims)];
 				claimed.UnionWith(mine);
 
-				Console.WriteLine($"{(mine.Count == 0 ? "ok  " : "FAIL")}  {test.Name}");
+				string mark = mine.Count > 0 ? "FAIL" : test.Ran ? "ok  " : "skip";
+				Console.WriteLine($"{mark}  {test.Name}");
 				foreach (Message message in mine)
 					Console.WriteLine($"        {Report.Where(message.Region, Path.GetFileName)}{message.Text}");
 
 				if (mine.Count > 0)
 					failed++;
+				else if (!test.Ran)
+					skipped++;
 			}
 
 			List<Message> build = [.. errors.Where(i => !claimed.Contains(i))];
@@ -120,10 +125,11 @@ namespace Orion.Commands
 			}
 
 			Console.WriteLine();
-			Console.WriteLine($"{result.Declared.Count - failed} passed, {failed} failed" +
+			Console.WriteLine($"{result.Declared.Count - failed - skipped} passed, {failed} failed" +
+				(skipped > 0 ? $", {skipped} not run" : string.Empty) +
 				(build.Count > 0 ? $", {Messages.Count(build.Count, "build error")}" : string.Empty));
 
-			return failed > 0 || build.Count > 0 ? 1 : 0;
+			return failed > 0 || skipped > 0 || build.Count > 0 ? 1 : 0;
 		}
 
 		//The phase banner and its messages; the state a phase produced is `compile -v`'s to show.

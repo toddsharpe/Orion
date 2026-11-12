@@ -56,7 +56,8 @@ dotnet ./Src/Orion/bin/Debug/net9.0/Orion.dll compile Demo/Apps/tour.src --lang 
 
 A build may file outputs with `Output::Write`, written beside the code; a `.dot` also becomes a PDF when
 Graphviz's `dot` is on `PATH` or named by `GRAPHVIZ_DOT`. `orion test --src-root Demo` sweeps a source
-root and runs every `#test` it finds as one program, printing `ok` or `FAIL` per test.
+root and runs every `#test` it finds as one program, printing `ok` or `FAIL` per test, or `skip` for
+one the build never reached.
 
 Building the output is the target's ordinary work:
 

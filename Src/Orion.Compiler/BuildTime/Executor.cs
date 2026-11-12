@@ -124,6 +124,16 @@ namespace Orion.BuildTime
 					}
 					break;
 
+					//A `#test`'s hoisted `#run`, lifted to a call of its own: it answers for itself, and the next test runs whatever it said, where any other build call that fails stops the function.
+					case CallTac call when call.IsBuild && Hoisted(call) is DeclaredTest test:
+					{
+						RunTest(test, ((SourceFunctionSymbol)call.Function).Info, function, current, messages);
+						LinkedListNode<Tac> after = current.Next;
+						function.Tacs.Remove(current);
+						current = after;
+					}
+					break;
+
 					case CallTac call when call.IsBuild:
 					{
 						MethodInfo func = call.Function switch
@@ -236,6 +246,27 @@ namespace Orion.BuildTime
 				}
 			}
 			return true;
+		}
+
+		//The test whose `#run` this call is: on a test run, the lifted region a `#test` line was hoisted as, which takes no arguments and stands at that line.
+		private static DeclaredTest Hoisted(CallTac call) =>
+			Compiler.Session.Testing && call.Function is SourceFunctionSymbol && call.Arguments.Count == 0 && call.Result == null
+				? Compiler.Session.Declared.FirstOrDefault(i => i.At(call.Region))
+				: null;
+
+		//One test's region on a message list of its own, merged after: tests share one program, and a build step that stops on an error must stop on this test's, never on one an earlier test failed with.
+		private static void RunTest(DeclaredTest test, MethodInfo method, SourceFunctionSymbol function, LinkedListNode<Tac> callsite, List<Message> messages)
+		{
+			List<Message> own = new List<Message>();
+			Env.Context = new Env.CallContext(function, callsite, own);
+			test.Ran = true;
+
+			//A stop is silent because its reason was reported; one with no reason here would read as passing.
+			if (!Invoke(method, own) && !own.HasError())
+				own.Add(new Message($"#test {test.Name} stopped before it finished, and nothing said why.", callsite.Value.Region, MessageType.Error) { Origin = callsite.Value.Region });
+
+			messages.AddRange(own);
+			Env.Context = new Env.CallContext(function, callsite, messages);
 		}
 
 		//The value behind a `#build` cell or a path rooted at one; reading the static lets a call outside any region take a cell an earlier region filled.

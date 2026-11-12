@@ -75,9 +75,15 @@ namespace Orion
 	//One `#test` the compile lowered: what to call it, what it calls, and the line that ties a failure back to it.
 	public sealed record DeclaredTest(string Name, string Entry, InputRegion Region)
 	{
+		//Set once its hoisted `#run` has run, passing or not: a test that never ran has nothing to fail with, and must not read as passing.
+		public bool Ran { get; set; }
+
 		//The message belongs to this test when it carries the `#test` line the hoisted `#run` was given, as its origin when it points elsewhere.
-		public bool Claims(Message message) =>
-			(message.Origin ?? message.Region) is InputRegion at && Region != null &&
+		public bool Claims(Message message) => At(message.Origin ?? message.Region);
+
+		//The `#test` line itself, which its hoisted `#run` and every report from it carry.
+		public bool At(InputRegion at) =>
+			at != null && Region != null &&
 			string.Equals(at.File, Region.File, StringComparison.OrdinalIgnoreCase) &&
 			at.Start.Line == Region.Start.Line;
 	}
