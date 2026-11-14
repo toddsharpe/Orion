@@ -1,0 +1,7 @@
+flag=true
+flag=false
+flag=true
+flag=true
+flag=false
+flag=true
+set=3
