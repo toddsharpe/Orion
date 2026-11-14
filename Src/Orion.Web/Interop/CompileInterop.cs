@@ -235,8 +235,19 @@ namespace Orion.Web.Interop
 			{
 				Severity = m.Type == MessageType.Error ? "Error" : "Info",
 				Message = m.Text,
+				File = ProjectPath(m.Region),
 				StartLine = sl, StartCol = sc, EndLine = el, EndCol = ec
 			};
+		}
+
+		//The message's file as the editor tabs name it, or null when it has no place in a project file.
+		private static string ProjectPath(InputRegion region)
+		{
+			if (region?.File == null || region.Start.Line == 0)
+				return null;
+
+			string full = Path.GetFullPath(Path.Combine(ProjDir, region.File));
+			return full.StartsWith(ProjDir + "/", StringComparison.Ordinal) ? full.Substring(ProjDir.Length + 1) : null;
 		}
 	}
 }

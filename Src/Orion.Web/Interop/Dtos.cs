@@ -66,6 +66,7 @@ namespace Orion.Web.Interop
 	{
 		public string Severity { get; set; }     // "Error" | "Info"; explorer.js reads anything but "Error" as Info
 		public string Message { get; set; }
+		public string File { get; set; }          // relative to the project root, as ProjectFile.Path; null for a message with no place
 		public int StartLine { get; set; }        // 0-based (LSP style); JS adds 1 for Monaco
 		public int StartCol { get; set; }
 		public int EndLine { get; set; }

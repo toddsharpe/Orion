@@ -53,8 +53,8 @@
 
 	// Documents pre-opened in the left pane, the first active: `name` is the MEMFS path under /proj (the Demo tree, so a #using resolves as on disk) and `url` the fetch location.
 	const INITIAL_TABS = [
-		{ name: 'Apps/rocket.src', url: 'samples/Apps/rocket.src' },
-		{ name: 'Apps/tour.src', url: 'samples/Apps/tour.src' }
+		{ name: 'Apps/tour.src', url: 'samples/Apps/tour.src' },
+		{ name: 'Apps/rocket.src', url: 'samples/Apps/rocket.src' }
 	];
 
 	// --- Module-level state ---
@@ -429,6 +429,32 @@
 		monaco.editor.setModelMarkers(mainModel, MARKER_OWNER, markers);
 	}
 
+	// A failed build's errors follow what it printed before failing, `file(line,col): text` as the CLI writes them, and a located one opens where it points.
+	function renderBuildOutput(text, messages) {
+		const el = document.getElementById('build-output');
+		if (!el) return;
+		el.textContent = text || '';
+
+		const errors = Array.isArray(messages) ? messages.filter((m) => m.severity === 'Error') : [];
+		if (errors.length > 0 && el.textContent && !el.textContent.endsWith('\n')) el.append('\n');
+
+		errors.forEach((m) => {
+			const line = document.createElement(m.file ? 'a' : 'span');
+			line.className = 'build-error';
+			line.textContent = (m.file ? `${m.file}(${m.startLine + 1},${m.startCol + 1}): ` : '') + m.message;
+			if (m.file) {
+				line.href = '#';
+				line.title = 'Go to ' + m.file;
+				line.addEventListener('click', (e) => {
+					e.preventDefault();
+					if (narrow()) showPane('edit');
+					gotoLocation({ path: m.file, startLine: m.startLine, startCol: m.startCol, endLine: m.endLine, endCol: m.endCol });
+				});
+			}
+			el.append(line, '\n');
+		});
+	}
+
 	// --- Compile flow. Always compiles the SELECTED document. ---
 
 	async function runCompile() {
@@ -481,8 +507,7 @@
 			if (narrow()) showPane('out');
 
 			// Build-time program output goes to the always-visible bottom pane, while the OnRecord pipeline trace stays in the Pipeline tab.
-			const buildOut = document.getElementById('build-output');
-			if (buildOut) buildOut.textContent = result.buildOutput || '';
+			renderBuildOutput(result.buildOutput, result.messages);
 			const outputText = document.getElementById('output-text');
 			if (outputText) outputText.textContent = result.log || '';
 			renderPhaseBar(result.phases);
@@ -498,7 +523,9 @@
 			const analysisTab = document.querySelector('.tab[data-tab="analysis"]');
 			if (analysisTab && analysisTab.classList.contains('active')) renderAnalysis();
 
-			setMarkers(toMarkers(result.messages));
+			// An error in a #using'd file belongs to that file's lines, not the active document's.
+			const entry = entryName();
+			setMarkers(toMarkers((result.messages || []).filter((m) => !m.file || m.file === entry)));
 
 			// Only JavaScript runs in-browser, so the Run tab stays visible for discoverability but is enabled only after a successful JS compile.
 			const runTab = document.querySelector('.tab[data-tab="run"]');

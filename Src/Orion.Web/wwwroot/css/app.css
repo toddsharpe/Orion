@@ -9,6 +9,7 @@
 	--fg: #d4d4d4;
 	--fg-dim: #9a9a9a;
 	--accent: #4ec9b0;
+	--error: #f48771;
 	--accent-btn: #0e639c;
 	--accent-btn-hover: #1177bb;
 	--toolbar-h: 44px;
@@ -255,6 +256,9 @@ body.resizing-v { cursor: row-resize; user-select: none; }
 	word-break: break-word;
 	color: var(--fg);
 }
+
+.build-error { color: var(--error); text-decoration: none; }
+a.build-error:hover, a.build-error:focus-visible { text-decoration: underline; }
 
 /* ---- Tabs ---- */
 .tabbar {
@@ -671,5 +675,6 @@ body.resizing-v { cursor: row-resize; user-select: none; }
 		--fg: #1e1e1e;
 		--fg-dim: #6a6a6a;
 		--accent: #267f6f;
+		--error: #e51400;
 	}
 }
