@@ -14,7 +14,8 @@ Editor support for Orion `.src` files:
   build-time execution, so `#run` and `#build` code never runs on a keystroke; errors that only the
   build can find, such as solver wiring or a failed `#assert`, appear when you compile.
 - **Semantic tokens.** What a regex grammar cannot tell: a parameter from a local, and a `const` as
-  read-only, classified from the bound symbol table.
+  read-only, classified from the bound symbol table; and a struct, enum or typedef wherever a type is
+  written, from what the document and its `#using`s declare.
 - **Hover.** The most specific bound expression under the cursor and its type: `parameter a: i32`,
   `local sum: i32`, or a call's `fn -> ReturnType`.
 - **Go to definition** (F12). A `#using` opens the file it names; an identifier jumps to its
@@ -72,8 +73,8 @@ The `.vsix` holds `out/extension.js`, bundled with its dependencies, and `server
 
 - The block form `#insert { ... }` needs balanced braces, which a TextMate grammar cannot count; its
   `${...}` holes highlight, and the rest falls back to ordinary tokens.
-- Highlighting knows the builtin types and `Type[]`; a user struct's name in a declaration stays a
-  plain identifier, and the semantic tokens classify variables, not types.
+- The grammar knows the builtin types and `Type[]`, and the semantic tokens color a user type where
+  it is used; the name a `struct`, `enum` or `typedef` declares stays a plain identifier.
 - Keywords and types are matched by spelling. A name after `.` is never one, so `s.time` stays plain,
   but a field declared with a type's name, `TimeSample time;`, colours as the type.
 - The playground's Monarch grammar is a hand-port of this one, so a change here is mirrored there.

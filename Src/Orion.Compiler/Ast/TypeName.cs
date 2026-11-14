@@ -80,6 +80,17 @@ namespace Orion.Ast
 			return type;
 		}
 
+		//Each name the source writes in this type, with where: `List<Block>` is List then Block, `Foo[8]` is Foo, `f64<m>` is f64; a hole writes none.
+		public IEnumerable<(string Name, InputRegion Region)> Names()
+		{
+			string written = Hole != null ? null : GenericType ?? ElementType ?? MeasureBase ?? Name;
+			if (Region != null && written != null)
+				yield return (written, Region);
+			foreach (TypeName argument in Generics ?? [])
+				foreach ((string Name, InputRegion Region) inner in argument.Names())
+					yield return inner;
+		}
+
 		//The extents as written: the name where one was named, the literal otherwise.
 		internal IEnumerable<string> Written() =>
 			Dimensions.Select((d, i) => Extents?[i] ?? d.ToString());

@@ -35,9 +35,9 @@
 	const COMPILE_LABEL = 'Compile ▶';
 	const COMPILING_LABEL = 'Compiling…';
 
-	// Semantic-tokens legend, which MUST match LangInterop.BuildTokens (type 0 = parameter, 1 = variable, modifier bit 0 = readonly); Monaco fixes it at registration, so it cannot come from an async Analyze.
+	// Semantic-tokens legend, which MUST match LangInterop.BuildTokens (type 0 = parameter, 1 = variable, 2 = a declared type, modifier bit 0 = readonly); Monaco fixes it at registration, so it cannot come from an async Analyze.
 	const ORION_LEGEND = {
-		tokenTypes: ['parameter', 'variable'],
+		tokenTypes: ['parameter', 'variable', 'type'],
 		tokenModifiers: ['readonly']
 	};
 

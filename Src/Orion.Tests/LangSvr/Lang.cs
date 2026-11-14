@@ -41,7 +41,7 @@ namespace Orion.Tests.LangSvr
 		public static SemToken? TokenAt(string src, string needle, int occurrence = 0)
 		{
 			(int line, int col) = Pos(src, needle, occurrence);
-			foreach (SemToken t in OrionSemanticTokens.Collect(Analyze(src).Ast))
+			foreach (SemToken t in OrionSemanticTokens.Collect(Analyze(src)))
 				if (t.Line == line && t.Char == col)
 					return t;
 			return null;

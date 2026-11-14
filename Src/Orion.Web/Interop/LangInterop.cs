@@ -115,7 +115,7 @@ namespace Orion.Web.Interop
 			};
 		}
 
-		private static readonly List<string> LegendTypes = new List<string> { "parameter", "variable" };
+		private static readonly List<string> LegendTypes = new List<string> { "parameter", "variable", "type" };
 		private static readonly List<string> LegendModifiers = new List<string> { "readonly" };
 
 		private static TokensDto BuildTokens(Analysis analysis)
@@ -125,10 +125,10 @@ namespace Orion.Web.Interop
 			{
 				int prevLine = 0;
 				int prevChar = 0;
-				foreach (SemToken t in OrionSemanticTokens.Collect(analysis.Ast))
+				foreach (SemToken t in OrionSemanticTokens.Collect(analysis))
 				{
-					//Monaco indexes the legend lists above: 0/1 for the types, bit 0 for readonly.
-					int typeIdx = t.Type == SemanticTokenType.Parameter ? 0 : 1;
+					//Monaco indexes the legend lists above: 0 parameter, 1 variable, 2 a struct, enum or typedef, which the theme's `type` rule colors; bit 0 for readonly.
+					int typeIdx = t.Type == SemanticTokenType.Parameter ? 0 : t.Type == SemanticTokenType.Variable ? 1 : 2;
 					int mods = t.Modifiers.Contains(SemanticTokenModifier.Readonly) ? 1 : 0;
 
 					int deltaLine = t.Line - prevLine;

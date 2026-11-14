@@ -34,7 +34,7 @@ namespace Orion.LangSvr
 			Analysis analysis = _workspace.AnalyzeCurrent(identifier.TextDocument.Uri.ToString());
 			if (analysis.Ast != null)
 			{
-				foreach (SemToken t in OrionSemanticTokens.Collect(analysis.Ast))
+				foreach (SemToken t in OrionSemanticTokens.Collect(analysis))
 					builder.Push(t.Line, t.Char, t.Length, t.Type, t.Modifiers);
 			}
 			return Task.CompletedTask;
