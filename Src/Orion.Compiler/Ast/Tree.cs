@@ -99,6 +99,40 @@ namespace Orion.Ast
 		//SwitchCase is not a Node, so its label and body are flattened into the Switch arm.
 		private static IEnumerable<Node> CaseChildren(SwitchCase c) => Of(c.Value).Concat(Many(c.Body));
 
+		//The types a node writes itself, not its children's; a type the compiler made rather than parsed has no region.
+		public static IEnumerable<TypeName> TypeNames(this Node node)
+		{
+			IEnumerable<TypeName> written = node switch
+			{
+				//Expressions, sugar and literals among them.
+				Cast x => [x.TypeName],
+				Call x => x.GenericArgs,
+				ArrayExpr x => [x.TypeName],
+				StructExpr x => [x.TypeName],
+				Func x => [x.ReturnType],
+				RunExpr x => [x.ResultType],
+				MapLiteral x => [x.TypeName],
+				Comprehension x => [x.ElementType, x.ResultType],
+				Literal x => [x.TypeName],
+
+				//Statements and initializers.
+				ConstDef x => [x.TypeName],
+				Construct x => [x.TypeName],
+
+				//File blocks and parameters.
+				Function x => [x.ReturnType],
+				Extern x => [x.ReturnType],
+				//The initializer is no child, since binding folds it, so the const answers for the types it writes.
+				Const x => [x.TypeName, .. x.Initializer?.DescendantsAndSelf().SelectMany(TypeNames) ?? []],
+				TypeDef x => [x.TypeName],
+				Struct x => x.Fields.Select(f => f.TypeName),
+				Parameter x => [x.TypeName],
+
+				_ => []
+			};
+			return written.Where(t => t != null);
+		}
+
 		//Rewrite is bottom-up: children before the node.
 		public static Node Rewrite(this Node node, Func<Node, Node> f)
 		{

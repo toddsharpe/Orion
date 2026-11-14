@@ -28,6 +28,8 @@ namespace Orion.LangSvr
 		public TranslationUnit Ast { get; init; }
 		public string Text { get; init; }
 		public IReadOnlyList<Function> Templates { get; init; }
+		//Every type name the document writes, with where, taken as parsed: the pre-passes rename a generic one to its instance and move templates out of the tree.
+		public IReadOnlyList<(string Name, InputRegion Region)> WrittenTypes { get; init; } = Array.Empty<(string, InputRegion)>();
 	}
 
 	// Runs the frontend on open documents for diagnostics + a bound AST, stopping before #run; one ambient session, so serialized under a lock and cached per (uri, text).
@@ -105,6 +107,8 @@ namespace Orion.LangSvr
 					}
 
 					TranslationUnit tu = TranslationUnit.Create(((ParserResult.Success)parse).Item1);
+					//Before the #if folding too, so a type in either arm is colored.
+					List<(string Name, InputRegion Region)> written = [.. tu.DescendantsAndSelf().SelectMany(n => n.TypeNames()).SelectMany(t => t.Names())];
 
 					List<Message> messages = new List<Message>();
 					tu.Blocks = Conditionals.FoldBlocks(tu.Blocks, Compiler.Session, messages);
@@ -134,7 +138,7 @@ namespace Orion.LangSvr
 					Binding.BindAst(tu, root, Compiler.Session, messages);
 					diags.AddRange(messages.Errors().Select(FromMessage));
 					List<Function> templates = Compiler.Session.Templates.Values.ToList();
-					return new Analysis { Diagnostics = diags, Ast = tu, Text = text, Templates = templates, Path = path, Documents = documents };
+					return new Analysis { Diagnostics = diags, Ast = tu, Text = text, Templates = templates, Path = path, Documents = documents, WrittenTypes = written };
 				}
 				catch (Exception ex)
 				{
