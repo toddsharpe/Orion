@@ -70,6 +70,7 @@ namespace Orion.Frontend.Binder
 				PrimitiveTypeSymbol { Code: TypeCode.f32 } => array.Select(i => (float)Real(i)).ToArray(),
 				PrimitiveTypeSymbol { Code: TypeCode.f64 } => array.Select(Real).ToArray(),
 
+				PrimitiveTypeSymbol { Code: TypeCode.@bool } => array.Select(i => (bool)i.Boxed).ToArray(),
 				PrimitiveTypeSymbol { Code: TypeCode.str } => array.Select(i => (string)i.Boxed).ToArray(),
 				StructTypeSymbol s => StructElements(ctx, array, s),
 				_ => throw new NotImplementedException()

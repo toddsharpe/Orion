@@ -1,0 +1,40 @@
+//A bool array written as a literal: returned from a function, folded at build time, and as a build-time constant.
+bool[3] make_flags()
+{
+	return [true, false, true]:bool;
+}
+
+void print_flags(ConstSpan<bool> flags)
+{
+	for (i32 i = 0; i < flags.Length; i++)
+	{
+		WriteLine($"flag={flags[i]}");
+	}
+}
+
+#build i32 count_set()
+{
+	const bool[] table = [false, true, true, false, true]:bool;
+	i32 set = 0;
+	for (i32 i = 0; i < table.Length; i++)
+	{
+		if (table[i])
+		{
+			set++;
+		}
+	}
+	return set;
+}
+
+i32 main()
+{
+	bool[3] local = make_flags();
+	print_flags(local);
+
+	bool[] built = #run make_flags();
+	print_flags(built);
+
+	const i32 set = #run count_set();
+	WriteLine($"set={set}");
+	return 0;
+}
