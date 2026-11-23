@@ -1,0 +1,80 @@
+const i32 OP_PUSH = 0;
+const i32 OP_ADD = 1;
+const i32 OP_MUL = 2;
+const i32 STACK_SIZE = 8;
+const i32 THRESHOLD = 100;
+const str GREETING = "value";
+const bool VERBOSE = true;
+
+// A constant may hold any literal, not just a scalar: a struct value makes a reusable named marker.
+struct Limit { str name; i32 max; }
+const Limit NONE = Limit{ name = "", max = 0 };
+const Limit CEILING = Limit{ name = "ceiling", max = 500 };
+
+#build str describe()
+{
+	Limit a = NONE;
+	Limit b = CEILING;
+	return "none=[" + a.name + "/" + to_str(a.max) + "] ceiling=[" + b.name + "/" + to_str(b.max) + "]";
+}
+
+i32 run_vm(ConstSpan<i32> code, ConstSpan<i32> arg)
+{
+	i32[] stack = [0, 0, 0, 0, 0, 0, 0, 0]:i32;
+	i32 sp = 0;
+	for (i32 i = 0; i < code.Length; i++)
+	{
+		i32 op = code[i];
+		if (op == OP_PUSH)
+		{
+			stack[sp] = arg[i];
+			sp += 1;
+		}
+		else
+		{
+			i32 b = stack[sp - 1];
+			i32 a = stack[sp - 2];
+			sp -= 2;
+			i32 r = 0;
+			if (op == OP_ADD)
+			{
+				r = a + b;
+			}
+			if (op == OP_MUL)
+			{
+				r = a * b;
+			}
+			stack[sp] = r;
+			sp += 1;
+		}
+	}
+	return stack[0];
+}
+
+bool over_threshold(i32 x)
+{
+	return x > THRESHOLD;
+}
+
+void test()
+{
+	WriteLine("stack size const = " + to_str(STACK_SIZE));
+	i32[] code = [OP_PUSH, OP_PUSH, OP_ADD, OP_PUSH, OP_MUL]:i32;
+	i32[] arg = [2, 3, 0, 4, 0]:i32;
+	i32 result = run_vm(code, arg);
+	WriteLine(GREETING + " = " + to_str(result));
+	WriteLine("over threshold? " + to_str(over_threshold(result)));
+	WriteLine("over threshold(250)? " + to_str(over_threshold(250)));
+	if (VERBOSE)
+	{
+		WriteLine("verbose is on");
+	}
+	WriteLine(#run describe());
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

@@ -1,0 +1,9 @@
+// A view of a const buffer is where const would be lost: `Span<T>` may not be made of one.
+i32 main()
+{
+	const i32[4] a = [1, 2, 3, 4]:i32;
+	Span<i32> v = a;
+	v[0] = 7;
+	WriteLine(to_str(a[0]));
+	return 0;
+}

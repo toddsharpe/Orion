@@ -1,0 +1,5 @@
+view = 10
+direct = 10
+part = 5
+aliased = 9
+handle = 5

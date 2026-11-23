@@ -1,0 +1,13 @@
+// A build function returns `List<T>` or `T[N]`; `Span<T>` views storage build time does not keep.
+#build Span<i32> make()
+{
+	List<i32> xs = List::New<i32>();
+	xs.Add(1);
+	return xs.ToArray();
+}
+
+i32 main()
+{
+	i32[] v = #run make();
+	return v[0];
+}

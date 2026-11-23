@@ -1,0 +1,1000 @@
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 99.595
+plant_vel = -0.81
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 98.785
+plant_vel = -1.62
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 97.57
+plant_vel = -2.43
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 95.95
+plant_vel = -3.24
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 93.925
+plant_vel = -4.05
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 91.495
+plant_vel = -4.86
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 88.66
+plant_vel = -5.67
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 85.42
+plant_vel = -6.48
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 81.775
+plant_vel = -7.29
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 77.725
+plant_vel = -8.1
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 73.27
+plant_vel = -8.91
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 68.41
+plant_vel = -9.72
+guid_out = -20.0
+ctrl_out = 0.0
+state=Descent gear=0 beacon=0 safed=0
+plant_alt = 63.145
+plant_vel = -10.53
+guid_out = -20.0
+ctrl_out = 0.0
+state=Approach gear=0 beacon=1 safed=0
+plant_alt = 57.475
+plant_vel = -11.34
+guid_out = -6.0
+ctrl_out = 5.0
+state=Approach gear=0 beacon=1 safed=0
+plant_alt = 52.65
+plant_vel = -9.65
+guid_out = -6.0
+ctrl_out = 3.6515
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 48.3329
+plant_vel = -8.63425
+guid_out = -6.0
+ctrl_out = 3.10546
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 44.3871
+plant_vel = -7.89152
+guid_out = -6.0
+ctrl_out = 2.66046
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 40.7015
+plant_vel = -7.37129
+guid_out = -6.0
+ctrl_out = 2.35734
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 37.2002
+plant_vel = -7.00262
+guid_out = -6.0
+ctrl_out = 2.14285
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 33.8296
+plant_vel = -6.7412
+guid_out = -6.0
+ctrl_out = 1.99222
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 30.552
+plant_vel = -6.55509
+guid_out = -6.0
+ctrl_out = 1.88615
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 27.341
+plant_vel = -6.42201
+guid_out = -6.0
+ctrl_out = 1.8114
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 24.1779
+plant_vel = -6.32632
+guid_out = -6.0
+ctrl_out = 1.75863
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 21.0494
+plant_vel = -6.257
+guid_out = -6.0
+ctrl_out = 1.7213
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 17.9462
+plant_vel = -6.20635
+guid_out = -6.0
+ctrl_out = 1.69483
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 14.8617
+plant_vel = -6.16893
+guid_out = -2.0
+ctrl_out = 5.0
+state=Approach gear=1 beacon=1 safed=0
+plant_alt = 12.6222
+plant_vel = -4.47893
+guid_out = -2.0
+ctrl_out = 3.51742
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 10.8571
+plant_vel = -3.53022
+guid_out = -2.0
+ctrl_out = 2.98322
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 9.43282
+plant_vel = -2.84861
+guid_out = -2.0
+ctrl_out = 2.53378
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 8.23696
+plant_vel = -2.39172
+guid_out = -2.0
+ctrl_out = 2.2328
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 7.1943
+plant_vel = -2.08532
+guid_out = -2.0
+ctrl_out = 2.02204
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 6.25216
+plant_vel = -1.8843
+guid_out = -2.0
+ctrl_out = 1.87652
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 5.37414
+plant_vel = -1.75604
+guid_out = -2.0
+ctrl_out = 1.77626
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 4.53518
+plant_vel = -1.67791
+guid_out = -2.0
+ctrl_out = 1.70768
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 3.71815
+plant_vel = -1.63407
+guid_out = -2.0
+ctrl_out = 1.66117
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 2.91141
+plant_vel = -1.61348
+guid_out = -2.0
+ctrl_out = 1.63003
+state=Flare gear=1 beacon=1 safed=0
+plant_alt = 2.10718
+plant_vel = -1.60847
+guid_out = -2.0
+ctrl_out = 1.60955
+state=Landed gear=1 beacon=0 safed=0
+plant_alt = 1.30033
+plant_vel = -1.61369
+guid_out = -2.0
+ctrl_out = 1.59646
+state=Landed gear=1 beacon=0 safed=0
+plant_alt = 0.487603
+plant_vel = -1.62546
+guid_out = 0.0
+ctrl_out = 3.68846
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.191988
+plant_vel = -0.591229
+guid_out = 0.0
+ctrl_out = 2.28144
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.0617336
+plant_vel = -0.26051
+guid_out = 0.0
+ctrl_out = 2.17059
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.0691265
+plant_vel = 0.0147857
+guid_out = 0.0
+ctrl_out = 1.9607
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.161694
+plant_vel = 0.185136
+guid_out = 0.0
+ctrl_out = 1.83615
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.3083
+plant_vel = 0.293212
+guid_out = 0.0
+ctrl_out = 1.74749
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.486777
+plant_vel = 0.356954
+guid_out = 0.0
+ctrl_out = 1.68751
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.682132
+plant_vel = 0.390709
+guid_out = 0.0
+ctrl_out = 1.64697
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 0.884229
+plant_vel = 0.404194
+guid_out = 0.0
+ctrl_out = 1.62003
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 1.08633
+plant_vel = 0.404206
+guid_out = 0.0
+ctrl_out = 1.6025
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 1.28406
+plant_vel = 0.395456
+guid_out = 0.0
+ctrl_out = 1.59148
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 1.47466
+plant_vel = 0.381196
+guid_out = 0.0
+ctrl_out = 1.58493
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 1.65649
+plant_vel = 0.363661
+guid_out = 0.0
+ctrl_out = 1.58143
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 1.82868
+plant_vel = 0.344375
+guid_out = 0.0
+ctrl_out = 1.57999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 1.99086
+plant_vel = 0.32437
+guid_out = 0.0
+ctrl_out = 1.57992
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.14303
+plant_vel = 0.304329
+guid_out = 0.0
+ctrl_out = 1.58074
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.28538
+plant_vel = 0.2847
+guid_out = 0.0
+ctrl_out = 1.58213
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.41826
+plant_vel = 0.265764
+guid_out = 0.0
+ctrl_out = 1.58385
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.5421
+plant_vel = 0.247689
+guid_out = 0.0
+ctrl_out = 1.58575
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.65739
+plant_vel = 0.230566
+guid_out = 0.0
+ctrl_out = 1.58773
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.7646
+plant_vel = 0.214433
+guid_out = 0.0
+ctrl_out = 1.58972
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.86425
+plant_vel = 0.199293
+guid_out = 0.0
+ctrl_out = 1.59167
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 2.95681
+plant_vel = 0.185127
+guid_out = 0.0
+ctrl_out = 1.59355
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.04276
+plant_vel = 0.171902
+guid_out = 0.0
+ctrl_out = 1.59535
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.12255
+plant_vel = 0.159576
+guid_out = 0.0
+ctrl_out = 1.59705
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.1966
+plant_vel = 0.148101
+guid_out = 0.0
+ctrl_out = 1.59865
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.26532
+plant_vel = 0.137428
+guid_out = 0.0
+ctrl_out = 1.60016
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.32907
+plant_vel = 0.127508
+guid_out = 0.0
+ctrl_out = 1.60157
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.38822
+plant_vel = 0.118293
+guid_out = 0.0
+ctrl_out = 1.60289
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.44308
+plant_vel = 0.109737
+guid_out = 0.0
+ctrl_out = 1.60411
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.49398
+plant_vel = 0.101793
+guid_out = 0.0
+ctrl_out = 1.60526
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.54119
+plant_vel = 0.0944214
+guid_out = 0.0
+ctrl_out = 1.60632
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.58498
+plant_vel = 0.0875805
+guid_out = 0.0
+ctrl_out = 1.60731
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.6256
+plant_vel = 0.0812333
+guid_out = 0.0
+ctrl_out = 1.60822
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.66327
+plant_vel = 0.0753448
+guid_out = 0.0
+ctrl_out = 1.60907
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.69821
+plant_vel = 0.0698822
+guid_out = 0.0
+ctrl_out = 1.60987
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.73062
+plant_vel = 0.064815
+guid_out = 0.0
+ctrl_out = 1.6106
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.76068
+plant_vel = 0.0601147
+guid_out = 0.0
+ctrl_out = 1.61128
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.78855
+plant_vel = 0.055755
+guid_out = 0.0
+ctrl_out = 1.61191
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.81441
+plant_vel = 0.0517113
+guid_out = 0.0
+ctrl_out = 1.6125
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.83839
+plant_vel = 0.0479606
+guid_out = 0.0
+ctrl_out = 1.61304
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.86063
+plant_vel = 0.0444819
+guid_out = 0.0
+ctrl_out = 1.61355
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.88126
+plant_vel = 0.0412555
+guid_out = 0.0
+ctrl_out = 1.61402
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.90039
+plant_vel = 0.038263
+guid_out = 0.0
+ctrl_out = 1.61445
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.91813
+plant_vel = 0.0354875
+guid_out = 0.0
+ctrl_out = 1.61485
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.93459
+plant_vel = 0.0329133
+guid_out = 0.0
+ctrl_out = 1.61523
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.94985
+plant_vel = 0.0305259
+guid_out = 0.0
+ctrl_out = 1.61557
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.96401
+plant_vel = 0.0283116
+guid_out = 0.0
+ctrl_out = 1.61589
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.97714
+plant_vel = 0.0262579
+guid_out = 0.0
+ctrl_out = 1.61619
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 3.98932
+plant_vel = 0.0243532
+guid_out = 0.0
+ctrl_out = 1.61647
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.00061
+plant_vel = 0.0225866
+guid_out = 0.0
+ctrl_out = 1.61672
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.01108
+plant_vel = 0.0209482
+guid_out = 0.0
+ctrl_out = 1.61696
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.0208
+plant_vel = 0.0194286
+guid_out = 0.0
+ctrl_out = 1.61718
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.02981
+plant_vel = 0.0180193
+guid_out = 0.0
+ctrl_out = 1.61739
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.03816
+plant_vel = 0.0167122
+guid_out = 0.0
+ctrl_out = 1.61758
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.04591
+plant_vel = 0.0154999
+guid_out = 0.0
+ctrl_out = 1.61775
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.0531
+plant_vel = 0.0143755
+guid_out = 0.0
+ctrl_out = 1.61791
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.05977
+plant_vel = 0.0133327
+guid_out = 0.0
+ctrl_out = 1.61807
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.06595
+plant_vel = 0.0123656
+guid_out = 0.0
+ctrl_out = 1.61821
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.07168
+plant_vel = 0.0114686
+guid_out = 0.0
+ctrl_out = 1.61834
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.077
+plant_vel = 0.0106367
+guid_out = 0.0
+ctrl_out = 1.61846
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.08193
+plant_vel = 0.00986508
+guid_out = 0.0
+ctrl_out = 1.61857
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.08651
+plant_vel = 0.00914947
+guid_out = 0.0
+ctrl_out = 1.61867
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.09075
+plant_vel = 0.00848578
+guid_out = 0.0
+ctrl_out = 1.61877
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.09469
+plant_vel = 0.00787022
+guid_out = 0.0
+ctrl_out = 1.61886
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.09834
+plant_vel = 0.00729932
+guid_out = 0.0
+ctrl_out = 1.61894
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.10172
+plant_vel = 0.00676983
+guid_out = 0.0
+ctrl_out = 1.61902
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.10486
+plant_vel = 0.00627875
+guid_out = 0.0
+ctrl_out = 1.61909
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.10777
+plant_vel = 0.00582329
+guid_out = 0.0
+ctrl_out = 1.61916
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.11047
+plant_vel = 0.00540087
+guid_out = 0.0
+ctrl_out = 1.61922
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.11298
+plant_vel = 0.00500909
+guid_out = 0.0
+ctrl_out = 1.61927
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1153
+plant_vel = 0.00464573
+guid_out = 0.0
+ctrl_out = 1.61933
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.11746
+plant_vel = 0.00430873
+guid_out = 0.0
+ctrl_out = 1.61937
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.11945
+plant_vel = 0.00399618
+guid_out = 0.0
+ctrl_out = 1.61942
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.12131
+plant_vel = 0.0037063
+guid_out = 0.0
+ctrl_out = 1.61946
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.12303
+plant_vel = 0.00343744
+guid_out = 0.0
+ctrl_out = 1.6195
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.12462
+plant_vel = 0.00318809
+guid_out = 0.0
+ctrl_out = 1.61954
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1261
+plant_vel = 0.00295683
+guid_out = 0.0
+ctrl_out = 1.61957
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.12747
+plant_vel = 0.00274234
+guid_out = 0.0
+ctrl_out = 1.6196
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.12874
+plant_vel = 0.00254341
+guid_out = 0.0
+ctrl_out = 1.61963
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.12992
+plant_vel = 0.00235892
+guid_out = 0.0
+ctrl_out = 1.61966
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13101
+plant_vel = 0.0021878
+guid_out = 0.0
+ctrl_out = 1.61968
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13203
+plant_vel = 0.0020291
+guid_out = 0.0
+ctrl_out = 1.61971
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13297
+plant_vel = 0.00188191
+guid_out = 0.0
+ctrl_out = 1.61973
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13384
+plant_vel = 0.00174539
+guid_out = 0.0
+ctrl_out = 1.61975
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13465
+plant_vel = 0.00161878
+guid_out = 0.0
+ctrl_out = 1.61977
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1354
+plant_vel = 0.00150136
+guid_out = 0.0
+ctrl_out = 1.61978
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1361
+plant_vel = 0.00139245
+guid_out = 0.0
+ctrl_out = 1.6198
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13674
+plant_vel = 0.00129144
+guid_out = 0.0
+ctrl_out = 1.61981
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13734
+plant_vel = 0.00119776
+guid_out = 0.0
+ctrl_out = 1.61983
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1379
+plant_vel = 0.00111088
+guid_out = 0.0
+ctrl_out = 1.61984
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13841
+plant_vel = 0.00103029
+guid_out = 0.0
+ctrl_out = 1.61985
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13889
+plant_vel = 0.000955557
+guid_out = 0.0
+ctrl_out = 1.61986
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13933
+plant_vel = 0.000886241
+guid_out = 0.0
+ctrl_out = 1.61987
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.13975
+plant_vel = 0.000821953
+guid_out = 0.0
+ctrl_out = 1.61988
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14013
+plant_vel = 0.000762329
+guid_out = 0.0
+ctrl_out = 1.61989
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14048
+plant_vel = 0.00070703
+guid_out = 0.0
+ctrl_out = 1.6199
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14081
+plant_vel = 0.000655742
+guid_out = 0.0
+ctrl_out = 1.6199
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14111
+plant_vel = 0.000608175
+guid_out = 0.0
+ctrl_out = 1.61991
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14139
+plant_vel = 0.000564058
+guid_out = 0.0
+ctrl_out = 1.61992
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14166
+plant_vel = 0.000523142
+guid_out = 0.0
+ctrl_out = 1.61992
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1419
+plant_vel = 0.000485193
+guid_out = 0.0
+ctrl_out = 1.61993
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14212
+plant_vel = 0.000449997
+guid_out = 0.0
+ctrl_out = 1.61993
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14233
+plant_vel = 0.000417355
+guid_out = 0.0
+ctrl_out = 1.61994
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14253
+plant_vel = 0.00038708
+guid_out = 0.0
+ctrl_out = 1.61994
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1427
+plant_vel = 0.000359001
+guid_out = 0.0
+ctrl_out = 1.61995
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14287
+plant_vel = 0.000332959
+guid_out = 0.0
+ctrl_out = 1.61995
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14303
+plant_vel = 0.000308807
+guid_out = 0.0
+ctrl_out = 1.61996
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14317
+plant_vel = 0.000286406
+guid_out = 0.0
+ctrl_out = 1.61996
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1433
+plant_vel = 0.00026563
+guid_out = 0.0
+ctrl_out = 1.61996
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14343
+plant_vel = 0.000246361
+guid_out = 0.0
+ctrl_out = 1.61996
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14354
+plant_vel = 0.00022849
+guid_out = 0.0
+ctrl_out = 1.61997
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14365
+plant_vel = 0.000211916
+guid_out = 0.0
+ctrl_out = 1.61997
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14374
+plant_vel = 0.000196543
+guid_out = 0.0
+ctrl_out = 1.61997
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14383
+plant_vel = 0.000182286
+guid_out = 0.0
+ctrl_out = 1.61997
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14392
+plant_vel = 0.000169063
+guid_out = 0.0
+ctrl_out = 1.61998
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.144
+plant_vel = 0.0001568
+guid_out = 0.0
+ctrl_out = 1.61998
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14407
+plant_vel = 0.000145425
+guid_out = 0.0
+ctrl_out = 1.61998
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14414
+plant_vel = 0.000134876
+guid_out = 0.0
+ctrl_out = 1.61998
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1442
+plant_vel = 0.000125092
+guid_out = 0.0
+ctrl_out = 1.61998
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14426
+plant_vel = 0.000116018
+guid_out = 0.0
+ctrl_out = 1.61998
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14431
+plant_vel = 0.000107602
+guid_out = 0.0
+ctrl_out = 1.61998
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14436
+plant_vel = 9.97968e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14441
+plant_vel = 9.25576e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14445
+plant_vel = 8.58435e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14449
+plant_vel = 7.96164e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14453
+plant_vel = 7.38411e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14456
+plant_vel = 6.84847e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14459
+plant_vel = 6.35168e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14462
+plant_vel = 5.89093e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14465
+plant_vel = 5.46361e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14468
+plant_vel = 5.06728e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1447
+plant_vel = 4.6997e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14472
+plant_vel = 4.35879e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14474
+plant_vel = 4.0426e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14476
+plant_vel = 3.74935e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14478
+plant_vel = 3.47738e-05
+guid_out = 0.0
+ctrl_out = 1.61999
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14479
+plant_vel = 3.22513e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14481
+plant_vel = 2.99118e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14482
+plant_vel = 2.7742e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14484
+plant_vel = 2.57296e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14485
+plant_vel = 2.38632e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14486
+plant_vel = 2.21321e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14487
+plant_vel = 2.05267e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14488
+plant_vel = 1.90377e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14489
+plant_vel = 1.76567e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1449
+plant_vel = 1.63759e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.1449
+plant_vel = 1.5188e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14491
+plant_vel = 1.40863e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14492
+plant_vel = 1.30644e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14492
+plant_vel = 1.21168e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14493
+plant_vel = 1.12378e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14493
+plant_vel = 1.04226e-05
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14494
+plant_vel = 9.66657e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14494
+plant_vel = 8.96536e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14495
+plant_vel = 8.31501e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14495
+plant_vel = 7.71185e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14495
+plant_vel = 7.15243e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14496
+plant_vel = 6.6336e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14496
+plant_vel = 6.1524e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14496
+plant_vel = 5.7061e-06
+guid_out = 0.0
+ctrl_out = 1.62
+state=Safed gear=1 beacon=0 safed=1
+plant_alt = 4.14497
+plant_vel = 5.29219e-06
+guid_out = 0.0
+ctrl_out = 1.62

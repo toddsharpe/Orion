@@ -1,0 +1,129 @@
+// The array model: `T[N]` is a value, `Span<T>`/`ConstSpan<T>` are views, `T[]` infers its length.
+
+// An array PARAMETER aliases: a write through it is seen by the caller. C++ used to copy instead.
+void bump_all(i32[3] xs)
+{
+	for (i32 i = 0; i < 3; i++)
+	{
+		xs[i] = xs[i] + 1;
+	}
+}
+
+// `const T[N]` is the read-only form of the same aliasing parameter.
+i32 total3(const i32[3] xs)
+{
+	return xs[0] + xs[1] + xs[2];
+}
+
+// A RETURN is a value, so two calls must not share storage.
+i32[3] seeded(i32 seed)
+{
+	i32[3] out;
+	out[0] = seed;
+	out[1] = seed + 1;
+	out[2] = seed + 2;
+	return out;
+}
+
+// A view takes any length; the array's own length is what the caller passed.
+i32 sum(ConstSpan<i32> xs)
+{
+	i32 total = 0;
+	for (const i32 v in xs)
+	{
+		total += v;
+	}
+	return total;
+}
+
+// `const Span<T>` freezes the handle, not the buffer: this writes through and the caller sees it.
+void poke(const Span<i32> xs)
+{
+	xs[0] = 99;
+}
+
+// A build function whose length is its own business hands back a List.
+#build List<i32> squares(i32 n)
+{
+	List<i32> xs = List::New<i32>();
+	for (i32 i = 0; i < n; i++)
+	{
+		xs.Add(i * i);
+	}
+	return xs;
+}
+
+// One that knows its length states it, and is an ordinary value.
+#build i32[4] first_four()
+{
+	i32[4] out;
+	for (i32 i = 0; i < 4; i++)
+	{
+		out[i] = i * 10;
+	}
+	return out;
+}
+
+i32 main()
+{
+	// A parameter aliases: every backend must agree the caller sees the writes.
+	i32[] xs = [1, 2, 3]:i32;
+	bump_all(xs);
+	WriteLine($"aliased: {xs[0]} {xs[1]} {xs[2]}");
+	WriteLine($"const param reads: {total3(xs)}");
+
+	// A return copies, so the second call must not disturb the first.
+	i32[3] a = seeded(10);
+	i32[3] b = seeded(20);
+	WriteLine($"returned by value: {a[0]}{a[1]}{a[2]} {b[0]}{b[1]}{b[2]}");
+
+	// Assignment copies too.
+	i32[] copy = a;
+	copy[0] = 77;
+	WriteLine($"assign copies: a[0]={a[0]} copy[0]={copy[0]}");
+
+	// A value converts to either view implicitly, and one function serves every length.
+	i32[] five = [1, 2, 3, 4, 5]:i32;
+	WriteLine($"sum: {sum(xs)} {sum(five)}");
+
+	// `const Span<T>` is a writable buffer behind a frozen handle.
+	poke(xs);
+	WriteLine($"const Span<T> still writes: {xs[0]}");
+
+	// A mutable view aliases; a sized copy does not.
+	Span<i32> view = five;
+	view[1] = 42;
+	i32[] owned = five;
+	owned[2] = 0;
+	WriteLine($"view aliases: five[1]={five[1]}, copy does not: five[2]={five[2]}");
+
+	// `T[]` takes the length from the build, for both build return shapes.
+	i32[] built = #run squares(5);
+	WriteLine($"inferred from List: len={built.Length} sum={sum(built)}");
+
+	i32[] four = #run first_four();
+	WriteLine($"inferred from T[N]: len={four.Length} sum={sum(four)}");
+
+	// Stating the length the build produced is the same thing written out.
+	i32[4] stated = #run first_four();
+	WriteLine($"stated length: len={stated.Length} sum={sum(stated)}");
+
+	// A literal states its length by writing the elements out, so `T[]` can take it from there too.
+	u16[] counts = [0x078, 0x800, 0xFFF]:u16;
+	i32 n = 7;
+	i32[] computed = [n, n + 1]:i32;
+	WriteLine($"inferred from literal: {counts.Length} {counts[2]} / {computed.Length} {computed[1]}");
+
+	// Empty brackets carry the rank, so a rectangular type infers its extents the same way.
+	i32[,] grid = [1, 2, 3, 4, 5, 6]:i32[2,3];
+	i32[,,] cube = [1, 2, 3, 4, 5, 6, 7, 8]:i32[2,2,2];
+	WriteLine($"inferred rank: grid[1,2]={grid[1,2]} rows={grid.Length} cube[1,0,1]={cube[1,0,1]}");
+
+	// A subscript and a plain copy carry a complete type too, so both infer; only a call does not.
+	i32[] pulled = grid[1];
+	i32[] again = pulled;
+	again[0] = 0;
+	WriteLine($"inferred from a row: {pulled.Length} {pulled[0]}{pulled[1]}{pulled[2]} copy={again[0]}");
+
+	return 0;
+}

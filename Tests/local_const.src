@@ -1,0 +1,54 @@
+const i32 GLOBAL_BASE = 1000;
+
+i32 scaled(i32 x)
+{
+	const i32 FACTOR = 3;
+	const i32 OFFSET = 7;
+	return (x * FACTOR) + OFFSET;
+}
+
+i32 derived(i32 x)
+{
+	const i32 DOUBLED = x * 2;
+	const i32 PLUS = DOUBLED + 5;
+	return PLUS;
+}
+
+i32 clamp_low(i32 x)
+{
+	const i32 FLOOR = 10;
+	if (x < FLOOR)
+	{
+		return FLOOR;
+	}
+	return x;
+}
+
+i32 sum_steps(i32 n)
+{
+	const i32 STEP = 5;
+	i32 total = 0;
+	for (i32 i = 0; i < n; i++)
+	{
+		const i32 BONUS = 2;
+		total += STEP + BONUS;
+	}
+	return total;
+}
+
+void test()
+{
+	WriteLine("scaled(4) = " + to_str(scaled(4)));
+	WriteLine("derived(10) = " + to_str(derived(10)));
+	WriteLine("clamp_low(3) = " + to_str(clamp_low(3)));
+	WriteLine("sum_steps(4) = " + to_str(sum_steps(4)));
+	const i32 LOCAL = 5;
+	WriteLine("global+local = " + to_str(GLOBAL_BASE + LOCAL));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

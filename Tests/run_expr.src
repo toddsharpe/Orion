@@ -1,0 +1,100 @@
+// `#run { }` is void as a statement and a spliced-in constant as a declaration's initializer.
+
+// Every value is computed twice, at build time and at runtime, so all four generators must agree.
+
+struct Digest
+{
+	str text;
+	u32 len;
+}
+
+i32 sum_squares(i32 n)
+{
+	i32 total = 0;
+	for (i32 i = 0; i < n; i++)
+	{
+		total += i * i;
+	}
+	return total;
+}
+
+Digest digest_of(str s)
+{
+	return Digest{ text = s, len = str_len(s) };
+}
+
+i32 main()
+{
+	// Scalar: a loop's worth of build-time work, reduced to one constant.
+	const i32 built = #run {
+		i32 total = 0;
+		for (i32 i = 0; i < 6; i++)
+		{
+			total += i * i;
+		}
+		return total;
+	};
+	WriteLine("scalar  build=" + to_str(built) + " runtime=" + to_str(sum_squares(6)));
+
+	// Struct: one return carries several values across the boundary at once.
+	const Digest d = #run {
+		const str s = "orion";
+		return Digest{ text = s, len = str_len(s) };
+	};
+	const Digest r = digest_of("orion");
+	WriteLine("struct  build=" + d.text + "/" + to_str(d.len) + " runtime=" + r.text + "/" + to_str(r.len));
+
+	// Array: a build-only List<T>, frozen into the fixed array the runtime code indexes.
+	i32[] evens = #run {
+		List<i32> xs = List::New<i32>();
+		for (i32 i = 0; i < 10; i++)
+		{
+			if (i % 2 == 0)
+			{
+				xs.Add(i);
+			}
+		}
+		return xs.ToArray();
+	};
+	str joined = "";
+	for (const i32 v in evens)
+	{
+		joined = joined + to_str(v) + " ";
+	}
+	WriteLine("array   build=" + joined + "runtime=0 2 4 6 8 ");
+
+	// Reads its own earlier locals -- what a chain of `#run f()` calls cannot do.
+	const str report = #run {
+		List<str> names = List::New<str>();
+		names.Add("alpha");
+		names.Add("beta");
+
+		str acc = "";
+		u32 width = 0:u32;
+		for (const str n in names.ToArray())
+		{
+			acc = acc + n + ",";
+			width += str_len(n);
+		}
+		return acc + to_str(width);
+	};
+	WriteLine("chained build=" + report + " runtime=alpha,beta,9");
+
+	// Statement form: void, so no `return` is needed. This one emits the line it prints.
+	#run {
+		const i32 stamped = 6 * 7;
+		#insert $"WriteLine(\"void    emitted={stamped}\");";
+	}
+
+	// ...and a bare `return;` ends a void block early.
+	#run {
+		const i32 n = 2;
+		if (n > 1)
+		{
+			return;
+		}
+		Build::Error("a #run block's return did not end it");
+	}
+
+	return 0;
+}

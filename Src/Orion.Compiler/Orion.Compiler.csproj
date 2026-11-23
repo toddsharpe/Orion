@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<!-- The namespaces stay `Orion.*`; only the assembly is named for what it holds. -->
+		<RootNamespace>Orion</RootNamespace>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Mono.Reflection" Version="2.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Orion.Lang\Orion.Lang.fsproj" />
+	</ItemGroup>
+
+</Project>

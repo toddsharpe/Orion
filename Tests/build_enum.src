@@ -1,0 +1,45 @@
+// Build-time enum synthesis: member names are read from a file at compile time and Build::Enum
+// generates the type. Because Build::Enum runs during build-time execution - after the frontend has
+// already bound main - the generated type can only be referenced from code that is itself emitted at
+// build time. That is exactly how the config-driven state machine uses it, so this exercises the same
+// combination: the enum as a #state variable inside a generated function, compared with == against
+// its members, reassigned to advance, and persisting across cycles.
+
+// `Color` is only ever named inside an #insert template, parsed when the escape runs -- after Build::Enum.
+void Step(#param str name, #output i32 code)
+{
+	#run
+	{
+		#insert {
+			#state Color c = Color::Red;
+
+			i32 next = 0;
+			if (c == Color::Red) { next = 1; }
+			if (c == Color::Blue) { next = 2; }
+			if (c == Color::Gree) { next = 3; }
+			if (c == Color::Yellow) { next = 4; }
+			code = next;
+
+			if (next == 1) { c = Color::Blue; }
+			if (next == 2) { c = Color::Gree; }
+			if (next == 3) { c = Color::Yellow; }
+			if (next == 4) { c = Color::Red; }
+		}
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Span<str> lines = File::ReadAll("Configs/enum_colors.txt");
+		Build::Enum("Color", List::FromArray<str>(lines));
+
+		Function step = #create Step(name = "step");
+
+		Build::AddBody("i32 code = 0;");
+		#insert $"for (i32 i = 0; i < 5; i++) \{ {step.Name}(code); WriteLine(\"code=\" + to_str(code)); }";
+	}
+
+	return 0;
+}

@@ -1,0 +1,13 @@
+aliased: 2 3 4
+const param reads: 9
+returned by value: 101112 202122
+assign copies: a[0]=10 copy[0]=77
+sum: 9 15
+const Span<T> still writes: 99
+view aliases: five[1]=42, copy does not: five[2]=3
+inferred from List: len=5 sum=30
+inferred from T[N]: len=4 sum=60
+stated length: len=4 sum=60
+inferred from literal: 3 4095 / 2 8
+inferred rank: grid[1,2]=6 rows=2 cube[1,0,1]=6
+inferred from a row: 3 456 copy=0

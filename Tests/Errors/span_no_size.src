@@ -1,0 +1,11 @@
+//A sized array packs; a view does not. Span<T> is storage someone else owns, so it has no length
+//here and no width to lay out.
+#using "Lib/types.src"
+
+i32 main()
+{
+	const i32 size = #run { return Type::Parse("Span<u8>").Size; };
+	WriteLine(to_str(size));
+
+	return 0;
+}

@@ -1,0 +1,5 @@
+speed = 3.5
+capped = 3.0 whole = 3.0
+held = 8.0
+plain = 8.0
+rate = 4.0

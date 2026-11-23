@@ -1,0 +1,46 @@
+; Orion indents with TABS. Encoded here so editors, `dotnet format` and the IDE agree, rather than
+; each file inheriting whatever its author's editor happened to default to.
+root = true
+
+[*]
+indent_style = tab
+tab_width = 4
+end_of_line = crlf
+
+; A CRLF shebang breaks bash outright.
+[*.sh]
+end_of_line = lf
+
+; An unnecessary using is a warning, so the dead ones cannot creep back in.
+[*.cs]
+dotnet_diagnostic.IDE0005.severity = warning
+
+; Same tabs, just conventionally rendered narrower.
+[*.{js,ts,json,css,html}]
+tab_width = 2
+
+; ---------------------------------------------------------------------------------------------------
+; The exceptions below are NOT style preferences -- tabs are rejected outright in these formats.
+; ---------------------------------------------------------------------------------------------------
+
+; The F# compiler errors on a tab in indentation: "error FS1161: TABs are not allowed in F# code".
+[*.{fs,fsi,fsx}]
+indent_style = space
+indent_size = 4
+
+; The YAML spec forbids tabs for indentation; a tabbed workflow file fails to parse, taking CI and
+; the Pages deploy with it.
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+; CommonMark gives leading spaces meaning -- nested list levels and indented code blocks.
+[*.md]
+indent_style = space
+indent_size = 4
+
+; Golden files: these hold a program's expected stdout, so leading whitespace is data, not
+; indentation, and must never be re-indented.
+[Tests/**.txt]
+indent_style = unset
+tab_width = unset

@@ -1,0 +1,4 @@
+alias=9 src=9
+copy=1 src=9
+caller sees 9
+b[1]=5 peek=9

@@ -1,0 +1,11 @@
+// Two config files that both export `pick` and both define a helper called `bump`. Each must use its
+// own, and `pick` calling `bump` must resolve inside its own file.
+#build i32 bump(i32 v)
+{
+	return v + 1;
+}
+
+#build i32 pick(i32 seed)
+{
+	return bump(seed) * 10;
+}

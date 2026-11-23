@@ -1,0 +1,16 @@
+void run()
+{
+	Action<i32, i32> a = [](i32 i, i32 j)
+	{
+		WriteLine("Action " + to_str(i) + "," + to_str(j));
+	};
+	a(1, 2);
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

@@ -1,0 +1,57 @@
+{
+	"name": "orion-language",
+	"displayName": "Orion Language",
+	"description": "Syntax highlighting and language server (diagnostics + semantic tokens) for the Orion (.src) metaprogramming language.",
+	"version": "0.1.1",
+	"publisher": "orion",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/toddsharpe/Orion.git"
+	},
+	"engines": {
+		"vscode": "^1.75.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"languages": [
+			{
+				"id": "orion",
+				"aliases": [
+					"Orion",
+					"orion"
+				],
+				"extensions": [
+					".src"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"grammars": [
+			{
+				"language": "orion",
+				"scopeName": "source.orion",
+				"path": "./syntaxes/orion.tmLanguage.json"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run check && npm run bundle",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"build:server": "dotnet publish ../../Src/Orion.LangSvr -c Release -o ../vscode-orion.svr",
+		"check": "tsc -p ./ --noEmit",
+		"bundle": "esbuild src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node --target=node20 --minify"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1"
+	},
+	"devDependencies": {
+		"@types/node": "^20.11.0",
+		"@types/vscode": "^1.75.0",
+		"esbuild": "^0.24.0",
+		"typescript": "^5.4.0"
+	}
+}

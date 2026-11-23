@@ -1,0 +1,5 @@
+scaled(4) = 19
+derived(10) = 25
+clamp_low(3) = 10
+sum_steps(4) = 28
+global+local = 1005

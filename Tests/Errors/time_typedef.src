@@ -1,0 +1,7 @@
+// `time` is built in, so a program that still declares it is told to delete the declaration.
+typedef i64 time;
+
+i32 main()
+{
+	return 0;
+}

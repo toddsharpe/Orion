@@ -1,0 +1,65 @@
+enum Dir { North, East, South, West }
+
+str dir_name(Dir d)
+{
+	switch (d)
+	{
+		case Dir::North:
+		{
+			return "N";
+		}
+		case Dir::East:
+		{
+			return "E";
+		}
+		case Dir::South:
+		{
+			return "S";
+		}
+		default:
+		{
+			return "W";
+		}
+	}
+}
+
+i32 apply(i32 op, i32 a, i32 b)
+{
+	i32 r = 0;
+	switch (op)
+	{
+		case 0:
+		{
+			r = a + b;
+		}
+		case 1:
+		{
+			r = a - b;
+		}
+		case 2:
+		{
+			r = a * b;
+		}
+		default:
+		{
+			r = -1;
+		}
+	}
+	return r;
+}
+
+void test()
+{
+	WriteLine("dir(South) = " + dir_name(Dir::South));
+	WriteLine("dir(West) = " + dir_name(Dir::West));
+	WriteLine("apply(0,3,4) = " + to_str(apply(0, 3, 4)));
+	WriteLine("apply(2,3,4) = " + to_str(apply(2, 3, 4)));
+	WriteLine("apply(9,3,4) = " + to_str(apply(9, 3, 4)));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

@@ -1,0 +1,53 @@
+// cast<T>(x) converts between numeric types. Narrowing wraps and float->int truncates toward zero, on
+// every backend: C++ gets a static_cast, Python and JavaScript get a runtime helper per target width,
+// and the build-time executor gets an IL conv opcode.
+
+// The same conversion at build time, folded into the program as a string before it ever runs.
+#build str manifest()
+{
+	u32 big = 70000:u32;
+	return "build=" + to_str(cast<u16>(big));
+}
+
+i32 main()
+{
+	WriteLine(#run manifest());
+
+	// Narrowing wraps rather than saturating or throwing.
+	u32 big = 70000:u32;
+	WriteLine(to_str(cast<u16>(big)));
+
+	// Widening is spelled the same way; nothing is implicit.
+	u8 small = 200:u8;
+	WriteLine(to_str(cast<u32>(small)));
+
+	// Float to int truncates toward zero, in both directions.
+	WriteLine(to_str(cast<i32>(3.9)));
+	WriteLine(to_str(cast<i32>(0.0 - 3.9)));
+
+	// Int to float is exact for values this small.
+	WriteLine(to_str(cast<f64>(7)));
+
+	// Signed/unsigned reinterpretation round-trips at 32 bits.
+	i32 neg = 0 - 1;
+	u32 asUnsigned = cast<u32>(neg);
+	WriteLine(to_str(asUnsigned));
+	WriteLine(to_str(cast<i32>(asUnsigned)));
+
+	// Narrowing past a sign bit: 200 does not fit in an i8.
+	WriteLine(to_str(cast<i8>(200)));
+
+	// A cast is an expression, so it composes.
+	WriteLine(to_str(cast<u16>(big) + 1:u16));
+
+	// The target may be a type parameter: monomorphization substitutes it before binding.
+	WriteLine(to_str(conv<f64>(3)) + " " + to_str(conv<u16>(70000)));
+
+	return 0;
+}
+
+// cast<T> inside a generic, which is what makes generic numeric code possible at all.
+T conv<T>(const i32 n)
+{
+	return cast<T>(n);
+}

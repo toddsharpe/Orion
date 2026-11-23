@@ -1,0 +1,43 @@
+//`for .. in` over an element that carries a measure: the hoisted view is a `ConstSpan<f32<m>>`, measure and all.
+#measure m;
+#measure s;
+
+//Nothing in Orion spells `f32<m>[]` yet, so a caller is the platform's; the loop still has to compile.
+#export f32<m> total(ConstSpan<f32<m>> xs)
+{
+	f32<m> sum = 0.0:f32<m>;
+	for (const f32<m> x in xs)
+	{
+		sum = sum + x;
+	}
+	return sum;
+}
+
+//And the measure is checked inside the body: `m/s` times `s` is the `m` it accumulates into.
+#export f32<m> travelled(ConstSpan<f32<m/s>> vs, const f32<s> dt)
+{
+	f32<m> sum = 0.0:f32<m>;
+	for (const f32<m/s> v in vs)
+	{
+		sum = sum + v * dt;
+	}
+	return sum;
+}
+
+//A bare element still views as a bare span, which is what every other `for .. in` in the corpus does.
+f32 plain(ConstSpan<f32> xs)
+{
+	f32 sum = 0.0:f32;
+	for (const f32 x in xs)
+	{
+		sum = sum + x;
+	}
+	return sum;
+}
+
+i32 main()
+{
+	const f32[3] raw = [1.5:f32, 2.5:f32, 3.5:f32]:f32;
+	WriteLine("plain = " + to_str(plain(raw)));
+	return 0;
+}

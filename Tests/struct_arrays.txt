@@ -1,0 +1,4 @@
+build  : frame hash=10,40 len=4 pt=3,4 grid=3,4
+runtime: frame hash=10,40 len=4 pt=3,4 grid=3,4
+zeros  : zeros hash=0,0 len=4 pt=0,0 grid=0,0
+written: 0,42 pt=7 grid=9

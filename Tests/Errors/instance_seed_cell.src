@@ -1,0 +1,32 @@
+// A tick supplies inputs. A `#state` cell is the block's own memory, and naming one here would seed it
+// -- a test written that way asserts against a state the block may have no way of reaching. Drive the
+// inputs that produce it instead.
+#using "Lib/types.src"
+
+void Hold(#param str name, #state time start, #input bool cond, #input time now, #output bool fired)
+{
+	#init
+	{
+		return true;
+	}
+
+	if (cond && start == 0:time)
+	{
+		start = now;
+	}
+
+	fired = start != 0:time;
+}
+
+#build bool T()
+{
+	Instance h = Function::Start(#create Hold(name = "h"));
+	Function::Tick(h, ${start = 5:time, cond = true, now = 10:time});
+	return true;
+}
+
+i32 main()
+{
+	#run T();
+	return 0;
+}

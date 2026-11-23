@@ -1,0 +1,118 @@
+// A build-time List<T> is grown in a loop, then frozen into a fixed array via
+// xs.ToArray(). #run splices the frozen array into the runtime code - there
+// is no dynamic memory at runtime, only a constant fixed-size array. Generic
+// builtins take explicit type arguments: List::New<i32>(), ....Add().
+
+#build List<i32> build_squares(i32 n)
+{
+	List<i32> xs = List::New<i32>();
+	for (i32 i = 0; i < n; i++)
+	{
+		xs.Add(i * i);
+	}
+	return xs;
+}
+
+#build List<i32> build_evens(i32 n)
+{
+	List<i32> xs = List::New<i32>();
+	i32 v = 0;
+	for (i32 i = 0; i < n; i++)
+	{
+		if (v % 2 == 0)
+		{
+			xs.Add(v);
+		}
+		v += 1;
+	}
+	return xs;
+}
+
+#build List<str> build_names(i32 n)
+{
+	List<str> xs = List::New<str>();
+	for (i32 i = 0; i < n; i++)
+	{
+		xs.Add("name" + to_str(i));
+	}
+	return xs;
+}
+
+// xs.AddUnique de-duplicates: append a name only when it isn't already held (the
+// Contains + Add pattern in one call). This is what code generation needs -
+// one port per distinct net when several config rows drive the same output.
+#build List<str> build_unique()
+{
+	str[] raw = ["heater", "alarm", "heater", "fan", "alarm", "heater"]:str;
+	List<str> xs = List::New<str>();
+	for (const str name in raw)
+	{
+		xs.AddUnique(name);
+	}
+	return xs;
+}
+
+// Contains over a value type, both hit and miss.
+#build List<i32> build_flags()
+{
+	List<i32> xs = List::New<i32>();
+	xs.Add(10);
+	xs.Add(20);
+
+	List<i32> flags = List::New<i32>();
+	if (xs.Contains(20))
+	{
+		flags.Add(1);
+	}
+	if (xs.Contains(99) == false)
+	{
+		flags.Add(2);
+	}
+	return flags;
+}
+
+i32 sum(ConstSpan<i32> data)
+{
+	i32 total = 0;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		total += data[i];
+	}
+	return total;
+}
+
+void test()
+{
+	i32[] squares = #run build_squares(6);
+	WriteLine("squares.len=" + to_str(squares.Length));
+	WriteLine("squares.sum=" + to_str(sum(squares)));
+
+	i32[] evens = #run build_evens(10);
+	WriteLine("evens.len=" + to_str(evens.Length));
+	WriteLine("evens.sum=" + to_str(sum(evens)));
+
+	str[] names = #run build_names(3);
+	WriteLine("names.len=" + to_str(names.Length));
+	for (i32 i = 0; i < names.Length; i++)
+	{
+		WriteLine("name=" + names[i]);
+	}
+
+	str[] uniq = #run build_unique();
+	WriteLine("uniq.len=" + to_str(uniq.Length));
+	for (i32 i = 0; i < uniq.Length; i++)
+	{
+		WriteLine("uniq=" + uniq[i]);
+	}
+
+	i32[] flags = #run build_flags();
+	WriteLine("flags.len=" + to_str(flags.Length));
+	WriteLine("flags.sum=" + to_str(sum(flags)));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

@@ -1,0 +1,24 @@
+// `f.Init` on a block with no #init is an EMPTY handle: it is a Func, and it names nothing. Writing
+// the call anyway is the error; a generator that cannot know tests `f.Init.Name` first.
+void Plain(#param str name, #state i32 fd, #output i32 handle)
+{
+	fd = fd + 1;
+	handle = fd;
+}
+
+i32 main()
+{
+	i32 fd = 0;
+	i32 handle = 0;
+	bool ok = false;
+
+	#run
+	{
+		Function pl = #create Plain(name = "pl");
+		#insert { ok = ${pl.Init}(fd); }
+		#insert { ${pl}(fd, handle); }
+	}
+
+	WriteLine("ok = " + to_str(ok));
+	return 0;
+}

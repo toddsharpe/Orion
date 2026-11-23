@@ -1,0 +1,25 @@
+i32 main()
+{
+	i32 x = 0;
+	i32 spins = 0;
+
+	while (spins < 10)
+	{
+		if (x == 1)
+		{
+			break;
+		}
+		else if (x == 2)
+		{
+			spins = spins + 2;
+		}
+		else
+		{
+			spins = spins + 1;
+			x = 1;
+		}
+	}
+
+	WriteLine("Spins: " + to_str(spins));
+	return 0;
+}

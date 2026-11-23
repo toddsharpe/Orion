@@ -1,0 +1,131 @@
+// `#if` on the type parameters of a generic, and on a hole in a spliced fragment. The branch not
+// taken never BINDS, which is the whole reason the `#` is there -- an ordinary `if` on a folded
+// constant emits the same code but type-checks both sides.
+//
+// Every `#if` below is written so each branch fails to bind in the OTHER instantiation. Degrade any
+// one of them to a plain `if` and this file stops compiling, which is what makes it a real test.
+
+struct Frame { i32 Seq; i32 Payload; }
+struct Plain { i32 Value; }
+
+enum Mode { Idle, Coast, Burn }
+
+typedef i64 nanos;
+
+// A struct has fields, a scalar has arithmetic, and neither binds against the other.
+str describe<T>(T v)
+{
+	#if (Type::IsStruct(T))
+	{
+		return "struct payload=" + to_str(v.Payload);
+	}
+	else
+	{
+		return "scalar " + to_str(v + 1);
+	}
+}
+
+// Which field to read, decided from the declaration; the other name does not exist on this struct.
+str tag<T>(T v)
+{
+	#if (Struct::HasField(T, "Seq"))
+	{
+		return "seq=" + to_str(v.Seq);
+	}
+	else
+	{
+		return "value=" + to_str(v.Value);
+	}
+}
+
+// `.Length` is not a scalar member, and a whole array does not cast to i32.
+i32 count<T>(T v)
+{
+	#if (Type::IsArray(T))
+	{
+		return v.Length;
+	}
+	else
+	{
+		return cast<i32>(v);
+	}
+}
+
+// An exact type, then a typedef of one: `T == i32` compares the spelling, so the alias is not i32 here.
+str width<T>(T v)
+{
+	#if (T == i32)
+	{
+		return "i32";
+	}
+	else if (Type::IsAlias(T))
+	{
+		return "alias of " + to_str(cast<i64>(v));
+	}
+	else
+	{
+		return "other";
+	}
+}
+
+// A member of an enum, asked for by name before any of it has bound.
+str member<T>(T v)
+{
+	#if (Enum::Has(T, "Coast"))
+	{
+		return "mode " + to_str(v);
+	}
+	else
+	{
+		return "not a mode " + to_str(v + 1);
+	}
+}
+
+// The other half: a `${}` hole that is a literal by splice time, so the fragment carries the `#if`.
+// Each branch names a local only its own configuration declares, so the other one cannot bind.
+#build Code emit(bool wide)
+{
+	return #code {
+		#if (${wide})
+		{
+			WriteLine("bits = " + to_str(wide_bits));
+		}
+		else
+		{
+			WriteLine("bytes = " + to_str(narrow_bytes));
+		}
+	};
+}
+
+i32 main()
+{
+	Frame f = Frame{Seq=9, Payload=3};
+	Plain p = Plain{Value=5};
+
+	WriteLine(describe<Frame>(f));
+	WriteLine(describe<i32>(7));
+
+	WriteLine(tag<Frame>(f));
+	WriteLine(tag<Plain>(p));
+
+	i32[3] xs = [1, 2, 3]:i32;
+	WriteLine("count arr = " + to_str(count<i32[3]>(xs)));
+	WriteLine("count scalar = " + to_str(count<u8>(7:u8)));
+
+	WriteLine("width i32 = " + width<i32>(1));
+	WriteLine("width nanos = " + width<nanos>(250:nanos));
+
+	WriteLine(member<Mode>(Mode::Coast));
+	WriteLine(member<i32>(41));
+
+	#run
+	{
+		#insert { i32 wide_bits = 64; }
+		#insert emit(true);
+
+		#insert { i32 narrow_bytes = 1; }
+		#insert emit(false);
+	}
+
+	return 0;
+}

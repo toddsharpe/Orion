@@ -1,0 +1,12 @@
+cycle 0
+  whole  temp 21 sats 3
+  scalar temp 21 sats 3
+  group  valid false sats 3
+cycle 1
+  whole  temp 22 sats 6
+  scalar temp 22 sats 6
+  group  valid true sats 6
+cycle 2
+  whole  temp 23 sats 9
+  scalar temp 23 sats 9
+  group  valid true sats 9

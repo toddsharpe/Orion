@@ -1,0 +1,12 @@
+// A const buffer parameter may not be written through, not even one element of it.
+void sneaky(ConstSpan<u8> buf)
+{
+	buf[0] = 9:u8;
+}
+
+i32 main()
+{
+	u8[4] b;
+	sneaky(b);
+	return 0;
+}

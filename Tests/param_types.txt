@@ -1,0 +1,6 @@
+num = 1
+num = 2
+num = 3
+point = (7, 9)
+alpha = 100
+beta = 200

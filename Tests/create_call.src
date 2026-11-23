@@ -1,0 +1,44 @@
+// A #create'd instance is bodied like every other function, so a later #run can call it at build time.
+i32 add_custom(#param str name, #param i32 b, i32 a)
+{
+	return a + b;
+}
+
+// A block answers through its ports, so a build-time call names the one it wants read back.
+void Scale(#param str name, #param i32 by, #input i32 raw, #output i32 scaled @ $"{name}_out")
+{
+	scaled = raw * by;
+}
+
+// A #state port is read AND written, so it arrives holding a value and comes back holding another.
+void Tally(#param str name, #state i32 total, #input i32 add)
+{
+	total = total + add;
+}
+
+i32 main()
+{
+	i32 v = 0;
+	i32 s = 0;
+	i32 t = 0;
+
+	#run
+	{
+		Function five = #create add_custom(name = "add_five", b = 5);
+		i32 six = Function::Call<i32>(five, ${a = 1});
+		#insert { v = ${six}; }
+
+		Function triple = #create Scale(name = "triple", by = 3);
+		i32 scaled = Function::Out<i32>(triple, ${raw = 14}, "scaled");
+		#insert { s = ${scaled}; }
+
+		Function tally = #create Tally(name = "tally");
+		i32 total = Function::Out<i32>(tally, ${total = 40, add = 2}, "total");
+		#insert { t = ${total}; }
+	}
+
+	WriteLine("v = " + to_str(v));
+	WriteLine("s = " + to_str(s));
+	WriteLine("t = " + to_str(t));
+	return 0;
+}

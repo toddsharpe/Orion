@@ -1,0 +1,61 @@
+// Array struct fields: a field owns its storage, so it must state its length -- `u8[4] hash;`.
+
+// Each value is built at build time and at runtime and both printed, so all four generators agree.
+
+struct Point { i32 x; i32 y; }
+
+struct Frame
+{
+	str name;
+	u8[4] hash;
+	Point[2] pts;
+	i32[2,3] grid;
+}
+
+Frame build_frame(str name)
+{
+	Frame f = Frame{
+		name = name,
+		hash = [10, 20, 30, 40]:u8,
+		pts = [Point{ x = 1, y = 2 }, Point{ x = 3, y = 4 }]:Point,
+		grid = [1, 2, 3, 4, 5, 6]:i32[2,3]
+	};
+	return f;
+}
+
+#build Frame made()
+{
+	return build_frame("frame");
+}
+
+str show(Frame f)
+{
+	return f.name
+		+ " hash=" + to_str(f.hash[0]) + "," + to_str(f.hash[3])
+		+ " len=" + to_str(f.hash.Length)
+		+ " pt=" + to_str(f.pts[1].x) + "," + to_str(f.pts[1].y)
+		+ " grid=" + to_str(f.grid[0][2]) + "," + to_str(f.grid[1][0]);
+}
+
+i32 main()
+{
+	// Folded at build time into a constant, spliced in as a struct literal with array fields.
+	const Frame b = #run made();
+	WriteLine("build  : " + show(b));
+
+	// The same value assembled by ordinary runtime code.
+	Frame r = build_frame("frame");
+	WriteLine("runtime: " + show(r));
+
+	// Every field is zero-initialized, so one reads sensibly before it is ever written.
+	Frame z = Frame{ name = "zeros", hash = [0, 0, 0, 0]:u8, pts = [Point{ x = 0, y = 0 }, Point{ x = 0, y = 0 }]:Point, grid = [0, 0, 0, 0, 0, 0]:i32[2,3] };
+	WriteLine("zeros  : " + show(z));
+
+	// Elements are writable through the field, and writing one leaves its neighbours alone.
+	z.hash[1] = 42:u8;
+	z.pts[0].y = 7;
+	z.grid[1][2] = 9;
+	WriteLine("written: " + to_str(z.hash[0]) + "," + to_str(z.hash[1]) + " pt=" + to_str(z.pts[0].y) + " grid=" + to_str(z.grid[1][2]));
+
+	return 0;
+}

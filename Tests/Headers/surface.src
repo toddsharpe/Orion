@@ -1,0 +1,92 @@
+/*
+ * The C++ surface header: what `#export` puts in it, and what it keeps out.
+ *
+ * A library -- its `main` is `#build`, so it leaves no runtime entry and the consumer owns `main`.
+ * Tests/Headers/surface_consumer.cpp includes ONLY the generated surface.h and codes against it, so
+ * anything this file exports has to be nameable from there and anything it does not must not be.
+ */
+
+//An exported enum: a consumer names its members.
+#export enum Phase
+{
+	Idle,
+	Burn,
+	Coast
+}
+
+//A nested exported struct, reached only as another's field. It has to reach the header too.
+#export struct Sample
+{
+	f64 value;
+	Phase phase;
+}
+
+//Fields of every shape the header has to spell: a nested struct, an array, an enum, a primitive.
+#export struct Reading
+{
+	Sample latest;
+	u16[3] recent;
+	i32 count;
+}
+
+//NOT exported: internal to the program, so it must not appear in the header.
+struct Scratch
+{
+	i32 tick;
+}
+
+//Internal too, and only reachable from an exported function -- which keeps it alive but off the surface.
+i32 doubled(i32 n)
+{
+	return n * 2;
+}
+
+#export Reading read_at(i32 seed)
+{
+	Scratch s = Scratch{};
+	s.tick = doubled(seed);
+
+	Reading r = Reading{};
+	r.latest.value = cast<f64>(s.tick) * 1.5;
+	r.latest.phase = Phase::Burn;
+	r.recent[0] = cast<u16>(s.tick);
+	r.recent[2] = 9:u16;
+	r.count = s.tick;
+	return r;
+}
+
+//An `#output` parameter: the header spells it `i32&`, so a consumer passes an lvalue.
+#export void advance(#output Phase p, #output i32 n)
+{
+	if (p == Phase::Idle) { p = Phase::Burn; }
+	else if (p == Phase::Burn) { p = Phase::Coast; }
+	else { p = Phase::Idle; }
+
+	n = n + 1;
+}
+
+//A view parameter: `std::span<const i32>` in the header, so a consumer may pass its own array.
+#export i32 total(ConstSpan<i32> xs)
+{
+	i32 sum = 0;
+	for (i32 i = 0; i < xs.Length; i++) { sum += xs[i]; }
+	return sum;
+}
+
+//An extern the CONSUMER defines: its declaration reaches the header after the structs it names, so the definition and the call compile against one contract.
+extern bool sample_read(#output Sample s);
+
+#export f64 poll()
+{
+	Sample s = Sample{};
+	if (!sample_read(s))
+	{
+		return -1.0;
+	}
+	return s.value;
+}
+
+#build i32 main()
+{
+	return 0;
+}

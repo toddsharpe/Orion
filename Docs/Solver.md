@@ -1,0 +1,172 @@
+# Solver
+
+A control program is usually a list of calls that happen to be in the right order. Orion inverts that:
+you declare **blocks** naming the signals they read and write, and the compiler wires them into a
+checked cycle — every net has one source, and reading one nobody drives is an error. What comes out
+is ordinary functions a platform calls.
+
+## A block
+
+A block is a function whose parameters are **ports**:
+
+```
+void Ramp(#param str name, #state i32 t = 1, #pure i32 level @ "level")
+{
+	#init
+	{
+		t = 1;
+		return true;
+	}
+
+	level = t * 3;
+	t = t + 1;
+}
+```
+
+| directive | |
+|---|---|
+| `#param` | a build-time constant the block is specialized on; a default is a literal or an empty collection |
+| `#input` | a net this block reads and may not write |
+| `#prev` | a net driven *later* in the cycle, so the value is last cycle's |
+| `#output` | the net this block drives; not writing it holds the previous value |
+| `#pure` | an output written whole on every path and never read back; no initializer |
+| `#state` | the block's own memory, carried between cycles |
+
+`@ net` names the net when it is not the port's name: an identifier, a string, or an interpolation —
+`@ $"{name}_out"` gives each instance of a template its own. Nets may be dotted: `Baro.Pressure`.
+
+`#init { ... return bool; }` runs once before the first cycle, over the same cells, and reports
+whether the block started. A block with an `#init` that nothing will run is an error.
+
+**A struct output is its fields too:** `#output Sample s @ "Gps"` publishes `Gps`, `Gps.Temp`,
+`Gps.Loc` and every field below, all views of one cell. Driving a field the struct already publishes
+is a double drive.
+
+## Instantiating and wiring
+
+`#block` records a template and its `#param`s as a `Block`, a recipe. Hand the recipes to a solver,
+which specializes each, in the order given:
+
+```
+#build i32 main()
+{
+	Block[] blocks =
+	[
+		#block CycleStart(name = "cycle", dt_ns = Hz_100),
+		#block Ramp(name = "ramp"),
+		#block Watch(name = "watch")
+	]:Block;
+
+	Solver solver = Solver::New(blocks);
+	Solver::Export(solver, Hz_100);
+	return 0;
+}
+```
+
+Nothing is built until a `Solver::New` takes a recipe, so one made and left out of every list emits
+nothing, and its `#init` asks nothing. An argument its template declares no `#param` for is an error
+where the `#block` is written, since a solver reads only the `#param`s and would build the default. A `Block`'s `.Name` is the name it will be emitted under, so a
+build can pick a list's blocks by name. An instance's name is one block's, so two recipes reaching one
+solver under a name with different `#param`s are an error; the same recipe twice is one instance.
+`#create` is for a block the build calls or starts itself (see [BuildTime.md](BuildTime.md)): it
+specializes at once and yields a `Function`, which a solver does not take.
+
+A recipe can be read and copied before a solver takes it, so one program's list can start from
+another's: a sim takes its app's blocks and states how it differs.
+
+```
+const List<Block> app = TalonBlocks(geo);
+const List<Block> sim = app
+	.Remove("boardin")
+	.Replace("boardout", [board, net]:Block)
+	.Change("tx", ${ devices = app.Find("tx").Param<List<Device>>("devices") + truth });
+```
+
+Each edit names a block and answers a new list; a name the list lacks or holds twice fails the build,
+so an edit to a block the app no longer has cannot pass unnoticed.
+
+Solving makes a `SolverState` struct, one cell per net, and checks it: two drivers of a
+net, an `#input` nobody drives (listing the nets there are), and two nets that would spell one field
+once `.` becomes `_` are errors. `#state` ports become private cells, `{instance}_{port}`, that
+nothing can wire to. A program solves one netlist.
+
+## Which cycle a read gets
+
+Blocks run in the order given to `Solver::New`, so reading a net driven **later** in the list gets the
+previous cycle's value — real feedback, how a loop closes. `#prev` says so: an `#input`
+on a later-driven net is an error suggesting `#prev` or a reorder, and so is a `#prev` on an earlier
+one. The code is the same either way; `#prev` is a checked claim about the schedule.
+
+## Running a block on a slot
+
+A block runs every cycle unless its `#block` carries a schedule, a second bag after the arguments:
+
+```
+#block TelemetryWriter(name = "tx", devices = telem) ${ period = Hz_10, phase = Hz_100 }
+```
+
+A schedule is a solver's, so `#create` refuses one. `period` and `phase` are each a `time`, written so,
+`30000000:time` or a `const time`: a bare number would be read as nanoseconds whether it was meant as
+them or not. `cycle_time` is a `time` too, and a port that reads it as anything else is refused.
+
+The guard is `cycle_time % period == phase`. Both must be whole cycles of the exported rate, `phase`
+under `period`, and something must drive `cycle_time`: the platform on an exported solver, or a block
+listed before every scheduled one on a hosted one.
+
+## What comes out
+
+`solver_init` runs every block's `#init`, all of them so one failure does not hide the next, and
+returns whether all started; `solver_cycle` calls each block once in order, or inside its guard. The
+state is owned one of two ways.
+
+**Hosted:** `Solver::Solve(solver)`, and the caller declares the state:
+
+```
+#insert Solver::Struct(solver);                       // declares `state`, #state initializers included
+#insert { if (solver_init(state) == false) { return -1; } }
+#insert { solver_cycle(state); }
+#insert Solver::ViewState(solver);                    // print every net, labelled as written
+```
+
+**Exported:** `Solver::Export(solver, dt_ns)`, and the state becomes the program's global `_solver`,
+passed to each block, with two entries and a constant:
+
+```
+bool solver_init()
+void solver_cycle(i64 cycle_time)
+i64  solver_period                  // the declared rate
+```
+
+A platform links against those names, never the state's layout. `cycle_time` is the one net it
+drives: `solver_cycle` stamps it and blocks read it as an `#input`. [Demo/Platforms/](../Demo/Platforms/)
+supplies such a loop.
+
+## Blocks that write themselves
+
+In a template, a `#run { }` escape runs at specialization and appends to the block being built — ports
+as well as body. `Port::In(type, name)`, `Port::Out`, `Port::Pure` and `Port::Prev` declare a port,
+with an optional net, and return a value a hole splices as a *reference*, so generated code cannot name
+a port never declared; `#input f64 x;` says the same as text. `#if` folds against the `#param`s, so one
+template can be several blocks. [Demo/Lib/Report.src](../Demo/Lib/Report.src) is the shape: an input
+and a `WriteLine` per configured device.
+
+## Channels
+
+A channel is a fixed-size frame moving one way through a ring the program owns:
+
+```
+const i32 ch = Channel::Tx(service, bytes, depth);   // or Channel::Rx
+```
+
+Each returns the ring's index, folded in as a literal, so a block calls `channel_push(ch, frame)`. The
+storage becomes globals, `channel_push` and `channel_pop` exported functions, and each declaration a
+row of the exported constant `channels`: a `ChannelInfo` of `service`, `publish`, `bytes` and `depth`.
+A library gets them all, channels or not, so one platform builds against any library.
+
+A *service* is an integer the compiler never interprets: what it means on a wire is the deployment's,
+written in Orion ([Demo/Services.src](../Demo/Services.src)).
+
+## Testing a block
+
+A block is a function, so the build can drive one without a netlist ([BuildTime.md](BuildTime.md)). The
+`solver_*` cases in [Tests/](../Tests/) cover every rule above.

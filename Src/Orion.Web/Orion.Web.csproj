@@ -1,0 +1,94 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<Nullable>disable</Nullable>
+		<ImplicitUsings>disable</ImplicitUsings>
+
+		<!-- Build-time #run emits and invokes MSIL, which on WebAssembly only runs under the Mono interpreter, so AOT stays off. -->
+		<RunAOTCompilation>false</RunAOTCompilation>
+
+		<!-- Trimming stays off, explicitly since Blazor turns it on in Release: the trimmer cannot see reflected/emitted targets (README.md). -->
+		<PublishTrimmed>false</PublishTrimmed>
+		<BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+
+		<!-- Orion.LangSvr is an exe, which NETSDK1150 refuses to reference; this is the SDK's escape hatch, and the only safe one (README.md). -->
+		<ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0" />
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all" />
+	</ItemGroup>
+
+	<!-- Reuse the exact frontend + language-server logic (and, transitively, the compiler). -->
+	<ItemGroup>
+		<ProjectReference Include="..\Orion.LangSvr\Orion.LangSvr.csproj" />
+		<ProjectReference Include="..\Orion.Compiler\Orion.Compiler.csproj" />
+	</ItemGroup>
+
+	<!-- Every file of Demo/ mirrored under samples/, shape intact (README.md); generated, so gitignored and kept out of the implicit wwwroot glob. -->
+	<PropertyGroup>
+		<DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\samples\**</DefaultItemExcludes>
+	</PropertyGroup>
+
+	<Target Name="MirrorOrionSamples" BeforeTargets="AssignTargetPaths">
+		<ItemGroup>
+
+			<!-- The whole tree, library and `orion.json` marker included; Demo/build is this compiler's own output. -->
+			<OrionDemo Include="..\..\Demo\**\*" Exclude="..\..\Demo\build\**\*" />
+
+			<!-- Drop copies whose source is gone; index.json is written below, so it is a stale mirror of nothing. -->
+			<ExpectedMirror Include="@(OrionDemo->'$(MSBuildProjectDirectory)\wwwroot\samples\%(RecursiveDir)%(Filename)%(Extension)')" />
+			<ExistingMirror Include="$(MSBuildProjectDirectory)\wwwroot\samples\**\*"
+											Exclude="$(MSBuildProjectDirectory)\wwwroot\samples\index.json" />
+			<StaleMirror Include="@(ExistingMirror)" Exclude="@(ExpectedMirror)" />
+		</ItemGroup>
+
+		<Delete Files="@(StaleMirror)" />
+
+		<Copy SourceFiles="@(OrionDemo)"
+					DestinationFiles="@(OrionDemo->'$(MSBuildProjectDirectory)\wwwroot\samples\%(RecursiveDir)%(Filename)%(Extension)')"
+					SkipUnchangedFiles="true" />
+
+		<!-- A directory listing for the browser, written after the copy so it lists what is there: static hosting cannot enumerate a folder. -->
+		<ItemGroup>
+			<SampleAsset Include="$(MSBuildProjectDirectory)\wwwroot\samples\**\*"
+									 Exclude="$(MSBuildProjectDirectory)\wwwroot\samples\index.json" />
+			<SampleRoute Include="@(SampleAsset->'%(RecursiveDir)%(Filename)%(Extension)')" />
+		</ItemGroup>
+
+		<PropertyGroup>
+			<SampleIndexJson>[&quot;@(SampleRoute->'%(Identity)', '&quot;,&quot;')&quot;]</SampleIndexJson>
+		</PropertyGroup>
+
+		<WriteLinesToFile File="$(MSBuildProjectDirectory)\wwwroot\samples\index.json"
+											Lines="$(SampleIndexJson.Replace('\','/'))"
+											Overwrite="true"
+											WriteOnlyWhenDifferent="true" />
+
+		<!-- Declares the mirror and the index: the implicit glob excludes all of samples/. -->
+		<ItemGroup>
+			<Content Include="wwwroot\samples\**\*" CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+
+		<!-- The JS backend's runtime and its platform library (extern bodies), which the Run panel prepends to a compiled program in that order. -->
+		<Copy SourceFiles="..\..\Runtimes\JavaScript\Orion.js"
+					DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\runtime\orion.js"
+					SkipUnchangedFiles="true" />
+		<Copy SourceFiles="..\..\Runtimes\JavaScript\Orion_platform.js"
+					DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\runtime\orion_platform.js"
+					SkipUnchangedFiles="true" />
+
+		<!-- Demo/Platforms/Platform.js, the cycle loop appended after a compiled program; served as executive.js so it is not read as half of orion_platform.js (README.md). -->
+		<Copy SourceFiles="..\..\Demo\Platforms\Platform.js"
+					DestinationFiles="$(MSBuildProjectDirectory)\wwwroot\runtime\executive.js"
+					SkipUnchangedFiles="true" />
+		<ItemGroup>
+			<Content Include="wwwroot\runtime\orion.js" CopyToPublishDirectory="PreserveNewest" />
+			<Content Include="wwwroot\runtime\orion_platform.js" CopyToPublishDirectory="PreserveNewest" />
+			<Content Include="wwwroot\runtime\executive.js" CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+	</Target>
+
+</Project>

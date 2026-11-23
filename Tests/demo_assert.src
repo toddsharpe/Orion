@@ -1,0 +1,37 @@
+// The one helper this needs from Math.src, spelled here so the test stands alone.
+i32 sum_to(const i32 n)
+{
+	i32 sum = 0;
+	for (i32 i = 1; i <= n; i++)
+	{
+		sum = sum + i;
+	}
+	return sum;
+}
+
+i32 count_while(i32 levels)
+{
+	i32 sum = 0;
+	i32 i = 0;
+	while (i < levels)
+	{
+		sum = sum + i;
+		i = i + 1;
+	}
+	return sum;
+}
+
+void test()
+{
+	i32 count1 = count_while(5);
+	Assert(count1 == sum_to(4));
+	WriteLine(to_str(count1));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+
+	return 0;
+}

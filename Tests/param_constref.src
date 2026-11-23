@@ -1,0 +1,23 @@
+// const& parameters (B1): the str and struct params of `label` are read-only, so
+// C++ receives them as `const T&` (no copy); `bump` writes its int param, so it
+// stays a by-value copy. This must both compile and run correctly.
+struct Box { i32 v; }
+
+str label(str name, Box b)
+{
+	return name + to_str(b.v);
+}
+
+i32 bump(i32 n)
+{
+	n = n + 1;
+	return n;
+}
+
+i32 main()
+{
+	Box b = Box{ v=7 };
+	WriteLine(label("x=", b));
+	WriteLine(to_str(bump(41)));
+	return 0;
+}

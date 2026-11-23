@@ -1,0 +1,96 @@
+// A condition that must hold for a while before it counts, and never un-counts once it has.
+#using "Lib/types.src"
+#using "Lib/Math.src"
+
+// Carried between cycles. `start` is when the condition first held, or 0 for "not currently holding".
+struct Debounce
+{
+	time start;
+	bool latched;
+}
+
+// One tick: `hold` is how long `condition` must stay true, and then the answer is true forever.
+bool Debounce_Update(#output Debounce d, const bool condition, const time now, const time hold)
+{
+	// Latched is final: the event happened, and no later sample unhappens it.
+	if (d.latched)
+	{
+		return true;
+	}
+
+	// The condition broke, so the timer restarts from whenever it next holds.
+	if (condition == false)
+	{
+		d.start = 0:time;
+		return false;
+	}
+
+	// First sample of a run: remember when it started; a `now` of 0 reads as "not holding".
+	if (d.start == 0:time)
+	{
+		d.start = now;
+	}
+
+	if (now - d.start >= hold)
+	{
+		d.latched = true;
+		return true;
+	}
+
+	return false;
+}
+
+// ---- self-test ----
+
+#build bool Debounce_SelfTest()
+{
+	const time step = 100000000:time;   // 100 ms
+	const time hold = 500000000:time;   // 500 ms
+
+	// A cold start, which every block using this gets from `Function::Start` zeroing the cell.
+	Debounce d = Debounce{ start = 0:time, latched = false };
+	#assert(d.start == 0:time, "Debounce: a cold start has no run in progress");
+	#assert(d.latched == false, "Debounce: and nothing latched");
+
+	// A false condition never fires, however long it is held, and never starts a run.
+	for (i32 i = 1; i <= 100; i++)
+	{
+		#assert(Debounce_Update(d, false, step * cast<time>(i), hold) == false,
+			"Debounce: a false condition must never fire");
+	}
+	#assert(d.start == 0:time, "Debounce: and must never start a run");
+
+	// The first true sample STARTS the timer, so the hold elapses a tick later than the arithmetic reads.
+	Debounce run = Debounce{ start = 0:time, latched = false };
+	for (i32 i = 1; i <= 5; i++)
+	{
+		#assert(Debounce_Update(run, true, step * cast<time>(i), hold) == false,
+			"Debounce: must not fire before the hold elapses");
+	}
+	#assert(run.start == step, "Debounce: the run began on the first true sample");
+	#assert(Debounce_Update(run, true, step * 6:time, hold), "Debounce: must fire once the hold elapses");
+	#assert(run.latched, "Debounce: and the latch must survive in the state");
+
+	// Latched: once fired, a false condition does not take it back.
+	#assert(Debounce_Update(run, false, step * 1000:time, hold), "Debounce: a fired debounce is latched");
+
+	// A broken run starts over: what counts is an unbroken stretch, not total time ever true.
+	Debounce broken = Debounce{ start = 0:time, latched = false };
+	for (i32 i = 1; i <= 5; i++)
+	{
+		Debounce_Update(broken, true, step * cast<time>(i), hold);
+	}
+	Debounce_Update(broken, false, step * 6:time, hold);
+	#assert(broken.start == 0:time, "Debounce: a broken run must clear the timer");
+
+	for (i32 i = 7; i <= 11; i++)
+	{
+		#assert(Debounce_Update(broken, true, step * cast<time>(i), hold) == false,
+			"Debounce: the run restarts, so five more ticks still fall short");
+	}
+	#assert(Debounce_Update(broken, true, step * 12:time, hold), "Debounce: six from the restart does fire");
+
+	return true;
+}
+
+#test Debounce_SelfTest "Debounce"

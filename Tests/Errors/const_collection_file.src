@@ -1,0 +1,7 @@
+// A List lives at build time; a file-scope constant is a runtime value, so the two cannot meet.
+const List<str> names = ["a", "b"]:List<str>;
+
+i32 main()
+{
+	return 0;
+}

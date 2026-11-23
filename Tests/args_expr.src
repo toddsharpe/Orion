@@ -1,0 +1,14 @@
+#build str test()
+{
+	i32 i = 4;
+	WriteArgs(${test="test", scale=i});
+	return args_str(${test="test", scale=i});
+}
+
+i32 main()
+{
+	str s = #run test();
+	WriteLine(s);
+
+	return 0;
+}

@@ -1,0 +1,34 @@
+// `pack_*` writes a value into a byte buffer at an offset, big-endian; `unpack_*` reads it back.
+
+i32 main()
+{
+	u8[32] buf;
+
+	pack_be_u8(buf, 0:u32, 0xAB:u8);
+	pack_be_u16(buf, 1:u32, 0xBEEF:u16);
+	pack_be_u32(buf, 3:u32, 0xDEADBEEF:u32);
+	pack_be_i32(buf, 7:u32, 0 - 123456);
+	pack_be_i64(buf, 11:u32, 0:i64 - 8000000000:i64);
+	pack_be_f32(buf, 19:u32, 1.5:f32);
+	pack_be_f64(buf, 23:u32, 0.0 - 2.25);
+	pack_be_bool(buf, 31:u32, true);
+
+	// Every width comes back as the value that went in, whatever the target's native integer is.
+	WriteLine("u8   " + to_str(unpack_be_u8(buf, 0:u32)));
+	WriteLine("u16  " + to_str(unpack_be_u16(buf, 1:u32)));
+	WriteLine("u32  " + to_str(unpack_be_u32(buf, 3:u32)));
+	WriteLine("i32  " + to_str(unpack_be_i32(buf, 7:u32)));
+	WriteLine("i64  " + to_str(unpack_be_i64(buf, 11:u32)));
+	WriteLine("f32  " + to_str(unpack_be_f32(buf, 19:u32)));
+	WriteLine("f64  " + to_str(unpack_be_f64(buf, 23:u32)));
+	WriteLine("bool " + to_str(unpack_be_bool(buf, 31:u32)));
+
+	// Big-endian means most-significant byte first, so the bytes read the way the literal is written.
+	WriteLine("hex  " + bytes_hexstr(buf));
+
+	// A run that matches, and the same run one byte along, which does not.
+	WriteLine("eq   " + to_str(bytes_equal(buf, 3:u32, [222, 173, 190, 239]:u8)));
+	WriteLine("ne   " + to_str(bytes_equal(buf, 4:u32, [222, 173, 190, 239]:u8)));
+
+	return 0;
+}

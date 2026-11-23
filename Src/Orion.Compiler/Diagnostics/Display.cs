@@ -1,0 +1,173 @@
+using Mono.Reflection;
+using Orion.Clr;
+using Orion.Diagrams;
+using Orion.Graphs;
+using Orion.Symbols;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Text;
+
+namespace Orion.Diagnostics
+{
+	//The one set of diagnostic walkers: symbols, call graph, MSIL and a phase's state render to text every host shows.
+	public static class Display
+	{
+		//The phase banner and its messages: the head of one phase's transcript entry.
+		public static void PhaseHeader(StringBuilder sb, PhaseResult phase)
+		{
+			sb.AppendLine($"=== {phase} ({phase.Elapsed.TotalMilliseconds:F1}ms) ===");
+			foreach (Message message in phase.Messages)
+				sb.AppendLine($"{message.Type}: {message.Text}");
+		}
+
+		//Every property of the phase's state record, a line or a block each, then a blank line; the CLI's -v transcript and the web's Pipeline tab share this switch.
+		public static void PhaseState(StringBuilder sb, PhaseResult phase)
+		{
+			foreach (PropertyInfo info in phase.State?.GetType().GetProperties() ?? [])
+			{
+				object value;
+				try { value = info.GetValue(phase.State, null); }
+				catch { continue; }
+
+				switch (value)
+				{
+					case CompilerFile file:
+						sb.AppendLine($"{info.Name}: {file.Summary()}");
+						break;
+					case IEnumerable<CompilerFile> gathered:
+						List<CompilerFile> all = gathered.ToList();
+						sb.AppendLine($"{info.Name}: {Messages.Count(all.Count, "file")}");
+						foreach (CompilerFile gatheredFile in all)
+							sb.AppendLine($"  - {gatheredFile?.Summary() ?? "<null>"}");
+						break;
+					case SymbolTable table:
+						sb.AppendLine($"{info.Name}:");
+						sb.Append(Symbols(table));
+						Code(sb, table);
+						break;
+					case CallGraph.Node node:
+						sb.AppendLine("Call graph:");
+						sb.Append(CallGraph(node));
+						break;
+					case Emitted code:
+						sb.AppendLine($"--- Code ({code.Lang}) ---");
+						sb.AppendLine(code.Text);
+						break;
+					case Module:
+						sb.Append(Msil());
+						break;
+					case Exception ex:
+						sb.AppendLine(ex.ToString());
+						break;
+					case null:
+						sb.AppendLine($"{info.Name}: <null>");
+						break;
+					default:
+						sb.AppendLine($"{info.Name}: {value}");
+						break;
+				}
+			}
+			sb.AppendLine();
+		}
+
+		public static string Symbols(SymbolTable table)
+		{
+			StringBuilder sb = new StringBuilder();
+			Symbols(sb, table, 0);
+			return sb.ToString();
+		}
+
+		private static void Symbols(StringBuilder sb, SymbolTable table, int depth)
+		{
+			string indent = new string(' ', depth * 2);
+			sb.Append(indent).Append("table ").Append(table.Name).Append('\n');
+
+			//The root also holds the builtin surface, the same for every program, so it lists only the program's own.
+			foreach (Symbol symbol in table.GetAll().Where(i => table.Parent != null || !GlobalTable.IsSurface(i)))
+				sb.Append(indent).Append("  ").Append(symbol.GetType().Name.Replace("Symbol", string.Empty).PadRight(20)).Append(' ').Append(symbol).Append('\n');
+
+			foreach (SymbolTable child in table.Children)
+				Symbols(sb, child, depth + 1);
+		}
+
+		//Every function's code: its structured form once Backend::StIr has built one, its TACs until then.
+		private static void Code(StringBuilder sb, SymbolTable table)
+		{
+			foreach (SourceFunctionSymbol function in table.Traverse().SelectMany(i => i.GetAll<SourceFunctionSymbol>()))
+			{
+				sb.Append("function ").Append(function.Name).Append('\n');
+				foreach (string line in function.St != null ? StIrText.Ctrl(function.St) : function.Tacs.Select(i => i.ToString()))
+					sb.Append("  ").Append(line).Append('\n');
+			}
+		}
+
+		public static string CallGraph(CallGraph.Node node)
+		{
+			StringBuilder sb = new StringBuilder();
+			CallGraph(sb, node, string.Empty, 0, new HashSet<CallGraph.Node>());
+			return sb.ToString();
+		}
+
+		private static void CallGraph(StringBuilder sb, CallGraph.Node node, string edge, int depth, HashSet<CallGraph.Node> visited)
+		{
+			bool seen = !visited.Add(node);
+			sb.Append(new string(' ', depth * 2)).Append(edge).Append(node.Value.Name).Append(seen ? " (...)" : string.Empty).Append('\n');
+			if (seen)
+				return;
+
+			foreach (KeyValuePair<CallGraph.Node, CallGraph.Edge> outgoing in node.Outgoing)
+				CallGraph(sb, outgoing.Key, $"[{outgoing.Value.Value}] ", depth + 1, visited);
+		}
+
+		//One section per sealed generation: its fields, one line for the static ctor that fills them, and every method's IL.
+		public static string Msil()
+		{
+			if (BuildAssembly.Generations.Count == 0)
+				return string.Empty;
+
+			StringBuilder sb = new StringBuilder();
+			sb.Append("--- MSIL ---\n");
+
+			foreach (Type generation in BuildAssembly.Generations)
+			{
+				sb.Append("-- ").Append(generation.Name).Append(" --\n");
+				foreach (FieldInfo field in generation.GetFields(BindingFlags.Public | BindingFlags.Static))
+					sb.Append(field.Name).Append(": ").Append(field.FieldType).Append('\n');
+				sb.Append('\n');
+
+				//The static ctor only fills each delegate field above, four instructions a field, so it is named rather than listed.
+				if (generation.GetConstructor(BindingFlags.Public | BindingFlags.Static, Type.EmptyTypes) is ConstructorInfo ctor)
+					sb.Append("Ctor: ").Append(ctor.Name).Append(" fills each delegate field above\n\n");
+
+				foreach (MethodInfo method in generation.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly))
+				{
+					string args = string.Join(", ", method.GetParameters().Select(i => $"{i.ParameterType} {i.Name}"));
+					sb.Append(method.ReturnType).Append(' ').Append(method.Name).Append(" (").Append(args).Append(")\n");
+					Body(sb, method);
+				}
+			}
+
+			return sb.ToString();
+		}
+
+		private static void Body(StringBuilder sb, MethodBase method)
+		{
+			try
+			{
+				foreach (LocalVariableInfo local in method.GetMethodBody()?.LocalVariables ?? [])
+					sb.Append("\tlocal: ").Append(local.LocalIndex).Append(' ').Append(local.LocalType).Append('\n');
+
+				foreach (Instruction instruction in method.GetInstructions())
+					sb.Append('\t').Append(instruction).Append('\n');
+			}
+			catch (Exception ex)
+			{
+				sb.Append("\t<il unavailable: ").Append(ex.Message).Append(">\n");
+			}
+
+			sb.Append('\n');
+		}
+	}
+}

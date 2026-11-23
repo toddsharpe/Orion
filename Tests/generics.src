@@ -1,0 +1,71 @@
+// User-defined generic functions, C++-template style: one definition, a concrete
+// copy generated per type argument (monomorphization). Explicit type args at the
+// call site: max<i32>(a, b), sum_all<i64>(xs).
+
+T max<T>(T a, T b)
+{
+	if (a > b)
+	{
+		return a;
+	}
+	return b;
+}
+
+T sum_all<T>(ConstSpan<T> xs)
+{
+	T total = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		total = total + xs[i];
+	}
+	return total;
+}
+
+T second<T>(ConstSpan<T> xs)
+{
+	return xs[1];
+}
+
+// Generic function that calls another generic function (transitive instantiation).
+T max3<T>(T a, T b, T c)
+{
+	return max<T>(max<T>(a, b), c);
+}
+
+struct Pair { i32 A; i32 B; }
+
+// Generic over a struct type argument.
+T pick_first<T>(T x, T y)
+{
+	return x;
+}
+
+void test()
+{
+	i32 a = max<i32>(3, 7);
+	i32 b = max<i32>(9, 2);
+	WriteLine("max i32 = " + to_str(max<i32>(a, b)));
+
+	i32[] xs = [4, 8, 15, 16, 23, 42]:i32;
+	WriteLine("sum i32 = " + to_str(sum_all<i32>(xs)));
+	WriteLine("second i32 = " + to_str(second<i32>(xs)));
+
+	i64[] ys = [10, 20, 30]:i64;
+	WriteLine("sum i64 = " + to_str(sum_all<i64>(ys)));
+	// Typed integer literals let i64 generics take literal arguments directly.
+	WriteLine("max i64 = " + to_str(max<i64>(100:i64, 250:i64)));
+
+	WriteLine("max3 i32 = " + to_str(max3<i32>(5, 12, 8)));
+
+	Pair p = Pair{A=1, B=2};
+	Pair q = Pair{A=3, B=4};
+	Pair r = pick_first<Pair>(p, q);
+	WriteLine("pick_first.A = " + to_str(r.A));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

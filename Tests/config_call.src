@@ -1,0 +1,30 @@
+// #src runs a named function from another .src at build time and binds its result. Here the result
+// lands in a runtime context, so the returned List<Device> freezes to a Device[] literal.
+// The caller and the provider share Device via the same #using.
+#using "Lib/types.src"
+
+// A `const` takes its shape from the declaration exactly as a writable one does, list or array alike.
+#build i32 width()
+{
+	const List<Device> devices = #src "Configs/telemetry.src" devices(3);
+
+	i32 total = 0;
+	for (const Device d in devices)
+	{
+		total = total + d.type.Size;
+	}
+	return total;
+}
+
+i32 main()
+{
+	Channel[] fields = #src "Configs/telemetry.src" channels(3);
+	for (const Channel f in fields)
+	{
+		WriteLine(f.name + " units=" + f.units);
+	}
+
+	const Channel[] frozen = #src "Configs/telemetry.src" channels(2);
+	WriteLine("frozen=" + to_str(frozen.Length) + " width=" + to_str(#run width()));
+	return 0;
+}

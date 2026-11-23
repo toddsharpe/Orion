@@ -1,0 +1,11 @@
+// A #src entry may be called by its own file, and two files may export the same names: each load gets
+// a scope of its own, so `pick` and its helper `bump` resolve within the file that declared them.
+i32 main()
+{
+	i32 a = #src "Configs/src_scope_a.src" pick(seed = 1);
+	i32 b = #src "Configs/src_scope_b.src" pick(seed = 1);
+
+	WriteLine("a = " + to_str(a));
+	WriteLine("b = " + to_str(b));
+	return 0;
+}

@@ -1,0 +1,33 @@
+// A `Span<T>` local is a second name for the caller's storage: writing through it is visible there.
+
+void probe(Span<u8> src)
+{
+	Span<u8> alias = src;
+	alias[0] = 9:u8;
+	WriteLine("alias=" + to_str(alias[0]) + " src=" + to_str(src[0]));
+
+	// The value form still copies, so the two forms are distinguishable in one function.
+	u8[2] copy = src;
+	copy[0] = 1:u8;
+	WriteLine("copy=" + to_str(copy[0]) + " src=" + to_str(src[0]));
+}
+
+// A read-only view of a read-only buffer keeps a const one around under a new name.
+u8 peek(ConstSpan<u8> buf)
+{
+	ConstSpan<u8> ro = buf;
+	return ro[0];
+}
+
+i32 main()
+{
+	u8[4] b;
+	probe(b);
+	WriteLine("caller sees " + to_str(b[0]));
+
+	// A view of a value the caller owns aliases it too.
+	Span<u8> v = b;
+	v[1] = 5:u8;
+	WriteLine("b[1]=" + to_str(b[1]) + " peek=" + to_str(peek(b)));
+	return 0;
+}

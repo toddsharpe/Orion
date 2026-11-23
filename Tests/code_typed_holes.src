@@ -1,0 +1,23 @@
+// `${x}:u16` splices the value as a literal of that type, the way `128:u16` writes one -- so a
+// fragment can carry a typed constant without a cast, which is what a text template's suffix did.
+i32 main()
+{
+	u16 counts = 0:u16;
+	f32 trim = 0.0:f32;
+	i64 wide = 0:i64;
+
+	#run
+	{
+		i32 raw = 120;
+		f64 gain = 0.5;
+
+		#insert { counts = ${raw}:u16 + 1:u16; }
+		#insert { trim = ${gain}:f32; }
+		#insert { wide = ${raw}:i64 * 1000000:i64; }
+	}
+
+	WriteLine("counts = " + to_str(counts));
+	WriteLine("trim   = " + to_str(trim));
+	WriteLine("wide   = " + to_str(wide));
+	return 0;
+}

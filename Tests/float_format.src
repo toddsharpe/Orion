@@ -1,0 +1,14 @@
+// Float printing is 6 significant figures with C's %g rule: exponential below 1e-4 or from 1e6.
+i32 main()
+{
+	WriteLine(to_str(100000.0) + " " + to_str(123456.0));
+	WriteLine(to_str(1000000.0) + " " + to_str(16777216.0));
+	WriteLine(to_str(10000000.0) + " " + to_str(1234567.0));
+	WriteLine(to_str(1e20) + " " + to_str(1e21));
+	WriteLine(to_str(0.0001) + " " + to_str(0.00001));
+	WriteLine(to_str(0.000123456) + " " + to_str(0.1));
+	WriteLine(to_str(1.0 / 3.0) + " " + to_str(3.5));
+	WriteLine(to_str(4.0) + " " + to_str(-2.5) + " " + to_str(-1000000.0));
+	WriteLine(to_str(0.0) + " " + to_str(2.0 / 3.0));
+	return 0;
+}

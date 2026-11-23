@@ -1,0 +1,11 @@
+// `#if` folds anywhere, against -D defines; a name ORDERED against a number cannot fold without one.
+
+i32 main()
+{
+	#if (RATE > 2)
+	{
+		return 1;
+	}
+
+	return 0;
+}

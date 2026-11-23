@@ -1,0 +1,26 @@
+struct Record
+{
+	str Name;
+	i32 Value;
+}
+
+void print(Record r)
+{
+	WriteLine("Name: " + r.Name);
+	WriteLine("Value: " + to_str(r.Value));
+}
+
+void test()
+{
+	str n = "Asd";
+	i32 v = 3;
+	print(Record{ Name=n, Value=v});
+}
+
+i32 main()
+{
+	#run test();
+	test();
+
+	return 0;
+}

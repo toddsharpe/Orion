@@ -1,0 +1,40 @@
+// #assert(cond) / #assert(cond, message) checks during the build: a failure is a compile error at the
+// assert itself, a failed comparison showing both sides, so only passing asserts can appear in a test
+// that produces output; the failing cases are pinned by Src/Orion.Tests/BuildTime/AssertTest.cs.
+struct Row { str name; i32 weight; }
+
+#build i32 total(List<Row> rows)
+{
+	#assert(rows.Length > 0, "no rows");
+
+	i32 sum = 0;
+	List<str> seen = List::New<str>();
+	for (const Row r in rows)
+	{
+		// Both forms, inside a loop, over values only known at build time.
+		#assert(!seen.Contains(r.name), "duplicate row '" + r.name + "'");
+		#assert(r.weight > 0)
+		seen.Add(r.name);
+		sum = sum + r.weight;
+	}
+
+	// The condition is an arbitrary expression, not just a comparison.
+	#assert(sum == 60 && seen.Length == 3, "unexpected total " + to_str(sum));
+	return sum;
+}
+
+#build str check()
+{
+	List<Row> rows = [
+		Row{ name = "a", weight = 10 },
+		Row{ name = "b", weight = 20 },
+		Row{ name = "c", weight = 30 }
+	]:List<Row>;
+	return "total=" + to_str(total(rows));
+}
+
+i32 main()
+{
+	WriteLine(#run check());
+	return 0;
+}

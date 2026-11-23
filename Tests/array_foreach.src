@@ -1,0 +1,27 @@
+void foreach(ConstSpan<i32> values, Action<i32> action)
+{
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		i32 current = values[i];
+		action(current);
+	}
+}
+
+void run()
+{
+	Action<i32> display = [](i32 current)
+	{
+		WriteLine("Value: " + to_str(current));
+	};
+
+	i32[] values = [1, 2, 3, 4]:i32;
+	foreach(values, display);
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

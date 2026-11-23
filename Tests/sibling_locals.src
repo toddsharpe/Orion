@@ -1,0 +1,22 @@
+i32 main()
+{
+	i32 total = 0;
+
+	if (total == 0)
+	{
+		i32 x = 3;
+		total = total + x;
+	}
+
+	if (total == 3)
+	{
+		bool x = true;
+		if (x)
+		{
+			total = total + 4;
+		}
+	}
+
+	WriteLine("Total: " + to_str(total));
+	return 0;
+}

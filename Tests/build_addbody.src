@@ -1,0 +1,10 @@
+i32 main()
+{
+	//Add writes
+	#run Build::AddBody("
+	{
+		WriteLine(\"Success.\");
+	}");
+
+	return 0;
+}

@@ -1,0 +1,19 @@
+i32 Inc(i32 v)
+{
+	v = v + 1;
+	return v;
+}
+
+void run()
+{
+	i32 r = Inc(2);
+	WriteLine("Value: " + to_str(r));
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

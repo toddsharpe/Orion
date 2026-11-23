@@ -1,0 +1,21 @@
+// The same escape through a struct field: the field aliases, so the struct carries the borrow out.
+struct Bag { List<i32> items; }
+
+#build Bag wrap(const List<i32> xs)
+{
+	return Bag{ items = xs };
+}
+
+#build str probe()
+{
+	const List<i32> ro = List::New<i32>();
+	Bag b = wrap(ro);
+	b.items.Add(1);
+	return to_str(ro.Length);
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

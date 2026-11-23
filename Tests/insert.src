@@ -1,0 +1,29 @@
+// #insert: line form, block form (balanced braces), ${} holes; appends to a block or to the caller.
+void Gen(#param str name, #param i32 count, #param str label)
+{
+	#run
+	{
+		// Line form with a build-time hole.
+		#insert $"i32 total = {count};";
+
+		// Block form: multiple statements + a nested { } block, with a hole at depth.
+		#insert {
+			for (i32 i = 0; i < total; i++)
+			{
+				WriteLine(${label} + " " + to_str(i));
+			}
+		}
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		Function g = #create Gen(name = "emit", count = 3, label = "item");
+		// The same #insert outside an escape splices the call into main.
+		#insert $"{g.Name}();";
+	}
+
+	return 0;
+}

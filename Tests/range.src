@@ -1,0 +1,71 @@
+// range<T> from Lib/Math.src: 0, 1, ... length-1 as a List<T>.
+//
+// It is generic over the element type while the loop counter stays i32, so the value is accumulated
+// separately -- the same split mean<T> uses for its count. Its real purpose is to give a comprehension
+// something to iterate: without it there is no way to write a counted sequence as an expression.
+//
+// Everything here runs at build time (range<T> is #build, and List<T> has no runtime representation), so
+// the digests below are folded into the program as constants.
+// `range<T>` from Math.src, spelled here so the test stands alone: 0, 1, ... length-1 as a List<T>.
+#build T list_sum<T>(const List<T> xs)
+{
+	T total = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		total = total + xs[i];
+	}
+	return total;
+}
+
+
+#build List<T> range<T>(const i32 length)
+{
+	List<T> xs = List::New<T>();
+	T v = 0:T;
+	for (i32 i = 0; i < length; i++)
+	{
+		xs.Add(v);
+		v = v + 1:T;
+	}
+	return xs;
+}
+
+#build str probe()
+{
+	// i32, the common case: 0+1+2+3+4.
+	List<i32> a = range<i32>(5);
+	str r = "i32.len=" + to_str(a.Length) + " sum=" + to_str(list_sum<i32>(a));
+
+	// A non-integer element type still counts correctly.
+	List<f64> b = range<f64>(4);
+	r = r + " f64.len=" + to_str(b.Length) + " sum=" + to_str(list_sum<f64>(b));
+
+	// u32, the type the MD5 K table would use.
+	List<u32> c = range<u32>(3);
+	r = r + " u32=" + to_str(c[0]) + "," + to_str(c[1]) + "," + to_str(c[2]);
+
+	// Degenerate bounds are empty rather than an error, so a computed length composes.
+	List<i32> z = range<i32>(0);
+	List<i32> n = range<i32>(0 - 3);
+	r = r + " zero=" + to_str(z.Length) + " neg=" + to_str(n.Length);
+
+	// As a comprehension source: 0+1+4+9+16+25.
+	List<i32> sq = [i * i for i32 i in range<i32>(6)]:List<i32>;
+	r = r + " squares=" + to_str(list_sum<i32>(sq));
+
+	// Filtered, and mapping to a different element type.
+	List<str> odd = [to_str(i) for i32 i in range<i32>(7) if i % 2 == 1]:List<str>;
+	str joined = "";
+	for (const str s in odd.ToArray())
+	{
+		joined = joined + s;
+	}
+	r = r + " odd=" + joined;
+	return r;
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

@@ -1,0 +1,52 @@
+//Framing in both endians: the pack_le/pack_be families and their generic forms, round-tripped on every width.
+
+i32 main()
+{
+	const i32 neg = 0 - 2;
+
+	u8[28] le;
+	pack_le_u16(le, 0:u32, 4660:u16);
+	pack_le_u32(le, 2:u32, 305419896:u32);
+	pack_le_i32(le, 6:u32, neg);
+	pack_le_i64(le, 10:u32, 20015998343868:i64);
+	pack_le_f64(le, 18:u32, 1.5);
+	pack_le_u8(le, 26:u32, 171:u8);
+	pack_le_bool(le, 27:u32, true);
+	WriteLine(bytes_hexstr(le));
+
+	u8[28] be;
+	pack_be_u16(be, 0:u32, 4660:u16);
+	pack_be_u32(be, 2:u32, 305419896:u32);
+	pack_be_i32(be, 6:u32, neg);
+	pack_be_i64(be, 10:u32, 20015998343868:i64);
+	pack_be_f64(be, 18:u32, 1.5);
+	pack_be_u8(be, 26:u32, 171:u8);
+	pack_be_bool(be, 27:u32, true);
+	WriteLine(bytes_hexstr(be));
+
+	// The generic forms pick the width from the type argument, one per byte order.
+	u8[8] generic;
+	pack_be<u16>(generic, 0:u32, 4660:u16);
+	pack_le<u16>(generic, 2:u32, 4660:u16);
+	pack_le<f32>(generic, 4:u32, 2.5:f32);
+	WriteLine(bytes_hexstr(generic));
+
+	WriteLine(to_str(unpack_le<u16>(le, 0:u32)));
+	WriteLine(to_str(unpack_le<u32>(le, 2:u32)));
+	WriteLine(to_str(unpack_le<i32>(le, 6:u32)));
+	WriteLine(to_str(unpack_le<i64>(le, 10:u32)));
+	WriteLine(to_str(unpack_le<f64>(le, 18:u32)));
+	WriteLine(to_str(unpack_le_u8(le, 26:u32)));
+	WriteLine(to_str(unpack_le_bool(le, 27:u32)));
+
+	WriteLine(to_str(unpack_be<u16>(be, 0:u32)));
+	WriteLine(to_str(unpack_be<u32>(be, 2:u32)));
+	WriteLine(to_str(unpack_be<i32>(be, 6:u32)));
+	WriteLine(to_str(unpack_be<i64>(be, 10:u32)));
+	WriteLine(to_str(unpack_be<f64>(be, 18:u32)));
+
+	WriteLine(to_str(unpack_be<u16>(generic, 0:u32)));
+	WriteLine(to_str(unpack_le<f32>(generic, 4:u32)));
+
+	return 0;
+}

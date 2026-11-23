@@ -1,0 +1,43 @@
+// The while loop in its own right: a while(cond) driven by a boolean flag, and a
+// while(true) exited via break. (A while with a trailing counter update is
+// recovered as a for - see bool_ops/demo_assert for that shape.)
+
+i32 countdown_steps(i32 n)
+{
+	i32 steps = 0;
+	bool going = n > 0;
+	while (going)
+	{
+		steps = steps + 1;
+		n = n - 1;
+		going = n > 0;
+	}
+	return steps;
+}
+
+i32 first_pow2_at_least(i32 target)
+{
+	i32 v = 1;
+	while (true)
+	{
+		if (v >= target)
+		{
+			break;
+		}
+		v = v * 2;
+	}
+	return v;
+}
+
+void test()
+{
+	WriteLine("countdown_steps(5) = " + to_str(countdown_steps(5)));
+	WriteLine("first_pow2_at_least(100) = " + to_str(first_pow2_at_least(100)));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

@@ -1,0 +1,88 @@
+// Where the vehicle sits and the longitude scale there: tracked on the pad, then left standing.
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Types.src"
+
+// One tick.
+void PadLocation(
+	#param str name,
+	#input bool enabled @ $"{name}_enabled",
+	#input bool valid @ "Gps.Loc.Valid",
+	#input f64<deg> latitude @ "Gps.Loc.Lat",
+	#input f64<deg> longitude @ "Gps.Loc.Lng",
+	#output f64<deg> padLatitude @ "Pad.Lat",
+	#output f64<deg> padLongitude @ "Pad.Lng",
+	// A cosine, so this one is deliberately a bare number: it scales a distance rather than being one.
+	#output f64 padScale @ "Pad.LngScale"
+)
+{
+	// Not dispatched: the origin stands -- tracking through a flight, the pad follows the vehicle.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// No fix, no origin: an `#output` persists, so declining to write it holds the last good reading.
+	if (valid == false)
+	{
+		return;
+	}
+
+	padLatitude = latitude;
+	padLongitude = longitude;
+	padScale = cos<f64>(radians(latitude));
+}
+
+// ---- self-test ----
+
+#build bool PadLocation_SelfTest()
+{
+	const f64<deg> lat = 32.9905:f64<deg>;      // Spaceport America, near enough
+	const f64<deg> lng = -106.9750:f64<deg>;
+
+	Instance pad = Function::Start(#create PadLocation(name = "padlocation_selftest"));
+
+	// The position passes straight through; it is the origin, not an estimate of one.
+	Function::Tick(pad, ${enabled = true, valid = true, latitude = lat, longitude = lng});
+	#assert(approx(Instance::Get<f64>(pad, "padLatitude"), lat, 0.0000001), "PadLocation: latitude is what was handed over");
+	#assert(approx(Instance::Get<f64>(pad, "padLongitude"), lng, 0.0000001), "PadLocation: longitude too");
+
+	// The longitude scale is the cosine of the latitude: about 0.84 at 33 degrees north.
+	#assert(approx(Instance::Get<f64>(pad, "padScale"), 0.8388, 0.001), "PadLocation: the scale is cos(latitude)");
+
+	Function::Tick(pad, ${enabled = true, valid = true, latitude = 0.0, longitude = 0.0});
+	#assert(approx(Instance::Get<f64>(pad, "padScale"), 1.0, 0.000001), "PadLocation: a degree of longitude is full length at the equator");
+
+	Function::Tick(pad, ${enabled = true, valid = true, latitude = 60.0, longitude = 0.0});
+	#assert(Instance::Get<f64>(pad, "padScale") < 0.6, "PadLocation: and half of it by sixty degrees north");
+
+	// The scale does not care which hemisphere: cosine is even.
+	Function::Tick(pad, ${enabled = true, valid = true, latitude = 45.0, longitude = 0.0});
+	const f64 northScale = Instance::Get<f64>(pad, "padScale");
+	Function::Tick(pad, ${enabled = true, valid = true, latitude = -45.0, longitude = 0.0});
+	#assert(approx(northScale, Instance::Get<f64>(pad, "padScale"), 0.000001), "PadLocation: the scale is symmetric about the equator");
+
+	// A scale, so never negative and never magnifying: longitude is at most latitude, at the equator.
+	Function::Tick(pad, ${enabled = true, valid = true, latitude = 89.0, longitude = 0.0});
+	#assert(Instance::Get<f64>(pad, "padScale") > 0.0, "PadLocation: the scale stays positive right up to the pole");
+	#assert(Instance::Get<f64>(pad, "padScale") < northScale, "PadLocation: and shrinks all the way there");
+
+	// Eastern longitudes and southern latitudes carry through unchanged; nothing here assumes a sign.
+	Function::Tick(pad, ${enabled = true, valid = true, latitude = -33.86, longitude = 151.20});
+	#assert(approx(Instance::Get<f64>(pad, "padLatitude"), -33.86, 0.0000001), "PadLocation: southern latitudes pass through");
+	#assert(approx(Instance::Get<f64>(pad, "padLongitude"), 151.20, 0.0000001), "PadLocation: eastern longitudes too");
+
+	// No fix, no origin: the last good reading stands rather than the pad moving to null island.
+	Function::Tick(pad, ${enabled = true, valid = false, latitude = 0.0, longitude = 0.0});
+	#assert(approx(Instance::Get<f64>(pad, "padLatitude"), -33.86, 0.0000001), "PadLocation: an invalid fix does not move the pad");
+	#assert(approx(Instance::Get<f64>(pad, "padLongitude"), 151.20, 0.0000001), "PadLocation: in either coordinate");
+
+	// Disabled: a perfectly good fix elsewhere must not move the origin, this being launch.
+	Function::Tick(pad, ${enabled = false, valid = true, latitude = lat, longitude = lng});
+	#assert(approx(Instance::Get<f64>(pad, "padLatitude"), -33.86, 0.0000001), "PadLocation: a disabled tick does not move the pad");
+	#assert(approx(Instance::Get<f64>(pad, "padLongitude"), 151.20, 0.0000001), "PadLocation: however good the fix is");
+
+	return true;
+}
+
+#test PadLocation_SelfTest "Pad location"

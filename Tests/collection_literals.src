@@ -1,0 +1,38 @@
+// Build-time collection literals. `List<T>[...]` and `Map<K,V>{...}` are gated on the generic type
+// name, so they never collide with a fixed-array literal (i32[1,2]), a subscript (a[0]) or a struct
+// literal (P{...}) -- all of which still mean what they always did. Both may be empty, and a
+// one-element list literal works (a bare `P[x]` would have been read as a sized allocation).
+struct P { str name; i32 id; }
+
+#build str probe()
+{
+	List<P> many  = [ P{ name = "a", id = 1 }, P{ name = "b", id = 2 } ]:List<P>;
+	List<P> one   = [ P{ name = "solo", id = 9 } ]:List<P>;
+	List<str> nil = []:List<str>;
+
+	// Keys are quoted expressions, so any key type works -- not just identifiers.
+	Map<str, str> cmds  = Map<str, str>{ "START" = "Warmup", "READY" = "Running" };
+	Map<str, i32> nums  = Map<str, i32>{ "a" = 1, "b" = 2 };
+	Map<str, str> empty = Map<str, str>{};
+
+	// Literals nest, so a whole structure is one expression.
+	List<List<str>> nested = [ ["x", "y"]:List<str>, []:List<str> ]:List<List<str>>;
+
+	str r = "many=" + to_str(many.Length);
+	r = r + " one=" + one[0].name;
+	r = r + " nil=" + to_str(nil.Length);
+	r = r + " start=" + cmds["START"];
+	r = r + " b=" + to_str(nums["b"]);
+	r = r + " empty=" + to_str(empty.Length);
+	r = r + " nested=" + to_str(nested[0].Length);
+	for (const P p in many) { r = r + " " + p.name + to_str(p.id); }
+	return r;
+}
+
+i32 main()
+{
+	// Fixed arrays and subscripts are unaffected.
+	i32[] arr = [10, 20, 30]:i32;
+	WriteLine(#run probe() + " arr=" + to_str(arr[2]));
+	return 0;
+}

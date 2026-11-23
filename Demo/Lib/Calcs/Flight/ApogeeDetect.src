@@ -1,0 +1,91 @@
+// Apogee: half a second of sustained non-positive rate, which separates the top from noise.
+#using "Lib/types.src"
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Debounce.src"
+
+// Zero, not a margin: the sign change IS apogee, and the hold is what rejects noise around it.
+const f32<m/s> ApogeeVelocity = 0.0:f32<m/s>;
+
+const time ApogeeHold = 500000000:time;
+
+// One tick. `velocity` is the fused vertical rate, positive up.
+void ApogeeDetect(
+	#param str name,
+	#param f32<m/s> threshold = 0.0:f32<m/s>,
+	#param time hold = 500000000:time,
+	#param str time_src = "cycle_time",
+	#state Debounce debounce,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<m/s> velocity @ "Alt.Velocity",
+	#input time now @ time_src,
+	#output bool detected @ "Apogee.Detected"
+)
+{
+	// Not dispatched: the run and the latch hold -- a stationary vehicle also reads non-positive.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	detected = Debounce_Update(debounce, velocity <= threshold, now, hold);
+}
+
+// ---- self-test ----
+
+#build bool ApogeeDetect_SelfTest()
+{
+	const time step = 100000000:time;   // 100 ms, so the 500ms hold needs six ticks
+
+	Instance apogee = Function::Start(#create ApogeeDetect(name = "apogeedetect_selftest"));
+	#assert(Instance::Get<Debounce>(apogee, "debounce").start == 0:time, "Apogee: a cold start has no run in progress");
+	#assert(Instance::Get<Debounce>(apogee, "debounce").latched == false, "Apogee: and nothing latched");
+
+	// Climbing: nothing fires however long the ascent lasts, and no run is started.
+	for (i32 i = 1; i <= 200; i++)
+	{
+		Function::Tick(apogee, ${enabled = true, velocity = 100.0:f32, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(apogee, "detected") == false, "Apogee: a climbing vehicle has not reached apogee");
+	}
+	#assert(Instance::Get<Debounce>(apogee, "debounce").start == 0:time, "Apogee: and starts no run while climbing");
+
+	// A dip in the estimate part-way up does not count, because it does not last.
+	Function::Tick(apogee, ${enabled = true, velocity = -1.0:f32, now = step * 201:time});
+	#assert(Instance::Get<Debounce>(apogee, "debounce").start == step * 201:time, "Apogee: a dip does start a run");
+	Function::Tick(apogee, ${enabled = true, velocity = 50.0:f32, now = step * 202:time});
+	#assert(Instance::Get<Debounce>(apogee, "debounce").start == 0:time, "Apogee: and recovering clears it");
+	#assert(Instance::Get<bool>(apogee, "detected") == false, "Apogee: a brief dip on the way up must not fire");
+
+	// Over the top: the rate goes non-positive and stays there.
+	Instance over = Function::Start(#create ApogeeDetect(name = "apogeedetect_over"));
+	for (i32 i = 1; i <= 6; i++)
+	{
+		Function::Tick(over, ${enabled = true, velocity = -5.0:f32, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(over, "detected") == (i == 6), "Apogee: sustained descent fires on the sixth tick and not before");
+	}
+
+	// Zero counts: at the very top the rate is neither up nor down, and that is the moment.
+	Instance flat = Function::Start(#create ApogeeDetect(name = "apogeedetect_flat"));
+	for (i32 i = 1; i <= 6; i++)
+	{
+		Function::Tick(flat, ${enabled = true, velocity = 0.0:f32, now = step * cast<time>(i)});
+	}
+	#assert(Instance::Get<bool>(flat, "detected"), "Apogee: zero rate is the top, so the threshold is inclusive");
+
+	// Latched: the descent is long and noisy, and apogee happened once.
+	Function::Tick(over, ${enabled = true, velocity = 30.0:f32, now = step * 1000:time});
+	#assert(Instance::Get<bool>(over, "detected"), "Apogee: apogee happens once, so a later positive rate cannot undo it");
+
+	// Disabled: a stationary vehicle sits at the threshold, so no run ever starts.
+	Instance held = Function::Start(#create ApogeeDetect(name = "apogeedetect_held"));
+	for (i32 i = 1; i <= 200; i++)
+	{
+		Function::Tick(held, ${enabled = false, velocity = 0.0:f32, now = step * cast<time>(i)});
+	}
+	#assert(Instance::Get<Debounce>(held, "debounce").start == 0:time, "Apogee: a disabled calc starts no run on the pad");
+	#assert(Instance::Get<bool>(held, "detected") == false, "Apogee: and declares no apogee before launch");
+
+	return true;
+}
+
+#test ApogeeDetect_SelfTest "Apogee detection"

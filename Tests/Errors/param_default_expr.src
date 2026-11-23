@@ -1,0 +1,16 @@
+// A #param default is substituted as a literal at #create, so an expression there never applies.
+const i32 BASE = 10;
+
+void Scale(#param str name, #param i32 by = BASE * 2, #input i32 raw, #output i32 scaled)
+{
+	scaled = raw * by;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function f = #create Scale(name = "s");
+	}
+	return 0;
+}

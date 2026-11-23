@@ -1,0 +1,31 @@
+// A valued `#run { }` mid-body, in a function that is not the entry point and has an #output port.
+// The block's `return` yields the BLOCK -- if it were read as the function's control flow, everything
+// after it would look unreachable and the real exit would never get its return. The Python and
+// JavaScript backends return out params by value, so that shows up as a function returning nothing.
+
+void scale(i32 x, #output i32 doubled)
+{
+	const i32 n = #run { return 5; };
+	WriteLine("n = " + to_str(n));
+	doubled = (x + n) * 2;
+}
+
+// Same again with the block last, so the exit block IS the one the region sat in.
+void offset(i32 x, #output i32 shifted)
+{
+	i32 base = x * 10;
+	const i32 bump = #run { return 3; };
+	shifted = base + bump;
+}
+
+i32 main()
+{
+	i32 out = 0;
+	scale(1, out);
+	WriteLine("out = " + to_str(out));
+
+	i32 shifted = 0;
+	offset(4, shifted);
+	WriteLine("shifted = " + to_str(shifted));
+	return 0;
+}

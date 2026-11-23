@@ -1,0 +1,4 @@
+wide 256 64 -1 1
+negative -2147483648
+narrow 0 2
+folded 0 2

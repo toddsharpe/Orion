@@ -1,0 +1,22 @@
+== runtime functions ==
+add(2, 3) = 5
+next_id = 1 2 3
+doubled = 2 4 6 8
+pick = 10 20
+apply(+1, 41) = 42
+  each 5
+  each 6
+  each 7
+== build-time functions ==
+triangle(5) folded at build time = 15
+hello, world!
+== solver: static / mixed / data-driven templates ==
+cycle 0
+  scale scale: 0 -> 0
+  scaled = 0
+cycle 1
+  scale scale: 5 -> 10
+  scaled = 10
+cycle 2
+  scale scale: 10 -> 20
+  scaled = 20

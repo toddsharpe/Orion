@@ -1,0 +1,10 @@
+// A builtin is namespaced with `::`; the CLR underscore spelling is not the Orion name.
+i32 main()
+{
+	#run
+	{
+		Code c = Code_Parse("WriteLine(\"x\");");
+		#insert c;
+	}
+	return 0;
+}

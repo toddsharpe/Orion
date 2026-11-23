@@ -1,0 +1,58 @@
+// Type::Defer names a type a block declares as its Solver builds it, while the list is still being built: carried and compared by name, looked up when a later block first needs more.
+//The declarations this needs from Lib/types.src, spelled here so the test stands alone.
+//A net and its type, shared across the #src boundary. Carries a Type, so it is build-time only.
+#build struct Device
+{
+	str name;
+	Type type;
+}
+
+// Declares `{name}_Mode` as it is built, and steps its output through it.
+void Machine(#param str name)
+{
+	#run
+	{
+		const str mode = $"{name}_Mode";
+		Build::Enum(mode, ["Off", "Spin", "Hold"]:List<str>);
+		Port::Out(Type::Parse(mode), "mode", $"{name}.Mode");
+		#insert $"#state i32 n = 0; if (n == 0) \{ mode = {mode}::Off; } if (n == 1) \{ mode = {mode}::Spin; } if (n == 2) \{ mode = {mode}::Hold; } n = (n + 1) % 3;";
+	}
+}
+
+// Reads each device's type in full: its size and a port of it.
+void Report(#param str name, #param List<Device> devices)
+{
+	#run
+	{
+		Code body = Code::Empty();
+		for (const Device d in devices)
+		{
+			const Port p = Port::In(d.type, d.name);
+			body += #code { WriteLine(${d.name} + " " + ${d.type.Name} + " (" + to_str(${d.type.Size}) + " bytes) = " + to_str(${p})); };
+		}
+		#insert body;
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		// Nothing has declared `pump_Mode` yet: the Machine below does, once the Solver builds it.
+		List<Device> shown = [
+			Device{ name = "pump.Mode", type = Type::Defer("pump_Mode") }
+		]:List<Device>;
+		#assert(shown[0].type.Name == "pump_Mode", "a deferred type carries its name without a lookup");
+		#assert(shown[0].type == Type::Defer("pump_Mode"), "and compares by it");
+
+		Block[] blocks = [ #block Machine(name = "pump"), #block Report(name = "rep", devices = shown) ]:Block;
+		Solver solver = Solver::New(blocks);
+		Solver::Solve(solver);
+		#insert {
+			${Solver::Struct(solver)};
+			if (solver_init(state) == false) { return -1; }
+			for (i32 c = 0; c < 4; c++) { solver_cycle(state); }
+		}
+	}
+	return 0;
+}

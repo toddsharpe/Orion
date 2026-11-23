@@ -1,0 +1,6 @@
+stack size const = 8
+value = 20
+over threshold? false
+over threshold(250)? true
+verbose is on
+none=[/0] ceiling=[ceiling/500]

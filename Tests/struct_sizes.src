@@ -1,0 +1,36 @@
+// A struct takes a size: the extent, the loop bounds and the allocations all fold to the argument.
+const i32 Small = 2;
+
+struct Win<T, N>
+{
+	T[N] xs;
+}
+
+Win<T, N> win_fill<T, N>(const T seed)
+{
+	Win<T, N> w = Win<T, N>{ xs = T[N] };
+	for (i32 i = 0; i < N; i++)
+	{
+		w.xs[i] = seed;
+	}
+	return w;
+}
+
+T win_sum<T, N>(const Win<T, N> w)
+{
+	T total = 0.0:T;
+	for (i32 i = 0; i < N; i++)
+	{
+		total = total + w.xs[i];
+	}
+	return total;
+}
+
+i32 main()
+{
+	// A named literal constant and a bare literal are the same argument, so Win<f32, Small> is Win<f32, 2>.
+	Win<f32, Small> a = win_fill<f32, 2>(1.5:f32);
+	Win<f64, 5> b = win_fill<f64, 5>(2.0);
+	WriteLine("a = " + to_str(win_sum<f32, Small>(a)) + " b = " + to_str(win_sum<f64, 5>(b)));
+	return 0;
+}

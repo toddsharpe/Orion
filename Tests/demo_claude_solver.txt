@@ -1,0 +1,61 @@
+=== Attitude Control Telemetry ===
+-- cycle 0 --
+cmd_out (f64): 0.0
+kf_smooth_out (f64): 0.120958
+pid_out (f64): -0.127006
+packet: 00000000000000003FBEF71BE63F2829BFC041BB727AC1E3
+-- cycle 1 --
+cmd_out (f64): 0.0
+kf_smooth_out (f64): 0.0326547
+pid_out (f64): -0.0161437
+packet: 00000000000000003FA0B81C46510F38BF9087F76FEABB0F
+-- cycle 2 --
+cmd_out (f64): 10.0
+kf_smooth_out (f64): 1.62754
+pid_out (f64): 8.78994
+packet: 40240000000000003FFA0A6403CFD6DF402194729426A4D8
+-- cycle 3 --
+cmd_out (f64): 10.0
+kf_smooth_out (f64): 2.57204
+pid_out (f64): 6.53581
+packet: 40240000000000004004938AE306E368401A24AA33BF18BC
+-- cycle 4 --
+cmd_out (f64): 10.0
+kf_smooth_out (f64): 3.47544
+pid_out (f64): 6.14754
+packet: 4024000000000000400BCDB29358D7DF40189714619D651A
+-- cycle 5 --
+cmd_out (f64): 10.0
+kf_smooth_out (f64): 4.24604
+pid_out (f64): 5.84531
+packet: 40240000000000004010FBF1B972905A4017619A3A3351E9
+-- cycle 6 --
+cmd_out (f64): 10.0
+kf_smooth_out (f64): 4.73361
+pid_out (f64): 5.77519
+packet: 40240000000000004012EF371C6F3355401719CA2C258D40
+-- cycle 7 --
+cmd_out (f64): -5.0
+kf_smooth_out (f64): 3.85967
+pid_out (f64): -8.69635
+packet: C014000000000000400EE09C77FC3100C0216487E481C2AD
+-- cycle 8 --
+cmd_out (f64): -5.0
+kf_smooth_out (f64): 3.05414
+pid_out (f64): -5.46831
+packet: C01400000000000040086EE0C9BAB2FFC015DF8C8A37A9CA
+-- cycle 9 --
+cmd_out (f64): -5.0
+kf_smooth_out (f64): 2.48022
+pid_out (f64): -5.42951
+packet: C0140000000000004003D77F48B1DBA8C015B7D1BCF17036
+-- cycle 10 --
+cmd_out (f64): -5.0
+kf_smooth_out (f64): 1.87826
+pid_out (f64): -5.28625
+packet: C0140000000000003FFE0D5D222C5C33C015251DE4DEA352
+-- cycle 11 --
+cmd_out (f64): -5.0
+kf_smooth_out (f64): 1.39911
+pid_out (f64): -5.24744
+packet: C0140000000000003FF662C140EA644BC014FD616953D7F4

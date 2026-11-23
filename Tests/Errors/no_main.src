@@ -1,0 +1,5 @@
+// A file of helpers with no entry: `#using` it from the program that has `main`, do not compile it.
+i32 twice(const i32 n)
+{
+	return n * 2;
+}

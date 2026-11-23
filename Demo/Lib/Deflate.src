@@ -1,0 +1,410 @@
+// Raw DEFLATE (RFC 1951) at build time, fixed-Huffman only: a node ships bytes and inflates nothing.
+
+// Bit writer and reader keep state in a List<u32>, a reference, so a helper can advance it.
+const i32 StateBuf = 0;
+const i32 StateCount = 1;
+
+#build List<u32> Bits_New()
+{
+	List<u32> state = List::New<u32>();
+	state.Add(0:u32);
+	state.Add(0:u32);
+	return state;
+}
+
+// `count` low bits of `value`, least significant first, which is how DEFLATE packs bits into bytes.
+#build void Bits_Put(List<u8> out, List<u32> state, u32 value, u32 count)
+{
+	u32 buf = state[StateBuf];
+	u32 n = state[StateCount];
+	for (u32 i = 0:u32; i < count; i++)
+	{
+		buf = buf | (((value >> i) & 1:u32) << n);
+		n = n + 1:u32;
+		if (n == 8:u32)
+		{
+			out.Add(cast<u8>(buf));
+			buf = 0:u32;
+			n = 0:u32;
+		}
+	}
+	state[StateBuf] = buf;
+	state[StateCount] = n;
+}
+
+// A Huffman code travels most significant bit first, the opposite order to everything else.
+#build void Bits_PutCode(List<u8> out, List<u32> state, u32 code, u32 len)
+{
+	for (u32 i = 0:u32; i < len; i++)
+	{
+		Bits_Put(out, state, (code >> (len - 1:u32 - i)) & 1:u32, 1:u32);
+	}
+}
+
+#build void Bits_Flush(List<u8> out, List<u32> state)
+{
+	if (state[StateCount] > 0:u32)
+	{
+		out.Add(cast<u8>(state[StateBuf]));
+		state[StateBuf] = 0:u32;
+		state[StateCount] = 0:u32;
+	}
+}
+
+#build u32 Bits_Get(ConstSpan<u8> src, List<u32> state, u32 count)
+{
+	u32 value = 0:u32;
+	for (u32 i = 0:u32; i < count; i++)
+	{
+		u32 pos = state[StateBuf];
+		u32 bit = (cast<u32>(src[cast<i32>(pos >> 3)]) >> (pos & 7:u32)) & 1:u32;
+		value = value | (bit << i);
+		state[StateBuf] = pos + 1:u32;
+	}
+	return value;
+}
+
+// The literal/length code for a byte or an end-of-block, per the fixed table in RFC 1951 3.2.6.
+#build void Put_Literal(List<u8> out, List<u32> state, u32 sym)
+{
+	if (sym < 144:u32)
+	{
+		Bits_PutCode(out, state, 0x30:u32 + sym, 8:u32);
+	}
+	if (sym >= 144:u32 && sym < 256:u32)
+	{
+		Bits_PutCode(out, state, 0x190:u32 + sym - 144:u32, 9:u32);
+	}
+	if (sym >= 256:u32 && sym < 280:u32)
+	{
+		Bits_PutCode(out, state, sym - 256:u32, 7:u32);
+	}
+	if (sym >= 280:u32)
+	{
+		Bits_PutCode(out, state, 0xC0:u32 + sym - 280:u32, 8:u32);
+	}
+}
+
+// Length codes 257..285: the first length each covers, and how many extra bits follow.
+#build u32[29] Len_Base()
+{
+	List<u32> v = [
+		3:u32, 4:u32, 5:u32, 6:u32, 7:u32, 8:u32, 9:u32, 10:u32,
+		11:u32, 13:u32, 15:u32, 17:u32, 19:u32, 23:u32, 27:u32, 31:u32,
+		35:u32, 43:u32, 51:u32, 59:u32, 67:u32, 83:u32, 99:u32, 115:u32,
+		131:u32, 163:u32, 195:u32, 227:u32, 258:u32
+	]:List<u32>;
+	return v.ToArray();
+}
+
+#build u32[29] Len_Extra()
+{
+	List<u32> v = [
+		0:u32, 0:u32, 0:u32, 0:u32, 0:u32, 0:u32, 0:u32, 0:u32,
+		1:u32, 1:u32, 1:u32, 1:u32, 2:u32, 2:u32, 2:u32, 2:u32,
+		3:u32, 3:u32, 3:u32, 3:u32, 4:u32, 4:u32, 4:u32, 4:u32,
+		5:u32, 5:u32, 5:u32, 5:u32, 0:u32
+	]:List<u32>;
+	return v.ToArray();
+}
+
+// Distance codes 0..29.
+#build u32[30] Dist_Base()
+{
+	List<u32> v = [
+		1:u32, 2:u32, 3:u32, 4:u32, 5:u32, 7:u32, 9:u32, 13:u32,
+		17:u32, 25:u32, 33:u32, 49:u32, 65:u32, 97:u32, 129:u32, 193:u32,
+		257:u32, 385:u32, 513:u32, 769:u32, 1025:u32, 1537:u32, 2049:u32, 3073:u32,
+		4097:u32, 6145:u32, 8193:u32, 12289:u32, 16385:u32, 24577:u32
+	]:List<u32>;
+	return v.ToArray();
+}
+
+#build u32[30] Dist_Extra()
+{
+	List<u32> v = [
+		0:u32, 0:u32, 0:u32, 0:u32, 1:u32, 1:u32, 2:u32, 2:u32,
+		3:u32, 3:u32, 4:u32, 4:u32, 5:u32, 5:u32, 6:u32, 6:u32,
+		7:u32, 7:u32, 8:u32, 8:u32, 9:u32, 9:u32, 10:u32, 10:u32,
+		11:u32, 11:u32, 12:u32, 12:u32, 13:u32, 13:u32
+	]:List<u32>;
+	return v.ToArray();
+}
+
+const u32 MinMatch = 3:u32;
+const u32 MaxMatch = 258:u32;
+const i32 MaxWindow = 32768;
+
+// One fixed-Huffman block over the whole input, greedily matched by a naive scan back over the window.
+#build List<u8> Deflate(ConstSpan<u8> src)
+{
+	u32[] lenBase = Len_Base();
+	u32[] lenExtra = Len_Extra();
+	u32[] distBase = Dist_Base();
+	u32[] distExtra = Dist_Extra();
+
+	List<u8> out = List::New<u8>();
+	List<u32> state = Bits_New();
+
+	// BFINAL = 1, BTYPE = 01, so one fixed-Huffman block covers the input.
+	Bits_Put(out, state, 1:u32, 1:u32);
+	Bits_Put(out, state, 1:u32, 2:u32);
+
+	const i32 n = src.Length;
+	i32 i = 0;
+	while (i < n)
+	{
+		i32 bestLen = 0;
+		i32 bestDist = 0;
+
+		i32 start = i - MaxWindow;
+		if (start < 0)
+		{
+			start = 0;
+		}
+
+		// The longest match from here, computed up front: `&&` evaluates both sides, so a test would overrun.
+		i32 maxLen = n - i;
+		if (maxLen > cast<i32>(MaxMatch))
+		{
+			maxLen = cast<i32>(MaxMatch);
+		}
+
+		for (i32 j = i - 1; j >= start; j--)
+		{
+			i32 len = 0;
+			while (len < maxLen)
+			{
+				if (src[j + len] != src[i + len])
+				{
+					break;
+				}
+				len = len + 1;
+			}
+			if (len > bestLen)
+			{
+				bestLen = len;
+				bestDist = i - j;
+			}
+		}
+
+		if (bestLen >= cast<i32>(MinMatch))
+		{
+			// The largest code whose base does not exceed the match, and the remainder as extra bits.
+			i32 lc = 28;
+			while (cast<i32>(lenBase[lc]) > bestLen)
+			{
+				lc = lc - 1;
+			}
+			Put_Literal(out, state, 257:u32 + cast<u32>(lc));
+			Bits_Put(out, state, cast<u32>(bestLen) - lenBase[lc], lenExtra[lc]);
+
+			i32 dc = 29;
+			while (cast<i32>(distBase[dc]) > bestDist)
+			{
+				dc = dc - 1;
+			}
+			Bits_PutCode(out, state, cast<u32>(dc), 5:u32);
+			Bits_Put(out, state, cast<u32>(bestDist) - distBase[dc], distExtra[dc]);
+
+			i = i + bestLen;
+		}
+		else
+		{
+			Put_Literal(out, state, cast<u32>(src[i]));
+			i = i + 1;
+		}
+	}
+
+	Put_Literal(out, state, 256:u32);
+	Bits_Flush(out, state);
+	return out;
+}
+
+// One fixed-Huffman symbol: the three code lengths are disjoint, so the value so far says if more is needed.
+#build u32 Get_Symbol(ConstSpan<u8> src, List<u32> state)
+{
+	u32 code = 0:u32;
+	for (u32 i = 0:u32; i < 7:u32; i++)
+	{
+		code = (code << 1) | Bits_Get(src, state, 1:u32);
+	}
+
+	if (code <= 0x17:u32)
+	{
+		return 256:u32 + code;
+	}
+
+	code = (code << 1) | Bits_Get(src, state, 1:u32);
+	if (code >= 0x30:u32 && code <= 0xBF:u32)
+	{
+		return code - 0x30:u32;
+	}
+	else if (code >= 0xC0:u32 && code <= 0xC7:u32)
+	{
+		return 280:u32 + code - 0xC0:u32;
+	}
+
+	code = (code << 1) | Bits_Get(src, state, 1:u32);
+	return 144:u32 + code - 0x190:u32;
+}
+
+// Stored and fixed blocks only: a dynamic block reports rather than guessing, and Deflate emits none.
+#build List<u8> Inflate(ConstSpan<u8> src)
+{
+	u32[] lenBase = Len_Base();
+	u32[] lenExtra = Len_Extra();
+	u32[] distBase = Dist_Base();
+	u32[] distExtra = Dist_Extra();
+
+	List<u8> out = List::New<u8>();
+	List<u32> state = Bits_New();
+
+	bool final = false;
+	while (!final)
+	{
+		final = Bits_Get(src, state, 1:u32) == 1:u32;
+		const u32 kind = Bits_Get(src, state, 2:u32);
+
+		if (kind == 0:u32)
+		{
+			// Stored: skip to the byte boundary, then a length and its complement.
+			state[StateBuf] = (state[StateBuf] + 7:u32) & ~7:u32;
+			const u32 len = Bits_Get(src, state, 16:u32);
+			Bits_Get(src, state, 16:u32);
+			for (u32 k = 0:u32; k < len; k++)
+			{
+				out.Add(cast<u8>(Bits_Get(src, state, 8:u32)));
+			}
+		}
+
+		if (kind == 1:u32)
+		{
+			bool done = false;
+			while (!done)
+			{
+				const u32 sym = Get_Symbol(src, state);
+				if (sym == 256:u32)
+				{
+					done = true;
+				}
+				if (sym < 256:u32)
+				{
+					out.Add(cast<u8>(sym));
+				}
+				if (sym > 256:u32)
+				{
+					const i32 lc = cast<i32>(sym - 257:u32);
+					const u32 len = lenBase[lc] + Bits_Get(src, state, lenExtra[lc]);
+
+					const i32 dc = cast<i32>(Get_Distance(src, state));
+					const u32 dist = distBase[dc] + Bits_Get(src, state, distExtra[dc]);
+
+					// Copied one byte at a time: a run repeats when dist is shorter than len.
+					const i32 from = out.Length - cast<i32>(dist);
+					for (u32 k = 0:u32; k < len; k++)
+					{
+						out.Add(out[from + cast<i32>(k)]);
+					}
+				}
+			}
+		}
+
+		if (kind == 2:u32)
+		{
+			Assert(false);
+			final = true;
+		}
+	}
+
+	return out;
+}
+
+// A distance code is a plain 5-bit value, most significant bit first.
+#build u32 Get_Distance(ConstSpan<u8> src, List<u32> state)
+{
+	u32 code = 0:u32;
+	for (u32 i = 0:u32; i < 5:u32; i++)
+	{
+		code = (code << 1) | Bits_Get(src, state, 1:u32);
+	}
+	return code;
+}
+
+// ---- self-test ----------------------------------------------------------------------------
+// The compressed SIZES are asserted too: a stored block everywhere would round-trip and compress nothing.
+
+#build bool Deflate_Same(ConstSpan<u8> a, ConstSpan<u8> b)
+{
+	if (a.Length != b.Length)
+	{
+		return false;
+	}
+
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		if (a[i] != b[i])
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+// Round-trips `text` and checks it came back byte for byte at the expected compressed size.
+#build bool Deflate_Trip(str label, str text, const i32 packed_size)
+{
+	const u8[] raw = str_bytes(text);
+	u8[] packed = Deflate(raw);
+	u8[] back = Inflate(packed);
+
+	#assert(Deflate_Same(raw, back), "DEFLATE round trip: " + label);
+	#assert(packed.Length == packed_size, "DEFLATE size for " + label + ": got " + to_str(packed.Length) + ", expected " + to_str(packed_size));
+
+	return true;
+}
+
+#build bool Deflate_SelfTest()
+{
+	// Short and degenerate inputs: nothing to match, so these get bigger, which is expected.
+	Deflate_Trip("empty", "", 2);
+	Deflate_Trip("one", "a", 3);
+	Deflate_Trip("norepeat", "abcdefgh", 10);
+
+	// A run shorter than the three-byte minimum match, then one long enough to code as a copy.
+	Deflate_Trip("aa", "aa", 4);
+	Deflate_Trip("runs", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 4);
+
+	// An overlapping copy: distance 1 with a length far past it, which repeats the byte.
+	Deflate_Trip("overlap", "xyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyz", 7);
+
+	// No \x escape in a string literal, so high bytes are built as bytes -- the 9-bit fixed codes.
+	List<u8> high = [
+		192:u8, 193:u8, 194:u8, 195:u8, 192:u8, 193:u8,
+		194:u8, 195:u8, 192:u8, 193:u8, 194:u8, 195:u8
+	]:List<u8>;
+	const u8[] src = high.ToArray();
+	u8[] high_packed = Deflate(src);
+	#assert(Deflate_Same(src, Inflate(high_packed)), "DEFLATE round trip: high bytes take the 9-bit codes");
+	#assert(high_packed.Length == 8, "DEFLATE size for high bytes");
+
+	// A real telemetry schema with the exact stream pinned, so an encoding change fails rather than rewrites.
+	const str schema = "e:[Init|GpsWait|Idle|Armed|Boost|Coast|Descent|Landed]:MainSmState,u64:App.Cycles,u64:App.CycleTime,u64:App.CycleDuration";
+	Deflate_Trip("schema", schema, 95);
+	#assert(bytes_hexstr(Deflate(str_bytes(schema))) ==
+		"4BB58AF6CCCB2CA9712F280E4F04D29E2939A9358E45B9A929354EF9F9C52535CEF98940D225B5383935AFA4C627312F253525D6CA3731332F3837B824B12455A7D4CCC4CAB1A040CFB9323927B518951B92998BA6C0A5B428B124333F0F00",
+		"DEFLATE stream for the telemetry schema");
+
+	// A stored block by hand -- BFINAL=1 BTYPE=00, LEN and ~LEN, then the bytes -- the only test of that path.
+	List<u8> block = [
+		1:u8, 3:u8, 0:u8, 252:u8, 255:u8, 97:u8, 98:u8, 99:u8
+	]:List<u8>;
+	u8[] stored = Inflate(block.ToArray());
+	#assert(stored.Length == 3, "INFLATE of a stored block: length");
+	#assert(bytes_hexstr(stored) == "616263", "INFLATE of a stored block: bytes");
+
+	return true;
+}
+
+#test Deflate_SelfTest "DEFLATE round trips and stream"

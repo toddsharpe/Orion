@@ -1,0 +1,13 @@
+// A mutable view of a read-only buffer would launder the const away.
+void sneaky(ConstSpan<u8> buf)
+{
+	Span<u8> writable = buf;
+	writable[0] = 9:u8;
+}
+
+i32 main()
+{
+	u8[4] b;
+	sneaky(b);
+	return 0;
+}

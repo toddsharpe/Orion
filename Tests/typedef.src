@@ -1,0 +1,35 @@
+// `typedef` gives a primitive's representation a name of its own. See Docs/Language.md.
+typedef i64 nanos;
+typedef i32 celsius;
+typedef i32 counts;
+
+//A signature says which is which, and the caller cannot swap them.
+celsius scale(counts raw)
+{
+	i32 n = raw;
+	return cast<celsius>(n / 4);
+}
+
+i32 main()
+{
+	nanos t = 0:nanos;
+	t = t + 1500000:nanos;
+	WriteLine("nanos    = " + to_str(t));
+
+	counts raw = 200:counts;
+	celsius c = scale(raw);
+	WriteLine("celsius  = " + to_str(c));
+
+	//An alias reads as the representation it names, so no cast is needed in this direction.
+	i64 elapsed = t;
+	i32 degrees = c;
+	WriteLine("as i64   = " + to_str(elapsed) + ", as i32 = " + to_str(degrees));
+
+	#run
+	{
+		const Type ty = Type::Parse("celsius");
+		#insert { WriteLine("Type.Name = " + ${ty.Name} + ", size = " + to_str(${ty.Size})); }
+	}
+
+	return 0;
+}

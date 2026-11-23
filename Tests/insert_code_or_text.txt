@@ -1,0 +1,3 @@
+from text
+from a fragment
+x = 42

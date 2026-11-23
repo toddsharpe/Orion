@@ -1,0 +1,80 @@
+name: Deploy Orion.Web to GitHub Pages
+
+# Publishes the Blazor WebAssembly compiler explorer to GitHub Pages.
+# Project pages serve from https://<user>.github.io/<repo>/, so the base href is
+# rewritten to "/<repo>/" and a .nojekyll file is added (Jekyll would drop _framework/).
+
+on:
+  push:
+    branches: [ master ]
+    # Everything the published site is built FROM. Orion.Web's MirrorOrionSamples target copies ALL of
+    # Demo/ into wwwroot/samples (with a generated index.json) and Runtimes/JavaScript/Orion*.js into
+    # wwwroot/runtime, so a change to any of them changes the site and has to redeploy it. Whole-folder
+    # globs rather than '*.src': a missed deploy serves stale content until some unrelated commit
+    # happens to trigger one, while a redundant deploy just costs runner time. (Demo/build is the
+    # transpiler's scratch output and gitignored, so it can never appear in a push.)
+    paths:
+      - 'Src/Orion.Web/**'
+      - 'Src/Orion.Compiler/**'
+      - 'Src/Orion.Lang/**'
+      - 'Src/Orion.LangSvr/**'
+      - 'Demo/**'
+      - 'Runtimes/**'
+      - 'Tools/vscode-orion/syntaxes/**'
+      - '.github/workflows/deploy-orion-web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '9.0.x'
+
+      # Required for `dotnet publish` size-relinking of a Blazor WASM app.
+      - name: Install wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      - name: Publish
+        run: dotnet publish Src/Orion.Web/Orion.Web.csproj -c Release -o publish
+
+      # Rewrite <base href="/" /> to the repo subpath so relative asset URLs resolve.
+      - name: Set base href
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          sed -i "s|<base href=\"/\" />|<base href=\"/${REPO_NAME}/\" />|g" publish/wwwroot/index.html
+
+      # Disable Jekyll (it ignores the _framework/ folder) and add a SPA 404 fallback.
+      - name: Pages fixups
+        run: |
+          touch publish/wwwroot/.nojekyll
+          cp publish/wwwroot/index.html publish/wwwroot/404.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: publish/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

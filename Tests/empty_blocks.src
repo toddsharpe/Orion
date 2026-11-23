@@ -1,0 +1,73 @@
+// Empty blocks. Each of these shapes used to crash the compiler outright (an empty CFG, a branch
+// whose jump target is its own fallthrough, a region spanning nothing), so the point here is as much
+// that they compile as that control flow around them still runs.
+
+// An empty void function: no TACs at all, so its whole control-flow graph is empty.
+void nothing()
+{
+}
+
+// An empty branch must not swallow what follows it.
+i32 guard(i32 n)
+{
+	if (n > 100)
+	{
+	}
+	return n + 1;
+}
+
+// Both arms empty: the conditional jumps where it would have fallen through.
+i32 both(i32 n)
+{
+	if (n > 0)
+	{
+	}
+	else
+	{
+	}
+	return n * 2;
+}
+
+// Nested, so the inner empty branch collapses inside an outer one.
+i32 nested(i32 n)
+{
+	if (n > 0)
+	{
+		if (n > 1)
+		{
+		}
+	}
+	return n - 1;
+}
+
+// Empty loop bodies, which already worked, kept here so the family is covered in one place.
+i32 loops(i32 n)
+{
+	while (n > 100)
+	{
+	}
+	for (i32 i = 0; i < 3; i++)
+	{
+	}
+	return n;
+}
+
+void test()
+{
+	nothing();
+
+	// A bare empty scope between two statements.
+	{
+	}
+
+	WriteLine("guard(1) = " + to_str(guard(1)));
+	WriteLine("both(5) = " + to_str(both(5)));
+	WriteLine("nested(4) = " + to_str(nested(4)));
+	WriteLine("loops(7) = " + to_str(loops(7)));
+}
+
+i32 main()
+{
+	test();
+	return 0;
+}

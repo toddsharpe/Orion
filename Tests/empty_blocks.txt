@@ -1,0 +1,4 @@
+guard(1) = 2
+both(5) = 10
+nested(4) = 3
+loops(7) = 7

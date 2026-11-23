@@ -1,0 +1,10 @@
+// A fragment is AST with no printer back to source, so it can never become part of a string.
+i32 main()
+{
+	#run
+	{
+		Code c = #code { WriteLine("hi"); };
+		#insert $"WriteLine({c});";
+	}
+	return 0;
+}

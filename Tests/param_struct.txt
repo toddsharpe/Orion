@@ -1,0 +1,7 @@
+imu = 7
+axis = 5
+trim1 = 2
+sum = 6
+const imu = 4
+const axis = 2
+const trim2 = 30

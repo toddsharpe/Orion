@@ -1,0 +1,10 @@
+// A fragment is statements, so a `${}` hole holding one must stand alone -- not inside an expression.
+i32 main()
+{
+	#run
+	{
+		Code inner = #code { WriteLine("inner"); };
+		#insert { WriteLine("x" + ${inner}); }
+	}
+	return 0;
+}

@@ -1,0 +1,4 @@
+small limit 200
+wide limit 40000
+count limit 5000000000
+real limit 1.5

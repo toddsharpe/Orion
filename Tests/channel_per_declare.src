@@ -1,0 +1,13 @@
+// A declaration is a channel, not a lookup: the service addresses the bus and the index addresses the ring,
+// so two declarations on one service are two rings and the second does not fold into the first.
+// Each one is a row of the generated `channels` table, which the platform reads; ChannelTableTest checks the rows.
+#using "Lib/types.src"
+
+i32 main()
+{
+	const i32 a = #run Channel::Tx(1, 16, 2);
+	const i32 b = #run Channel::Tx(1, 24, 2);
+
+	WriteLine("indexes " + to_str(a) + " " + to_str(b));
+	return 0;
+}

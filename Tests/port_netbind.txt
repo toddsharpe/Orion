@@ -1,0 +1,3 @@
+sink read net 'src_out' as x = 10
+sink read net 'src_out' as x = 11
+sink read net 'src_out' as x = 12

@@ -1,0 +1,10 @@
+// The edits by name are a List<Block>'s alone.
+i32 main()
+{
+	#run
+	{
+		const List<i32> xs = [1, 2]:List<i32>;
+		const List<i32> ys = xs.Remove("a");
+	}
+	return 0;
+}

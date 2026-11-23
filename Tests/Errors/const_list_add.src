@@ -1,0 +1,19 @@
+// A const object offers only its const members, as in C++: `Add` writes the list, so it is not one.
+#build i32 count(const List<i32> rows)
+{
+	rows.Add(5);
+	return rows.Length;
+}
+
+#build str probe()
+{
+	List<i32> xs = List::New<i32>();
+	xs.Add(1);
+	return to_str(count(xs));
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

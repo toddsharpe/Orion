@@ -1,0 +1,35 @@
+void select(Span<i32> values, Func<i32, i32> select)
+{
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		i32 current = values[i];
+		i32 replace = select(current);
+		values[i] = replace;
+	}
+}
+
+void run()
+{
+	Func<i32, i32> s = [](i32 current)
+	{
+		return current + 1;
+	}:i32;
+
+	i32[] values = [1, 2, 3, 4]:i32;
+	select(values, s);
+
+	str output = "";
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		output = output + to_str(values[i]) + ",";
+	}
+	WriteLine(output);
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

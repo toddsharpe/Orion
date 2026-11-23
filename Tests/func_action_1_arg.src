@@ -1,0 +1,22 @@
+void handler(i32 i)
+{
+	WriteLine("Action: " + to_str(i));
+}
+
+void run_impl(Action<i32> a)
+{
+	a(1);
+}
+
+void run()
+{
+	run_impl(handler);
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

@@ -1,0 +1,9 @@
+// `#output` is the one directive an extern takes; the rest wire a block into a netlist.
+extern i32 adc_read(i32 channel, #input i32 count);
+
+i32 main()
+{
+	i32 n = 0;
+	WriteLine(to_str(adc_read(0, n)));
+	return 0;
+}

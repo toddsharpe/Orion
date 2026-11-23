@@ -1,0 +1,24 @@
+Cycle: 0
+n (i32): 0
+sq_out (i32): 0
+db_out (i32): 0
+id_out (i32): 0
+echo (i32): 1000
+Cycle: 1
+n (i32): 1
+sq_out (i32): 1
+db_out (i32): 2
+id_out (i32): 1
+echo (i32): 1001
+Cycle: 2
+n (i32): 2
+sq_out (i32): 4
+db_out (i32): 4
+id_out (i32): 2
+echo (i32): 1004
+Cycle: 3
+n (i32): 3
+sq_out (i32): 9
+db_out (i32): 6
+id_out (i32): 3
+echo (i32): 1009
