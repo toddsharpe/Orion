@@ -4,6 +4,12 @@ name: Release
 on:
   push:
     tags: [ 'v*' ]
+  # By hand, the tag named is checked out and released exactly as its push would have.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The v* tag to release'
+        required: true
 
 permissions:
   contents: write
@@ -12,9 +18,13 @@ jobs:
   Release:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
     - uses: actions/checkout@v7
+      with:
+        ref: ${{ inputs.tag || github.ref }}
 
     - name: Setup dotnet
       uses: actions/setup-dotnet@v6
@@ -31,7 +41,7 @@ jobs:
         mkdir -p bundle/bin
         cp publish/Orion bundle/bin/
         cp -r Runtimes bundle/Runtimes
-        echo "$GITHUB_REF_NAME" > bundle/VERSION
+        echo "$TAG" > bundle/VERSION
 
     # The artifact is what gets smoked: the test sweep, then a transpile compiled against ONLY bundle headers.
     - name: Smoke the bundle
@@ -44,13 +54,13 @@ jobs:
     # The unversioned copy is what releases/latest/download/orion-linux-x64.tar.gz serves, so one link always fetches the newest.
     - name: Pack
       run: |
-        tar -czf "orion-$GITHUB_REF_NAME-linux-x64.tar.gz" -C bundle .
-        cp "orion-$GITHUB_REF_NAME-linux-x64.tar.gz" orion-linux-x64.tar.gz
+        tar -czf "orion-$TAG-linux-x64.tar.gz" -C bundle .
+        cp "orion-$TAG-linux-x64.tar.gz" orion-linux-x64.tar.gz
 
     # package.yml releases the vsix on the same tag; create tolerates whichever job got there first.
     - name: Publish release
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        gh release create "$GITHUB_REF_NAME" --title "Orion $GITHUB_REF_NAME" --generate-notes || true
-        gh release upload "$GITHUB_REF_NAME" orion-*.tar.gz --clobber
+        gh release create "$TAG" --title "Orion $TAG" --generate-notes || true
+        gh release upload "$TAG" orion-*.tar.gz --clobber
