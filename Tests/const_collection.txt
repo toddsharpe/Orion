@@ -1,0 +1,1 @@
+sum=10 ro=4 frozen=3 contains=true nested=pear/2 | ann=30 bob=25 len=2 has_x=false

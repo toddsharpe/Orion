@@ -1,0 +1,16 @@
+// The cycle's stamp is a `time`, so a port that reads it as another type is refused.
+void Tick(#param str name, #input i64 now @ "cycle_time")
+{
+	WriteLine(name);
+}
+
+i32 main()
+{
+	#run
+	{
+		Block[] blocks = [ #block Tick(name = "slow") ]:Block;
+		Solver solver = Solver::New(blocks);
+		Solver::Export(solver, 10000000:time);
+	}
+	return 0;
+}

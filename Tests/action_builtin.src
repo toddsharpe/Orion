@@ -1,0 +1,13 @@
+void run()
+{
+	Action<str> s = WriteLine;
+	s("test");
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

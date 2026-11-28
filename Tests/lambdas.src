@@ -1,0 +1,36 @@
+// A lambda used as a predicate: a Func<i32, bool> passed to a higher-order
+// function that filters an array. (Action lambdas are covered by lambda_action*,
+// bare Func lambdas by lambda_func*.)
+i32 sum(ConstSpan<i32> values, Func<i32, bool> filter)
+{
+	i32 s = 0;
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		i32 current = values[i];
+		if (filter(current))
+		{
+			s = s + current;
+		}
+	}
+	return s;
+}
+
+void test()
+{
+	i32[] v = [1, 2, 3, 4]:i32;
+	Func<i32, bool> is_even = [](i32 i)
+	{
+		return (i % 2) == 0;
+	}:bool;
+
+	i32 s = sum(v, is_even);
+	WriteLine("Filtered value: " + to_str(s));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+
+	return 0;
+}

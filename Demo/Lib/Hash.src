@@ -1,0 +1,242 @@
+// Non-cryptographic 32-bit hashes in pure Orion. 32-bit only: a u64 does not survive a JS number.
+#using "Lib/Math.src"
+
+// ---- FNV-1a ----
+
+const u32 FnvOffset32 = 0x811C9DC5:u32;
+const u32 FnvPrime32 = 0x01000193:u32;
+
+// Fold one byte into a running FNV-1a state; XOR before multiply is what makes it 1a rather than 1.
+u32 fnv1a32_byte(const u32 state, const u8 b)
+{
+	return (state ^ cast<u32>(b)) * FnvPrime32;
+}
+
+u32 fnv1a32(ConstSpan<u8> data)
+{
+	u32 h = FnvOffset32;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		h = fnv1a32_byte(h, data[i]);
+	}
+	return h;
+}
+
+// ---- djb2 ----
+
+// Bernstein's hash: h * 33 + c, seeded at 5381. The shift is how the * 33 is usually written.
+u32 djb2(ConstSpan<u8> data)
+{
+	u32 h = 5381:u32;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		h = ((h << 5) + h) + cast<u32>(data[i]);
+	}
+	return h;
+}
+
+// ---- CRC-32 (IEEE 802.3, reflected) ----
+
+// The reflected polynomial. Computed per bit rather than from a table so nothing has to be generated.
+const u32 Crc32Poly = 0xEDB88320:u32;
+
+u32 crc32(ConstSpan<u8> data)
+{
+	u32 crc = 0xFFFFFFFF:u32;
+	for (i32 i = 0; i < data.Length; i++)
+	{
+		crc = crc ^ cast<u32>(data[i]);
+		for (i32 bit = 0; bit < 8; bit++)
+		{
+			// Branchless would need a mask from the low bit; the branch is clearer and just as portable.
+			if ((crc & 1:u32) != 0:u32)
+			{
+				crc = (crc >> 1) ^ Crc32Poly;
+			}
+			else
+			{
+				crc = crc >> 1;
+			}
+		}
+	}
+	return crc ^ 0xFFFFFFFF:u32;
+}
+
+// ---- MurmurHash3, 32-bit ----
+
+const u32 MurmurC1 = 0xCC9E2D51:u32;
+const u32 MurmurC2 = 0x1B873593:u32;
+
+// The final avalanche: mixes the high bits back down so short inputs still differ everywhere.
+u32 murmur3_fmix32(const u32 h0)
+{
+	u32 h = h0;
+	h = h ^ (h >> 16);
+	h = h * 0x85EBCA6B:u32;
+	h = h ^ (h >> 13);
+	h = h * 0xC2B2AE35:u32;
+	h = h ^ (h >> 16);
+	return h;
+}
+
+u32 murmur3_32(ConstSpan<u8> data, const u32 seed)
+{
+	u32 h = seed;
+	const i32 blocks = data.Length / 4;
+
+	// Body: whole 4-byte little-endian words.
+	for (i32 i = 0; i < blocks; i++)
+	{
+		const i32 p = i * 4;
+		u32 k = cast<u32>(data[p])
+			| (cast<u32>(data[p + 1]) << 8)
+			| (cast<u32>(data[p + 2]) << 16)
+			| (cast<u32>(data[p + 3]) << 24);
+
+		k = k * MurmurC1;
+		k = rotl32(k, 15);
+		k = k * MurmurC2;
+
+		h = h ^ k;
+		h = rotl32(h, 13);
+		h = h * 5:u32 + 0xE6546B64:u32;
+	}
+
+	// Tail: the 1-3 bytes that did not fill a word, folded in without the h mixing step.
+	u32 k1 = 0:u32;
+	const i32 tail = blocks * 4;
+	const i32 rem = data.Length - tail;
+	if (rem >= 3)
+	{
+		k1 = k1 ^ (cast<u32>(data[tail + 2]) << 16);
+	}
+	if (rem >= 2)
+	{
+		k1 = k1 ^ (cast<u32>(data[tail + 1]) << 8);
+	}
+	if (rem >= 1)
+	{
+		k1 = k1 ^ cast<u32>(data[tail]);
+		k1 = k1 * MurmurC1;
+		k1 = rotl32(k1, 15);
+		k1 = k1 * MurmurC2;
+		h = h ^ k1;
+	}
+
+	h = h ^ cast<u32>(data.Length);
+	return murmur3_fmix32(h);
+}
+
+// ---- xxHash32 ----
+
+const u32 XxPrime1 = 0x9E3779B1:u32;
+const u32 XxPrime2 = 0x85EBCA77:u32;
+const u32 XxPrime3 = 0xC2B2AE3D:u32;
+const u32 XxPrime4 = 0x27D4EB2F:u32;
+const u32 XxPrime5 = 0x165667B1:u32;
+
+// One 4-byte lane of the 16-byte body.
+u32 xxhash32_round(const u32 acc, const u32 input)
+{
+	return rotl32(acc + input * XxPrime2, 13) * XxPrime1;
+}
+
+u32 xxhash32_word(ConstSpan<u8> data, const i32 p)
+{
+	return cast<u32>(data[p])
+		| (cast<u32>(data[p + 1]) << 8)
+		| (cast<u32>(data[p + 2]) << 16)
+		| (cast<u32>(data[p + 3]) << 24);
+}
+
+u32 xxhash32(ConstSpan<u8> data, const u32 seed)
+{
+	const i32 len = data.Length;
+	u32 h = 0:u32;
+	i32 p = 0;
+
+	// Body: four lanes in parallel over 16-byte stripes, then folded together.
+	if (len >= 16)
+	{
+		u32 v1 = seed + XxPrime1 + XxPrime2;
+		u32 v2 = seed + XxPrime2;
+		u32 v3 = seed;
+		u32 v4 = seed - XxPrime1;
+
+		while (p <= len - 16)
+		{
+			v1 = xxhash32_round(v1, xxhash32_word(data, p));
+			v2 = xxhash32_round(v2, xxhash32_word(data, p + 4));
+			v3 = xxhash32_round(v3, xxhash32_word(data, p + 8));
+			v4 = xxhash32_round(v4, xxhash32_word(data, p + 12));
+			p = p + 16;
+		}
+
+		h = rotl32(v1, 1) + rotl32(v2, 7) + rotl32(v3, 12) + rotl32(v4, 18);
+	}
+	else
+	{
+		h = seed + XxPrime5;
+	}
+
+	h = h + cast<u32>(len);
+
+	// Tail: whole words, then single bytes.
+	while (p <= len - 4)
+	{
+		h = rotl32(h + xxhash32_word(data, p) * XxPrime3, 17) * XxPrime4;
+		p = p + 4;
+	}
+
+	while (p < len)
+	{
+		h = rotl32(h + cast<u32>(data[p]) * XxPrime5, 11) * XxPrime1;
+		p = p + 1;
+	}
+
+	// Final avalanche.
+	h = (h ^ (h >> 15)) * XxPrime2;
+	h = (h ^ (h >> 13)) * XxPrime3;
+	return h ^ (h >> 16);
+}
+
+// ---- self-test ----------------------------------------------------------------------------
+// The published vectors, not self-consistency: a hash that agrees with nobody else is the failure.
+#build bool Hash_SelfTest()
+{
+	u8[0] empty;
+	u8[1] a = [97]:u8;
+	u8[3] abc = [97, 98, 99]:u8;
+	u8[14] md = [109, 101, 115, 115, 97, 103, 101, 32, 100, 105, 103, 101, 115, 116]:u8;
+
+	// FNV-1a 32: the empty input is the offset basis unchanged.
+	#assert(fnv1a32(empty) == 2166136261:u32, "FNV-1a of the empty input is the offset basis");
+	#assert(fnv1a32(a) == 3826002220:u32, "FNV-1a of \"a\"");
+	#assert(fnv1a32(abc) == 440920331:u32, "FNV-1a of \"abc\"");
+
+	// djb2 seeded at 5381.
+	#assert(djb2(empty) == 5381:u32, "djb2 of the empty input is its seed");
+	#assert(djb2(abc) == 193485963:u32, "djb2 of \"abc\"");
+
+	// CRC-32 (IEEE), the widely published vectors.
+	#assert(crc32(empty) == 0:u32, "CRC-32 of the empty input");
+	#assert(crc32(a) == 3904355907:u32, "CRC-32 of \"a\"");
+	#assert(crc32(abc) == 891568578:u32, "CRC-32 of \"abc\"");
+	#assert(crc32(md) == 538287487:u32, "CRC-32 of \"message digest\"");
+
+	// MurmurHash3 x86 32-bit, seed 0, plus a non-zero seed and a tail that is not a whole word.
+	#assert(murmur3_32(empty, 0:u32) == 0:u32, "Murmur3 of the empty input at seed 0");
+	#assert(murmur3_32(abc, 0:u32) == 3017643002:u32, "Murmur3 of \"abc\"");
+	#assert(murmur3_32(md, 0:u32) == 1670332777:u32, "Murmur3 with a tail that is not a whole word");
+	#assert(murmur3_32(abc, 1:u32) == 2859854335:u32, "Murmur3 with a non-zero seed");
+
+	// xxHash32 against its published vectors, seeds 0 and 1.
+	#assert(xxhash32(empty, 0:u32) == 46947589:u32, "xxHash32 of the empty input");
+	#assert(xxhash32(abc, 0:u32) == 852579327:u32, "xxHash32 of \"abc\"");
+	#assert(xxhash32(md, 0:u32) == 2090108052:u32, "xxHash32 of \"message digest\"");
+	#assert(xxhash32(abc, 1:u32) == 2856167679:u32, "xxHash32 with a non-zero seed");
+
+	return true;
+}
+
+#test Hash_SelfTest "32-bit hash vectors"

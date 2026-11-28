@@ -1,0 +1,181 @@
+state -> GpsWait at 0
+ch 0  169 bytes  00000000000000144bcacfcfb1724a2ccad7734eccc94c2a2e0f34c705bee72a...
+ch 0  169 bytes  00000001000000144a2c494db1060b7ae696eab95716e5a32e0f34c705bee72a...
+ch 0  169 bytes  00000002000000148bbb171407a526a654ea814988984f622e0f34c705bee72a...
+ch 0  169 bytes  0000000300000014695e72869e4b6a496a325ca1737e62712e0f34c705bee72a...
+state -> Idle at 1000000000
+--- cycle 50
+  Baro.Calibrated = true
+  Imu.GyroCalibrated = true
+  GpsReady.Ready = true
+  Launch.Detected = false
+  Coast.Detected = false
+  Apogee.Detected = false
+  Landed.Detected = false
+  gpsready_enabled = true
+  barobias_enabled = true
+  gyrobias_enabled = true
+  pad_enabled = true
+  alt_enabled = false
+  range_enabled = false
+  orient_enabled = false
+  heading_enabled = false
+  spin_enabled = false
+  launch_enabled = false
+  coast_enabled = false
+  apogee_enabled = false
+  landed_enabled = false
+  site_enabled = false
+  Baro.BiasPressure = 101325.0
+  Imu.GyroBiasX = 0.05
+  Imu.GyroBiasY = 0.0
+  Imu.GyroBiasZ = 0.0
+  Alt.Altitude = 0.0
+  Alt.Velocity = 0.0
+  Orient.Q0 = 1.0
+  Orient.Q1 = 0.0
+  Orient.Q2 = 0.0
+  Orient.Q3 = 0.0
+  Spin.RateDps = 0.0
+  Heading.Degrees = 0.0
+  Range.HorizDist = 0.0
+  Pad.Lat = 32.9905
+  Pad.Lng = -106.975
+  Landed.Lat = 0.0
+  Landed.Lng = 0.0
+--- trajectory, cycle 50
+  fused    0.0 m  0.0 m/s
+state -> Armed at 5200000000
+state -> Idle at 5300000000
+state -> Armed at 5400000000
+state -> Boost at 5730000000
+state -> Coast at 6510000000
+state -> Descent at 8540000000
+--- cycle 100
+  Baro.Calibrated = true
+  Imu.GyroCalibrated = true
+  GpsReady.Ready = true
+  Launch.Detected = true
+  Coast.Detected = true
+  Apogee.Detected = true
+  Landed.Detected = false
+  gpsready_enabled = false
+  barobias_enabled = false
+  gyrobias_enabled = false
+  pad_enabled = false
+  alt_enabled = true
+  range_enabled = true
+  orient_enabled = true
+  heading_enabled = true
+  spin_enabled = true
+  launch_enabled = false
+  coast_enabled = false
+  apogee_enabled = false
+  landed_enabled = true
+  site_enabled = false
+  Baro.BiasPressure = 101325.0
+  Imu.GyroBiasX = 0.05
+  Imu.GyroBiasY = 0.0
+  Imu.GyroBiasZ = 0.0
+  Alt.Altitude = 8.72652
+  Alt.Velocity = -14.9589
+  Orient.Q0 = 1.0
+  Orient.Q1 = 0.0
+  Orient.Q2 = 0.0
+  Orient.Q3 = 3.05587e-10
+  Spin.RateDps = 7.45058e-09
+  Heading.Degrees = 63.4349
+  Range.HorizDist = 44.0991
+  Pad.Lat = 32.9905
+  Pad.Lng = -106.975
+  Landed.Lat = 0.0
+  Landed.Lng = 0.0
+--- trajectory, cycle 100
+  fused    8.72652 m  -14.9589 m/s
+--- cycle 150
+  Baro.Calibrated = true
+  Imu.GyroCalibrated = true
+  GpsReady.Ready = true
+  Launch.Detected = true
+  Coast.Detected = true
+  Apogee.Detected = true
+  Landed.Detected = false
+  gpsready_enabled = false
+  barobias_enabled = false
+  gyrobias_enabled = false
+  pad_enabled = false
+  alt_enabled = true
+  range_enabled = true
+  orient_enabled = true
+  heading_enabled = true
+  spin_enabled = true
+  launch_enabled = false
+  coast_enabled = false
+  apogee_enabled = false
+  landed_enabled = true
+  site_enabled = false
+  Baro.BiasPressure = 101325.0
+  Imu.GyroBiasX = 0.05
+  Imu.GyroBiasY = 0.0
+  Imu.GyroBiasZ = 0.0
+  Alt.Altitude = -0.038791
+  Alt.Velocity = -0.164124
+  Orient.Q0 = 1.0
+  Orient.Q1 = 0.0
+  Orient.Q2 = 0.0
+  Orient.Q3 = 6.30681e-10
+  Spin.RateDps = 7.45058e-09
+  Heading.Degrees = 63.4349
+  Range.HorizDist = 49.8974
+  Pad.Lat = 32.9905
+  Pad.Lng = -106.975
+  Landed.Lat = 0.0
+  Landed.Lng = 0.0
+--- trajectory, cycle 150
+  fused    -0.038791 m  -0.164124 m/s
+state -> Landed at 15850000000
+state -> GpsWait at 18000000000
+state -> Idle at 18010000000
+state -> GpsWait at 19010000000
+state -> Idle at 19510000000
+--- cycle 200
+  Baro.Calibrated = true
+  Imu.GyroCalibrated = true
+  GpsReady.Ready = true
+  Launch.Detected = true
+  Coast.Detected = true
+  Apogee.Detected = true
+  Landed.Detected = true
+  gpsready_enabled = true
+  barobias_enabled = true
+  gyrobias_enabled = true
+  pad_enabled = true
+  alt_enabled = false
+  range_enabled = false
+  orient_enabled = false
+  heading_enabled = false
+  spin_enabled = false
+  launch_enabled = false
+  coast_enabled = false
+  apogee_enabled = false
+  landed_enabled = false
+  site_enabled = false
+  Baro.BiasPressure = 101325.0
+  Imu.GyroBiasX = 0.05
+  Imu.GyroBiasY = 0.0
+  Imu.GyroBiasZ = 0.0
+  Alt.Altitude = 0.00941121
+  Alt.Velocity = 0.0696457
+  Orient.Q0 = 1.0
+  Orient.Q1 = 0.0
+  Orient.Q2 = 0.0
+  Orient.Q3 = 6.918e-10
+  Spin.RateDps = 7.45058e-09
+  Heading.Degrees = 63.4349
+  Range.HorizDist = 49.8974
+  Pad.Lat = 32.9905
+  Pad.Lng = -106.974
+  Landed.Lat = 32.9905
+  Landed.Lng = -106.974
+--- trajectory, cycle 200
+  fused    0.00941121 m  0.0696457 m/s

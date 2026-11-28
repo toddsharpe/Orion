@@ -1,0 +1,7 @@
+// str has no numeric width, so it is not castable in either direction.
+i32 main()
+{
+	str s = "x";
+	WriteLine(to_str(cast<u16>(s)));
+	return 0;
+}

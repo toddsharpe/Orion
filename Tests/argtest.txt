@@ -1,0 +1,12 @@
+all      = 16
+default  = 6
+partial  = 12
+named    = 13
+reorder  = 16
+const    = 9
+override = 101
+str      = depth [mm]
+str2     = depth [cm]
+bool     = depth [mm]!
+f64      = 14.0
+f64named = 12.0

@@ -1,0 +1,4 @@
+# A shell script is read by the kernel, which takes the CR as part of the interpreter's path: a .sh
+# checked out with CRLF fails with "bad interpreter: /usr/bin/env bash^M". These stay LF wherever they
+# are checked out, so a demo built on Linux runs whether it was cloned there or on Windows.
+*.sh text eol=lf

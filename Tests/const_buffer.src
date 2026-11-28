@@ -1,0 +1,30 @@
+// `ConstSpan<u8> buf` is a read-only view: std::span<const u8> in C++, and writing through it or handing
+// it to a function that takes a plain `Span<u8>` is a compile error (see Tests/Errors/const_buffer_*.src).
+
+u8 first(ConstSpan<u8> buf)
+{
+	return buf[0];
+}
+
+// Reading a const buffer is fine at any depth, so a const parameter may forward to another const one.
+u8 forward(ConstSpan<u8> buf)
+{
+	return first(buf);
+}
+
+// The mutable form shares the caller's storage, which every backend agrees on.
+void bump(Span<u8> buf)
+{
+	buf[0] = buf[0] + 1:u8;
+}
+
+i32 main()
+{
+	u8[4] b;
+	bump(b);
+	bump(b);
+
+	WriteLine("first=" + to_str(first(b)) + " forward=" + to_str(forward(b)));
+	WriteLine("caller sees " + to_str(b[0]));
+	return 0;
+}

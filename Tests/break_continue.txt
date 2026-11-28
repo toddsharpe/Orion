@@ -1,0 +1,4 @@
+first_over(6) = 1
+sum_odds = 17
+count_down(5) = 5
+nested_find(11) = 1

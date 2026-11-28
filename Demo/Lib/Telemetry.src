@@ -1,0 +1,540 @@
+//UDP telemetry: one datagram per cycle, and a schema that travels with it, type declarations first:
+//  e:[Init|Idle]:State;s:[i32:a,u8:b]:MyStruct;State:app_state;MyStruct:reading;u32[4]:my_array
+//The md5 of that TEXT rides in every packet; what travels is its raw DEFLATE, one fragment per packet.
+#using "Lib/Channel.src"
+#using "Lib/types.src"
+#using "Lib/Md5.src"
+#using "Lib/Math.src"
+#using "Lib/Deflate.src"
+
+struct Digest
+{
+	str schema;
+	u32 schema_len;
+	u8[16] hash;
+}
+
+//The top level takes a character of its own, since a struct declaration spends commas on its fields.
+const str EntrySep = ";";
+
+//One fragment travels per packet, so the compressed schema is padded to a whole number of them.
+const u32 SchemaFragLen = 16;
+
+//Header: u32 index, u32 count, one 16-byte fragment, the 16-byte hash, then reserved to 64.
+const i32 HeaderLen = 64;
+//Offsets into the packet, so u32 to match what the pack_ builtins take.
+const u32 FragOffset = 8:u32;
+const u32 HashOffset = 24:u32;
+
+//A type as the schema spells it: `T[R,C]` nests internally, so the extents are collected back.
+#build str TypeText(Type type)
+{
+	if (!Type::IsArray(type))
+	{
+		return type.Name;
+	}
+
+	str extents = "";
+	Type element = type;
+	while (Type::IsArray(element))
+	{
+		if (str_len(extents) > 0:u32)
+		{
+			extents += ",";
+		}
+		extents += to_str(Type::ArrayLength(element));
+		element = Type::ArrayElement(element);
+	}
+
+	return element.Name + "[" + extents + "]";
+}
+
+//Every named type a device carries, dependencies first, first use winning the order.
+#build List<Type> Declared(Type type, List<Type> found)
+{
+	//An array declares nothing of its own -- `u32[4]` says what it is -- but its element may.
+	if (Type::IsArray(type))
+	{
+		return Declared(Type::ArrayElement(type), found);
+	}
+	else if (type.Kind != TypeKind::Enum && !Type::IsStruct(type) && !Type::IsAlias(type))
+	{
+		return found;
+	}
+	else if (found.Contains(type))
+	{
+		return found;
+	}
+
+	if (Type::IsStruct(type))
+	{
+		for (const str field in Struct::Fields(type))
+		{
+			found = Declared(Struct::FieldType(type, field), found);
+		}
+	}
+
+	found.Add(type);
+	return found;
+}
+
+//`e:[A|B]:Name` enum, `s:[type:field,..]:Name` struct, `t:type:Name` typedef -- an alias needs no list.
+#build str DeclSchema(List<Device> devices)
+{
+	List<Type> types = List::New<Type>();
+	for (const Device dev in devices)
+	{
+		types = Declared(dev.type, types);
+	}
+
+	str schema = "";
+	for (const Type type in types)
+	{
+		str body = "";
+		if (Type::IsAlias(type))
+		{
+			body = "t:" + TypeText(Type::AliasBase(type));
+		}
+		if (type.Kind == TypeKind::Enum)
+		{
+			for (const str member in Enum::Members(type))
+			{
+				if (str_len(body) > 0:u32)
+				{
+					body += "|";
+				}
+				body += member;
+			}
+			body = "e:[" + body + "]";
+		}
+		if (Type::IsStruct(type))
+		{
+			for (const str field in Struct::Fields(type))
+			{
+				if (str_len(body) > 0:u32)
+				{
+					body += ",";
+				}
+				body += TypeText(Struct::FieldType(type, field)) + ":" + field;
+			}
+			body = "s:[" + body + "]";
+		}
+
+		if (str_len(schema) > 0:u32)
+		{
+			schema += EntrySep;
+		}
+		schema += body + ":" + type.Name;
+	}
+
+	return schema;
+}
+
+//The declarations, then `type:name` per device. Unpadded: it is the compressed stream that pads.
+#build str BuildSchema(List<Device> devices)
+{
+	str schema = DeclSchema(devices);
+	for (const Device dev in devices)
+	{
+		if (str_len(schema) > 0:u32)
+		{
+			schema += EntrySep;
+		}
+		schema += TypeText(dev.type) + ":" + dev.name;
+	}
+
+	return schema;
+}
+
+//What travels: the schema DEFLATE'd, zero-padded to a whole fragment a decoder stops before reading.
+#build List<u8> SchemaStream(str schema)
+{
+	List<u8> stream = Deflate(str_bytes(schema));
+
+	const u32 padded = div_round_up<u32>(cast<u32>(stream.Length), SchemaFragLen) * SchemaFragLen;
+	for (u32 i = cast<u32>(stream.Length); i < padded; i++)
+	{
+		stream.Add(0:u8);
+	}
+
+	return stream;
+}
+
+//How many packets a listener needs before it has the whole schema.
+#build u32 SchemaFrags(str schema)
+{
+	const List<u8> stream = SchemaStream(schema);
+	return cast<u32>(stream.Length) / SchemaFragLen;
+}
+
+#build i32 PayloadSize(List<Device> devices)
+{
+	const List<i32> sizes = [dev.type.Size for const Device dev in devices]:List<i32>;
+	const i32 bytes = list_sum<i32>(sizes);
+
+	return bytes;
+}
+
+//One packed slot: `path` is empty for a scalar device and `.a` / `.inner.x` for a struct field.
+#build struct Slot
+{
+	str path;
+	Type type;
+}
+
+//A device flattened to the slots it occupies, in layout order, fields and elements alike.
+#build List<Slot> Slots(str path, Type type)
+{
+	List<Slot> slots = List::New<Slot>();
+
+	if (Type::IsStruct(type))
+	{
+		for (const str field in Struct::Fields(type))
+		{
+			slots += Slots(path + "." + field, Struct::FieldType(type, field));
+		}
+		return slots;
+	}
+	//An array is its elements end to end: `T[R,C]` takes one subscript, being flat and row-major.
+	else if (Type::IsArray(type))
+	{
+		List<str> indices = List::New<str>();
+		indices.Add("");
+
+		Type element = type;
+		while (Type::IsArray(element))
+		{
+			List<str> wider = List::New<str>();
+			for (const str prefix in indices)
+			{
+				for (i32 i = 0; i < Type::ArrayLength(element); i++)
+				{
+					str sep = "";
+					if (str_len(prefix) > 0:u32)
+					{
+						sep = ",";
+					}
+					wider.Add(prefix + sep + to_str(i));
+				}
+			}
+
+			indices = wider;
+			element = Type::ArrayElement(element);
+		}
+
+		//Outermost varies slowest, so the slots come out in the buffer's own order.
+		for (const str index in indices)
+		{
+			slots += Slots(path + "[" + index + "]", element);
+		}
+		return slots;
+	}
+
+	slots.Add(Slot{ path = path, type = type });
+	return slots;
+}
+
+//What a slot travels as: an enum its ordinal, an alias its representation -- the only packable forms.
+#build Type Packed(Type type)
+{
+	if (type.Kind == TypeKind::Enum)
+	{
+		return Type::Parse("u32");
+	}
+	else if (Type::IsAlias(type))
+	{
+		return Type::AliasBase(type);
+	}
+	else
+	{
+		return type;
+	}
+}
+
+#build Digest Digest(List<Device> devices)
+{
+	const str schema = BuildSchema(devices);
+	const u32 schema_len = str_len(schema);
+	const i32 payload = PayloadSize(devices);
+
+	const u8[16] hash = Calculate(str_bytes(schema));
+	const str schema_hex = bytes_hexstr(hash);
+	WriteLine($"Schema: {schema}");
+	WriteLine($"Hash: {schema_hex}");
+
+	return Digest
+	{
+		schema = schema,
+		schema_len = schema_len,
+		hash = hash
+	};
+}
+
+//One datagram per call -- a 64-byte header with a schema fragment, then the values -- to a `service`.
+void TelemetryWriter(
+	#param str name,
+	#param List<Device> devices,
+	#param i32 service,
+	#state u32 schema_idx = 0:u32
+)
+{
+
+	//Get schema
+	#build const Digest d = Digest(devices);
+	#build const i32 total = HeaderLen + PayloadSize(devices);
+
+	//Create buffers
+	#state const u8[] schema_bytes = #run SchemaStream(d.schema);
+	#state const u8[] schema_hash = #run { return d.hash; };
+	#state const u32 frags = #run { return SchemaFrags(d.schema); };
+	u8[] buffer = #run Array::Zeroed<u8>(total);
+
+	//Write header: index, count, fragment, hash
+	pack_be_u32(buffer, 0:u32, schema_idx);
+	pack_be_u32(buffer, 4:u32, frags);
+	pack_bytes(buffer, FragOffset, span_slice<u8>(schema_bytes, schema_idx * SchemaFragLen, SchemaFragLen));
+	pack_bytes(buffer, HashOffset, schema_hash);
+
+	#run {
+		i32 off = HeaderLen;
+		for (const Device field in devices)
+		{
+			//One port per device however many slots it occupies: a struct is read through its own net.
+			const Port value = Port::In(field.type, field.name);
+
+			for (const Slot slot in Slots("", field.type))
+			{
+				//The slot as a hole: the port and the path it reaches through, checked against the type.
+				const Port at = Port::Field(value, slot.path);
+
+				//An enum travels as its ordinal; the schema is what names the members on the far side.
+				if (slot.type.Kind == TypeKind::Enum)
+				{
+					#insert { pack_be_u32(buffer, ${off}:u32, cast<u32>(${at})); }
+				}
+				else
+				{
+					//An alias travels as its representation, the only form with a pack builtin.
+					#insert { pack_be<${Packed(slot.type)}>(buffer, ${off}:u32, ${at}); }
+				}
+
+				off += slot.type.Size;
+			}
+		}
+	}
+
+	//A frame is a whole ring element, so a push cannot tear; depth 2, and a full ring drops the stale.
+	const i32 tx = #run Channel::Tx(service, total, 2);
+	channel_push(tx, buffer);
+
+	schema_idx = (schema_idx + 1:u32) % frags;
+}
+
+//The mirror of TelemetryWriter: one datagram in from a `service`, hash-checked, unpacked to nets.
+void TelemetryReader(
+	#param str name,
+	#param List<Device> devices,
+	#param i32 service
+)
+{
+	//Get schema
+	#build const Digest d = Digest(devices);
+	#build const i32 total = HeaderLen + PayloadSize(devices);
+
+	//Create buffers
+	#state const u8[] schema_hash = #run { return d.hash; };
+	u8[] buffer = #run Array::Zeroed<u8>(total);
+
+	//Read one datagram, all-or-nothing and hash-checked; depth 4, so a burst between cycles is held.
+	const i32 rx = #run Channel::Rx(service, total, 4);
+	i32 got = 0;
+	if (channel_pop(rx, buffer) != 0) { got = buffer.Length; }
+
+	//Wrong length or another program's schema: the frame is dropped and every net holds its last value.
+	if (!(got == buffer.Length && bytes_equal(buffer, HashOffset, schema_hash)))
+	{
+		return;
+	}
+
+	#run {
+		i32 off = HeaderLen;
+		for (const Device field in devices)
+		{
+			const Port net = Port::Out(field.type, $"{name}_{field.name}");
+
+			//Field by field, the same walk the packer used, so the two loops stay each other's mirror.
+			for (const Slot slot in Slots("", field.type))
+			{
+				const Port at = Port::Field(net, slot.path);
+
+				//The ordinal back to a member; an alias needs the cast too, not being assignable from one.
+				if (slot.type.Kind == TypeKind::Enum || Type::IsAlias(slot.type))
+				{
+					#insert { ${at} = cast<${slot.type}>(unpack_be<${Packed(slot.type)}>(buffer, ${off}:u32)); }
+				}
+				else
+				{
+					#insert { ${at} = unpack_be<${slot.type}>(buffer, ${off}:u32); }
+				}
+
+				off += slot.type.Size;
+			}
+		}
+	}
+}
+
+// ---- self-test ----------------------------------------------------------------------------
+// Four shapes -- an alias, a sized array, a nested struct, a shared type -- and the layout they imply.
+
+//---- the shapes ----
+
+typedef i32 celsius;
+typedef u16 counts;
+
+//An alias as a struct field: it travels as its representation, and the field says `celsius`.
+struct TelemSample
+{
+	celsius temp;
+	u8 flags;
+}
+
+enum TelemLink
+{
+	Down,
+	Up
+}
+
+struct TelemCell
+{
+	u8 tag;
+	TelemLink link;
+}
+
+//An array as a field, and a rectangular one: `u16[2,2]` in the declaration, `[r,c]` in the layout.
+struct TelemFrame
+{
+	i32 id;
+	u16[3] counts;
+	u16[2,2] grid;
+}
+
+//Three levels, with an enum at the bottom of one branch and another beside it.
+struct TelemMiddle
+{
+	TelemCell inner;
+	i32 seq;
+}
+
+struct TelemOuter
+{
+	TelemMiddle mid;
+	AppState state;
+	f64 scale;
+}
+
+//---- the tests ----
+
+//A typedef declares itself `t:i32:celsius` -- tag, representation, name, and no bracketed list.
+#build bool Telemetry_AliasSchema()
+{
+	List<Device> devices = [
+		Device{ name = "temp_c", type = Type::Parse("celsius") },
+		Device{ name = "readings", type = Type::Parse("celsius[3]") },
+		Device{ name = "s", type = Type::Of<TelemSample>() },
+		Device{ name = "n", type = Type::Parse("counts") }
+	]:List<Device>;
+
+	#assert(BuildSchema(devices) ==
+		"t:i32:celsius;s:[celsius:temp,u8:flags]:TelemSample;t:u16:counts;"
+		+ "celsius:temp_c;celsius[3]:readings;TelemSample:s;counts:n",
+		"alias schema: a typedef declares itself, and an alias array names its element");
+
+	//4 + 12 + 5 + 2. An alias is its representation, so `celsius` is four bytes and not a new width.
+	#assert(PayloadSize(devices) == 23, "alias payload size");
+
+	return true;
+}
+
+//A sized array packs end to end and says so inline, `u32[4]:my_array`, declaring nothing of its own.
+#build bool Telemetry_ArraySchema()
+{
+	List<Device> devices = [
+		Device{ name = "my_array", type = Type::Parse("u32[4]") },
+		Device{ name = "cells", type = Type::Parse("TelemCell[2]") },
+		Device{ name = "matrix", type = Type::Parse("i32[2,3]") },
+		Device{ name = "pairs", type = Type::Parse("TelemCell[2,2]") },
+		Device{ name = "frame", type = Type::Of<TelemFrame>() },
+		Device{ name = "count", type = Type::Of<u32>() }
+	]:List<Device>;
+
+	//Dependencies first, and each named type declared once however many devices share it.
+	#assert(DeclSchema(devices) ==
+		"e:[Down|Up]:TelemLink;s:[u8:tag,TelemLink:link]:TelemCell;"
+		+ "s:[i32:id,u16[3]:counts,u16[2,2]:grid]:TelemFrame",
+		"array decls: dependencies precede the types that use them");
+
+	#assert(BuildSchema(devices) ==
+		DeclSchema(devices) + ";u32[4]:my_array;TelemCell[2]:cells;i32[2,3]:matrix;"
+		+ "TelemCell[2,2]:pairs;TelemFrame:frame;u32:count",
+		"array schema: a sized array carries its element and length inline");
+
+	#assert(PayloadSize(devices) == 92, "array payload size");
+
+	return true;
+}
+
+//A nested struct flattens to its leaves, a dotted path per slot and no padding anywhere.
+#build bool Telemetry_NestedLayout()
+{
+	List<Device> devices = [
+		Device{ name = "outer", type = Type::Of<TelemOuter>() },
+		Device{ name = "count", type = Type::Of<u32>() }
+	]:List<Device>;
+
+	#assert(DeclSchema(devices) ==
+		"e:[Down|Up]:TelemLink;s:[u8:tag,TelemLink:link]:TelemCell;"
+		+ "s:[TelemCell:inner,i32:seq]:TelemMiddle;e:[Init|Warmup|Run|Fault]:AppState;"
+		+ "s:[TelemMiddle:mid,AppState:state,f64:scale]:TelemOuter",
+		"nested decls: three levels, each declared before what uses it");
+
+	//The slots one device flattens to, at the offsets they pack at: 1 + 4 + 4 + 4 + 8.
+	str layout = "";
+	i32 off = 0;
+	for (const Slot slot in Slots("", Type::Of<TelemOuter>()))
+	{
+		layout += to_str(off) + slot.path + ":" + slot.type.Name + " ";
+		off += slot.type.Size;
+	}
+
+	#assert(layout == "0.mid.inner.tag:u8 1.mid.inner.link:TelemLink 5.mid.seq:i32 "
+		+ "9.state:AppState 13.scale:f64 ",
+		"nested layout: dotted paths at packed offsets, no padding");
+
+	return true;
+}
+
+//What travels: the schema DEFLATE'd and zero-padded to 16-byte fragments, inflating back exactly.
+#build bool Telemetry_SchemaStream()
+{
+	List<Device> devices = [
+		Device{ name = "outer", type = Type::Of<TelemOuter>() },
+		Device{ name = "count", type = Type::Of<u32>() }
+	]:List<Device>;
+
+	const str text = BuildSchema(devices);
+	List<u8> packed = SchemaStream(text);
+	const u8[] back = Inflate(packed.ToArray());
+
+	#assert(bytes_hexstr(back) == bytes_hexstr(str_bytes(text)),
+		"schema stream: the padded stream inflates back to exactly the schema");
+	#assert(packed.Length % 16 == 0, "schema stream: padded to whole 16-byte fragments");
+	//`SchemaFrags` answers u32, the width a frame header carries it in; `Length` is i32.
+	#assert(cast<i32>(SchemaFrags(text)) == packed.Length / 16, "schema stream: fragment count matches the length");
+
+	return true;
+}
+
+#test Telemetry_AliasSchema "Telemetry schema: aliases"
+#test Telemetry_ArraySchema "Telemetry schema: sized and rectangular arrays"
+#test Telemetry_NestedLayout "Telemetry schema: nested structs and slot layout"
+#test Telemetry_SchemaStream "Telemetry schema: the DEFLATE'd stream"

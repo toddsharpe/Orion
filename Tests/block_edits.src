@@ -1,0 +1,49 @@
+// A list of recipes edited by name, as a sim edits its app's: each edit answers a new list, so the app's own is left as it was.
+void Counter(#param str name, #param i32 step, #state i32 n, #output i32 out @ $"{name}_out")
+{
+	n = n + step;
+	out = n;
+}
+
+void Watch(#param str name, #input i32 c @ "c_out")
+{
+	WriteLine("c_out " + to_str(c));
+}
+
+// The app: written out once.
+#build List<Block> App()
+{
+	return [
+		#block Counter(name = "a", step = 1),
+		#block Counter(name = "b", step = 2),
+		#block Counter(name = "c", step = 3)
+	]:List<Block>;
+}
+
+i32 main()
+{
+	#run
+	{
+		const List<Block> app = App();
+		const List<Block> sim = app
+			.Remove("b")
+			.InsertBefore("a", [#block Counter(name = "first", step = 100)]:Block)
+			.InsertAfter("c", [#block Watch(name = "watch")]:Block)
+			.Replace("a", [#block Counter(name = "a2", step = 10), #block Counter(name = "a3", step = 20)]:Block)
+			.Change("c", ${ step = 30 });
+
+		for (const Block b in sim)
+		{
+			#insert { WriteLine(${b.Name} + " builds " + ${b.Template}); }
+		}
+		#insert { WriteLine("app holds " + to_str(${app.Length}) + ", b " + to_str(${app.Has("b")}) + "; sim b " + to_str(${sim.Has("b")}) + ", c steps " + to_str(${sim.Find("c").Param<i32>("step")})); }
+
+		Solver solver = Solver::New(sim.ToArray());
+		Solver::Solve(solver);
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert { for (i32 i = 0; i < 2; i++) { solver_cycle(state); } }
+	}
+
+	return 0;
+}

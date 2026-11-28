@@ -1,0 +1,36 @@
+// A struct template: each reference instantiates a concrete struct, as a function template does.
+struct Box<T>
+{
+	T value;
+}
+
+// A template's field may name another template; the instantiation is transitive.
+struct Pair<T>
+{
+	Box<T> first;
+	Box<T> second;
+}
+
+// A function template over a struct template: one T flows through both.
+T unbox<T>(const Box<T> b)
+{
+	return b.value;
+}
+
+Pair<f64> swapped(const Pair<f64> p)
+{
+	return Pair<f64>{ first = p.second, second = p.first };
+}
+
+i32 main()
+{
+	Box<i32> whole = Box<i32>{ value = 41 };
+	Box<f64> real = Box<f64>{ value = 1.5 };
+	WriteLine("whole = " + to_str(unbox<i32>(whole)) + " real = " + to_str(unbox<f64>(real)));
+
+	Pair<f64> p = Pair<f64>{ first = Box<f64>{ value = 1.0 }, second = Box<f64>{ value = 2.0 } };
+	Pair<f64> s = swapped(p);
+	WriteLine("swapped = " + to_str(s.first.value) + ", " + to_str(s.second.value));
+
+	return 0;
+}

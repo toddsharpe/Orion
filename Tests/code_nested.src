@@ -1,0 +1,18 @@
+// A `${}` hole standing alone as a statement splices the fragment it holds, so a fragment nests.
+// A fragment splices as written, so the outer one may declare what the nested one uses.
+i32 main()
+{
+	#run
+	{
+		Code step = #code { total += 1; WriteLine("  step " + to_str(total)); };
+		Code body = #code {
+			i32 total = 0;
+			WriteLine("counting");
+			${step};
+			${step};
+			WriteLine("total = " + to_str(total));
+		};
+		#insert body;
+	}
+	return 0;
+}

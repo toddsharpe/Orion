@@ -1,0 +1,2 @@
+build  : copy=1 field=42 whole=7,8 scalar=42 bool=true f32=1.5 str=written chain=42 acc=42 into_field=42
+runtime: copy=1 field=42 whole=7,8 scalar=42 bool=true f32=1.5 str=written chain=42 acc=42 into_field=42

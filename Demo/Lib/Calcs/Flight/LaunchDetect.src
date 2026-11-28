@@ -1,0 +1,98 @@
+// Launch: sustained ascent on velocity, above the noise the estimator carries while still.
+#using "Lib/types.src"
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Debounce.src"
+
+// Above the standing noise of the altitude estimate.
+const f32<m/s> LaunchVelocity = 1.0:f32<m/s>;
+
+// Sustained for this long, so a single sample cannot arm the flight.
+const time LaunchHold = 200000000:time;
+
+// One tick. `velocity` is the fused vertical rate, positive up.
+void LaunchDetect(
+	#param str name,
+	#param f32<m/s> threshold = 1.0:f32<m/s>,
+	#param time hold = 200000000:time,
+	#param str time_src = "cycle_time",
+	#state Debounce debounce,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<m/s> velocity @ "Alt.Velocity",
+	#input time now @ time_src,
+	#output bool detected @ "Launch.Detected"
+)
+{
+	// Not dispatched: the run and the latch hold -- ungated, a pad test would arm straight into Boost.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	detected = Debounce_Update(debounce, velocity > threshold, now, hold);
+}
+
+// ---- self-test ----
+
+#build bool LaunchDetect_SelfTest()
+{
+	const time step = 100000000:time;   // 100 ms, so the 200ms hold needs three ticks
+
+	Instance launch = Function::Start(#create LaunchDetect(name = "launchdetect_selftest"));
+	#assert(Instance::Get<Debounce>(launch, "debounce").start == 0:time, "Launch: a cold start has no run");
+
+	// Sitting on the pad: the estimate wanders either side of zero and nothing arms.
+	for (i32 i = 1; i <= 50; i++)
+	{
+		Function::Tick(launch, ${enabled = true, velocity = 0.0:f32, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(launch, "detected") == false, "Launch: a still vehicle must not arm");
+	}
+	#assert(Instance::Get<Debounce>(launch, "debounce").start == 0:time, "Launch: and must start no run");
+
+	// Drift below the threshold, and going down, are both still not a launch.
+	Function::Tick(launch, ${enabled = true, velocity = 0.5:f32, now = step * 51:time});
+	#assert(Instance::Get<Debounce>(launch, "debounce").start == 0:time, "Launch: drift below the threshold must not arm");
+	Function::Tick(launch, ${enabled = true, velocity = -3.0:f32, now = step * 52:time});
+	#assert(Instance::Get<Debounce>(launch, "debounce").start == 0:time, "Launch: going down is not going up");
+
+	// Exactly at the threshold is not above it, which is what makes the constant a floor.
+	Instance edge = Function::Start(#create LaunchDetect(name = "launchdetect_edge"));
+	for (i32 i = 1; i <= 50; i++)
+	{
+		Function::Tick(edge, ${enabled = true, velocity = LaunchVelocity, now = step * cast<time>(i)});
+	}
+	#assert(Instance::Get<bool>(edge, "detected") == false, "Launch: the threshold is exclusive");
+
+	// Off the pad: sustained ascent arms once the hold elapses, and not before.
+	Instance flight = Function::Start(#create LaunchDetect(name = "launchdetect_flight"));
+	for (i32 i = 1; i <= 3; i++)
+	{
+		Function::Tick(flight, ${enabled = true, velocity = 20.0:f32, now = step * cast<time>(i)});
+		#assert(Instance::Get<bool>(flight, "detected") == (i == 3), "Launch: arms on the third tick and not before");
+	}
+
+	// Latched: the rest of the flight cannot un-launch it, whatever the velocity does.
+	Function::Tick(flight, ${enabled = true, velocity = -30.0:f32, now = step * 1000:time});
+	#assert(Instance::Get<bool>(flight, "detected"), "Launch: a launched vehicle stays launched");
+
+	// A `#param` is folded per instance, so a higher threshold is a different block.
+	Instance strict = Function::Start(#create LaunchDetect(name = "launchdetect_strict", threshold = 50.0:f32<m/s>));
+	for (i32 i = 1; i <= 10; i++)
+	{
+		Function::Tick(strict, ${enabled = true, velocity = 20.0:f32, now = step * cast<time>(i)});
+	}
+	#assert(Instance::Get<bool>(strict, "detected") == false, "Launch: a higher threshold rejects what the default arms on");
+
+	// Disabled: a clear ascent arms nothing, which is what makes arming an operator decision.
+	Instance held = Function::Start(#create LaunchDetect(name = "launchdetect_held"));
+	for (i32 i = 1; i <= 50; i++)
+	{
+		Function::Tick(held, ${enabled = false, velocity = 20.0:f32, now = step * cast<time>(i)});
+	}
+	#assert(Instance::Get<Debounce>(held, "debounce").start == 0:time, "Launch: a disabled calc starts no run");
+	#assert(Instance::Get<bool>(held, "detected") == false, "Launch: and cannot arm the flight");
+
+	return true;
+}
+
+#test LaunchDetect_SelfTest "Launch detection"

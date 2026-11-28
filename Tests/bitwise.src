@@ -1,0 +1,80 @@
+// Bitwise and shift operators: & | ^ ~ << >>.
+//
+// The runtime block covers what all four code generators (MSIL, C++, Python, JavaScript) agree on, and is
+// computed twice -- once at build time as MSIL and once by the backend -- so the two must match.
+//
+// Full-width cases (a u32 result with its high bit set, or a u8 result needing truncation) are BUILD-TIME
+// only, deliberately. They are correct in MSIL and C++ but not in the Python and JavaScript backends,
+// which do not mask unsigned arithmetic to its declared width. That gap is not specific to the bitwise
+// operators -- those backends get plain `+` wrong the same way (u32 4294967000 + 1000 prints 4294968000
+// rather than 704, u8 200 * 3 prints 600 rather than 88) -- so it is tracked as its own problem.
+
+// A right shift must not sign-extend an unsigned value: 0xFFFFFFFF >> 28 is 0xF, not 0xFFFFFFFF.
+u32 shift_u32(u32 x, i32 n)
+{
+	return x >> n;
+}
+
+// ...but it MUST sign-extend a signed one: -16 >> 2 is -4.
+i32 shift_i32(i32 x, i32 n)
+{
+	return x >> n;
+}
+
+str report()
+{
+	u32 a = 0xFF00FF00:u32;
+	u32 b = 0x0FF00FF0:u32;
+	i32 s = 0x0F0F:i32;
+	i32 t = 0x00FF:i32;
+
+	str r = "";
+	r = r + "and=" + to_str(a & b);
+	r = r + " xor=" + to_str(b ^ 0x00F00F00:u32);
+	r = r + " shr=" + to_str(a >> 8);
+
+	// Unsigned >> on a value whose high bit is set -- the case a signed shift gets wrong.
+	r = r + " shr_hi=" + to_str(shift_u32(0xFFFFFFFF:u32, 28));
+	// Signed >> must keep the sign.
+	r = r + " shr_neg=" + to_str(shift_i32(0 - 16, 2));
+
+	// i32 operands, including ~ on a signed value (~0x0F0F == -3856).
+	r = r + " i_and=" + to_str(s & t);
+	r = r + " i_or=" + to_str(s | t);
+	r = r + " i_xor=" + to_str(s ^ t);
+	r = r + " i_not=" + to_str(~s);
+	r = r + " i_shl=" + to_str(s << 4);
+
+	// Precedence: & binds looser than ==, and a shift binds tighter than a comparison.
+	bool p1 = (a & b) == 0x0F000F00:u32;
+	bool p2 = 1:u32 << 4 > 8:u32;
+	r = r + " prec=" + to_str(p1) + "," + to_str(p2);
+
+	// Both operands literal, so the constant folder produces these, not the backend.
+	r = r + " fold=" + to_str(0xFF00:u32 & 0x0FF0:u32) + "," + to_str(0xF0:u32 << 4) + "," + to_str(~0x0F0F:i32);
+	return r;
+}
+
+// Full width, build time only -- see the header note.
+#build str wide()
+{
+	u32 a = 0xFF00FF00:u32;
+	u32 b = 0x0FF00FF0:u32;
+	u8 e = 0xF0:u8;
+
+	str r = "";
+	r = r + "or=" + to_str(a | b);
+	r = r + " not=" + to_str(~a);
+	r = r + " shl=" + to_str(b << 4);
+	r = r + " u8_not=" + to_str(~e);
+	r = r + " u8_shl=" + to_str(e << 1);
+	return r;
+}
+
+i32 main()
+{
+	WriteLine("build  : " + #run report());
+	WriteLine("runtime: " + report());
+	WriteLine("wide   : " + #run wide());
+	return 0;
+}

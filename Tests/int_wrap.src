@@ -1,0 +1,44 @@
+// Fixed-width integer arithmetic wraps on every backend. 64-bit is absent: a u64 has no JS double.
+
+i32 main()
+{
+	// Unsigned add wraps mod 2^32 rather than growing.
+	u32 big = 4000000000:u32;
+	WriteLine(to_str(big + big));
+
+	// Signed overflow wraps two's complement.
+	i32 sbig = 2000000000;
+	WriteLine(to_str(sbig + sbig));
+
+	// Narrow types wrap at their own width, not at 32 bits.
+	u8 b = 200:u8;
+	WriteLine(to_str(b + b));
+	u16 h = 60000:u16;
+	WriteLine(to_str(h + h));
+
+	// Unary: ~x and -x both leave the unsigned range.
+	u32 x = 5:u32;
+	WriteLine(to_str(~x));
+	WriteLine(to_str(0:u32 - 1:u32));
+
+	// Multiply and left shift wrap too.
+	u32 m = 100000:u32;
+	WriteLine(to_str(m * m));
+	WriteLine(to_str(1:u32 << 31));
+	WriteLine(to_str(cast<u32>(1:u32 << 31) * 2:u32));
+
+	// Rotate-left, the hashing primitive: shift-or with no explicit cast needed.
+	u32 r = 0x12345678:u32;
+	WriteLine(to_str((r << 7) | (r >> 25)));
+
+	// Ops that cannot leave the range are untouched.
+	WriteLine(to_str(big / 7:u32));
+	WriteLine(to_str(big % 7:u32));
+	WriteLine(to_str(big & 0xFF:u32));
+	WriteLine(to_str(big >> 8));
+
+	// Floats are not integers and keep full precision.
+	WriteLine(to_str(1.5 * 3.0 + 0.25));
+
+	return 0;
+}

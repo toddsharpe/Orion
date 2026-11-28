@@ -1,0 +1,6 @@
+cycle 0
+  up count = 10 at 0
+cycle 1
+cycle 2
+  up count = 20 at 20000000
+cycle 3

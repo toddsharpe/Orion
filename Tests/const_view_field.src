@@ -1,0 +1,25 @@
+// `const` never freezes the storage a view inside it points at; a view FIELD answers as a view variable does.
+struct Window
+{
+	str name;
+	Span<i32> values;
+}
+
+i32 main()
+{
+	// A `#state` array outlives the call, so a view of it may be stored in a field.
+	#state i32[2] store = [1, 2]:i32;
+	const Window w = Window{ name = "store", values = store };
+	WriteLine(w.name + " holds " + to_str(w.values.Length));
+
+	// The write the rule turns on: `w` is const, `w.values` is not, so the view decides and this lands.
+	w.values[0] = 7;
+	WriteLine("store[0] = " + to_str(store[0]));
+
+	// The same answer one level up, where it always worked: the handle is const, the buffer is not.
+	i32[] backing = [1, 2]:i32;
+	const Span<i32> direct = backing;
+	direct[0] = 9;
+	WriteLine("direct = " + to_str(backing[0]));
+	return 0;
+}

@@ -1,0 +1,9 @@
+// A block starts up once, so it may declare at most one #init.
+void Blk(#param str name, #output i32 v @ $"{name}_v")
+{
+	#init { return true; }
+	#init { return false; }
+	v = 1;
+}
+
+i32 main() { return 0; }

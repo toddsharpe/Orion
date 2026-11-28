@@ -1,0 +1,45 @@
+// `c.Name` reads back a generated function's name; its `#state` LOCAL needs no solver to drive it.
+void Count(#param str name, #input bool init, #output i32 last)
+{
+	#run
+	{
+		#insert {
+			#state i32 prev = 0;
+			if (init)
+			{
+				prev = 0;
+			}
+			else
+			{
+				prev = prev + 1;
+			}
+			last = prev;
+		}
+	}
+}
+
+void test(Function c)
+{
+	WriteLine("Dynamic function: " + c.Name);
+}
+
+i32 main()
+{
+	bool init = false;
+	i32 value = 0;
+
+	Function c = #create Count(name = "my_count");
+	test(c);
+	WriteLine("Runtime lookup: " + c.Name);
+
+	#run Build::AddBody("my_count(init, value);");
+	WriteLine("value: " + to_str(value));
+
+	#run Build::AddBody("my_count(init, value);");
+	WriteLine("value: " + to_str(value));
+
+	#run Build::AddBody("my_count(init, value);");
+	WriteLine("value: " + to_str(value));
+
+	return 0;
+}

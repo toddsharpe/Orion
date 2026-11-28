@@ -1,0 +1,39 @@
+// bytes_copy moves a run between two buffers in one platform move, at an offset on each side.
+
+i32 main()
+{
+	// The same move during the build, which is a second implementation and so a second thing to check.
+	#run
+	{
+		u8[4] a;
+		a[0] = 171:u8;
+		a[1] = 205:u8;
+		u8[4] b;
+		bytes_copy(b, 2:u32, a, 0:u32, 2:u32);
+		#assert(bytes_hexstr(b) == "0000ABCD", "bytes_copy during the build");
+	}
+
+	u8[8] src;
+	pack_be_u32(src, 0:u32, 305419896:u32);
+	pack_be_u32(src, 4:u32, 2596069104:u32);
+	WriteLine(bytes_hexstr(src));
+
+	// The back half of one buffer to the front of another.
+	u8[8] dst;
+	bytes_copy(dst, 0:u32, src, 4:u32, 4:u32);
+	WriteLine(bytes_hexstr(dst));
+
+	// A run into the middle leaves what is around it alone.
+	bytes_copy(dst, 5:u32, src, 1:u32, 3:u32);
+	WriteLine(bytes_hexstr(dst));
+
+	// Zero bytes moves nothing.
+	bytes_copy(dst, 0:u32, src, 0:u32, 0:u32);
+	WriteLine(bytes_hexstr(dst));
+
+	// A whole buffer, which is what a channel frame is.
+	bytes_copy(dst, 0:u32, src, 0:u32, 8:u32);
+	WriteLine(bytes_hexstr(dst));
+
+	return 0;
+}

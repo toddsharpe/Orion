@@ -1,0 +1,4 @@
+cycle: t = 0ns level = 3
+cycle: t = 10000000ns level = 6
+cycle: t = 20000000ns level = 9
+stopped

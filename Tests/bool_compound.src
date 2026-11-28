@@ -1,0 +1,58 @@
+bool trace(str tag, bool r)
+{
+	WriteLine("eval " + tag);
+	return r;
+}
+
+//On bools `&=` and `|=` are the logical operators, evaluating both sides -- unlike `&&` and `||`.
+void test()
+{
+	bool ok = true;
+	ok &= trace("a", true);
+	WriteLine("ok=" + to_str(ok));
+	ok &= trace("b", false);
+	WriteLine("ok=" + to_str(ok));
+	ok &= trace("c", true);
+	WriteLine("ok=" + to_str(ok));
+
+	bool any = false;
+	any |= trace("d", false);
+	WriteLine("any=" + to_str(any));
+	any |= trace("e", true);
+	WriteLine("any=" + to_str(any));
+	any |= trace("f", true);
+	WriteLine("any=" + to_str(any));
+
+	bool x = true;
+	x ^= true;
+	WriteLine("x=" + to_str(x));
+
+	//`&` and `|` on two bools are `&&` and `||` without the short circuit.
+	WriteLine("and=" + to_str(true & false));
+	WriteLine("or=" + to_str(true | false));
+
+	//On integers they stay bitwise.
+	u8 m = 0xF0:u8;
+	m &= 0x3C:u8;
+	m |= 0x01:u8;
+	m ^= 0xFF:u8;
+	WriteLine("m=" + to_str(m));
+
+	//Accumulating a result across a loop is what the compound forms are for.
+	i32[] xs = [2, 4, 6, 8]:i32;
+	bool allEven = true;
+	bool anyBig = false;
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		allEven &= xs[i] % 2 == 0;
+		anyBig |= xs[i] > 7;
+	}
+	WriteLine("allEven=" + to_str(allEven) + " anyBig=" + to_str(anyBig));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

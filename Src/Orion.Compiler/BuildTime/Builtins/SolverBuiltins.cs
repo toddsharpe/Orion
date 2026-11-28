@@ -1,0 +1,302 @@
+﻿using Orion.Diagnostics;
+using Orion.IR;
+using Orion.Symbols;
+using System.Collections.Generic;
+using System.Linq;
+using System;
+
+namespace Orion.BuildTime.Builtins
+{
+	//The Solver:: builtins: assemble blocks into a Solver, solve the netlist, then generate or export.
+	[BuildOnly]
+	public static class SolverBuiltins
+	{
+		//The blocks are specialized here, in the order given, each reported against its own `#block`: a recipe no Solver takes is never built.
+		public static Solver New(IReadOnlyList<OrionBlock> blocks)
+		{
+			List<SourceFunctionSymbol> underlying = [.. blocks
+				.Where(i => i != null)
+				.Select(i => Instantiate(i.Template, i.Args, i.Schedule, "#block", i.Region)?.Function)
+				.Where(i => i != null)];
+			return new Solver(underlying, Env.Context.Function.Table.GetRoot());
+		}
+
+		public static void Solve(Solver solver)
+		{
+			solver.Solve(Env.Context.Messages);
+			LastSolved = solver;
+
+			if (!BuildBuiltins.Failed())
+				solver.Generate();
+		}
+
+		public static void Export(Solver solver, long dt_ns)
+		{
+			solver.SolveExported(dt_ns, Env.Context.Messages);
+			LastSolved = solver;
+		}
+
+		//The netlist as a Graph, for Output::Write after Solve or Export.
+		public static Diagrams.Graph Graph(Solver solver)
+		{
+			return Diagrams.Diagrams.Netlist(solver);
+		}
+
+		public static Solver LastSolved { get => Compiler.Session.LastSolved; private set => Compiler.Session.LastSolved = value; }
+
+		public static OrionCode Struct(Solver solver)
+		{
+			if (BuildBuiltins.Failed())
+				return CodeBuiltins.Empty();
+
+			OrionCode code = CodeBuiltins.Of(solver.DeclareStruct());
+			foreach (string init in solver.Inits)
+				code = CodeBuiltins.Concat(code, CodeBuiltins.Parse(init));
+
+			return code;
+		}
+
+		public static OrionCode ViewState(Solver solver)
+		{
+			return BuildBuiltins.Failed() ? CodeBuiltins.Empty() : CodeBuiltins.Of(solver.ViewState());
+		}
+
+		//One specialized block, `#create`d or built from a `#block` by a Solver: the template it came from, its specialization and schedule as text, the function, and where it was written.
+		internal record Cached(string Template, string Params, OrionFunction Func, InputRegion Region);
+
+		private static Dictionary<string, Cached> _blocks => Compiler.Session.SolverBlocks;
+
+		internal static void Ran(SourceFunctionSymbol function) => Compiler.Session.SolverRan.Add(function);
+
+		private static string Known()
+		{
+			List<string> names = [.. Compiler.Session.Templates.Keys.OrderBy(i => i)];
+			return names.Count == 0 ? ", and this file declares none." : $". Declared: {string.Join(", ", names)}.";
+		}
+
+		internal const string PeriodKey = "period";
+
+		internal const string PhaseKey = "phase";
+
+		private static (long Period, long Phase) Schedule(string block, object args, InputRegion region)
+		{
+			Dictionary<string, object> values = Env.Bag(args);
+			foreach (string key in values.Keys.Where(i => i is not (PeriodKey or PhaseKey)))
+				Env.Report(region, $"`#block {block}` was given the schedule property '{key}'. A schedule bag takes " +
+					$"`{PeriodKey}` and `{PhaseKey}`, both times, and nothing else.");
+
+			return (Whole(block, values, PeriodKey, region), Whole(block, values, PhaseKey, region));
+		}
+
+		private static long Whole(string block, Dictionary<string, object> values, string key, InputRegion region)
+		{
+			if (!values.TryGetValue(key, out object value))
+				return 0;
+
+			if (value is IConvertible and not (string or bool))
+				return Convert.ToInt64(value);
+
+			Env.Report(region, $"`#block {block}`: schedule property '{key}' is not a time.");
+			return 0;
+		}
+
+		//A new, empty instance of the collection a `#param` is declared as; null when the name is not one.
+		internal static object Empty(Ast.TypeName declared)
+		{
+			TypeSymbol type = Resolve(Env.Context.Function.Table.GetRoot(), declared);
+			return type is BuiltinTypeSymbol builtin && Surface.IsCollection(type) ? Activator.CreateInstance(builtin.Type) : null;
+		}
+
+		private static TypeSymbol Resolve(SymbolTable root, Ast.TypeName name)
+		{
+			if (!name.IsGeneric)
+				return root.TryGet(name.Name, out TypeSymbol type) ? type : null;
+
+			List<TypeSymbol> inner = [.. name.Generics.Select(i => Resolve(root, i))];
+			return inner.Contains(null) ? null : Surface.ResolveGenericType(root, name.GenericType, inner);
+		}
+
+		//`#create`: the block specialized now, a function to start or call where it is made.
+		public static OrionFunction Create(string name, object args)
+		{
+			if (Compiler.Session.Templates.TryGetValue(name, out Ast.Function template))
+				Undeclared("#create", name, template, args);
+			return Instantiate(name, args, null, "#create", Env.Region);
+		}
+
+		//`#block`: the recipe alone; the template is checked now, so a misspelled one is reported where it is written even if no Solver takes it.
+		public static OrionBlock Block(string name, object args)
+		{
+			return Recipe(name, args, null);
+		}
+
+		public static OrionBlock Scheduled(string name, object args, object schedule)
+		{
+			return Recipe(name, args, schedule);
+		}
+
+		private static OrionBlock Recipe(string name, object args, object schedule)
+		{
+			if (!Compiler.Session.Templates.TryGetValue(name, out Ast.Function template))
+			{
+				Env.Report($"`#block {name}`: no solver block named '{name}'. A block is a function with a " +
+					$"`#param`{Known()}");
+				return null;
+			}
+
+			Undeclared("#block", name, template, args);
+			return new OrionBlock { Template = name, Args = args, Schedule = schedule, Region = Env.Region };
+		}
+
+		//An argument the template declares no #param for, reported where it is written: a Solver reads only the #params, so a misspelled one would be dropped without a word and the block built on the default.
+		private static void Undeclared(string keyword, string name, Ast.Function template, object args)
+		{
+			List<string> declared = [.. template.Parameters.Where(p => p.Directive == Ast.ParamDirective.Param).Select(p => p.Name)];
+			foreach (string key in Env.Bag(args).Keys.Where(i => !declared.Contains(i)))
+				Env.Report($"`{keyword} {name}({key} = ..)`: `{name}` takes no #param '{key}'; it takes {string.Join(", ", declared)}.");
+		}
+
+		private static OrionFunction Instantiate(string name, object args, object schedule, string keyword, InputRegion region)
+		{
+			Dictionary<string, object> values = Env.Bag(args);
+
+			if (!Compiler.Session.Templates.TryGetValue(name, out Ast.Function template))
+			{
+				Env.Report(region, $"`{keyword} {name}`: no solver block named '{name}'. A block is a function with a " +
+					$"`#param`{Known()}");
+				return null;
+			}
+
+			Dictionary<string, Ast.Literal> env = new Dictionary<string, Ast.Literal>();
+			foreach (Ast.Parameter p in template.Parameters.Where(p => p.Directive == Ast.ParamDirective.Param))
+			{
+				if (values.TryGetValue(p.Name, out object v))
+					env[p.Name] = Frontend.Specializer.ToLiteral(v, p.TypeName);
+				else if (p.Default is Ast.Value dv && dv.Literal != null)
+					env[p.Name] = dv.Literal;
+				else if (Frontend.Specializer.IsEmptyCollection(p.Default) && Empty(p.TypeName) is object fresh)
+					env[p.Name] = Frontend.Specializer.ToLiteral(fresh, p.TypeName);
+				else
+				{
+					Env.Report(region, $"Solver block '{name}' is missing #param '{p.Name}'.");
+					return null;
+				}
+			}
+
+			(long period, long phase) = Schedule(name, schedule, region);
+
+			string mangled = Frontend.Specializer.Mangle(template, env);
+			string described = $"{Frontend.Specializer.Describe(template, env)}@{period}+{phase}";
+			if (_blocks.TryGetValue(mangled, out Cached cached))
+			{
+				if (cached.Template != name)
+				{
+					Env.Report(region, $"`{keyword} {name}(name = \"{env["name"].Boxed}\")`: block '{cached.Template}' is " +
+						$"already instantiated under that name. An instance name is one block's, and it is the " +
+						$"name the block is emitted as, so give them different instances.");
+					return null;
+				}
+
+				if (cached.Params != described)
+				{
+					Env.Report(region, $"Solver block '{name}' is instantiated twice as instance '{env["name"].Boxed}' " +
+						$"({cached.Params}) and ({described}); each instance names one block, so give them different instances.");
+					return null;
+				}
+
+				return cached.Func;
+			}
+
+			Ast.Function clone = Frontend.Specializer.Instantiate(template, mangled, env, Compiler.Session, Env.Context.Messages);
+
+			Ast.Function init = Frontend.Specializer.LiftInit(clone, mangled);
+
+			if (clone.Body.Any(Frontend.Specializer.IsEscape))
+				RunEscapes(template, clone, env, mangled);
+
+			OrionFunction built = BuildBuiltins.Emit(clone);
+
+			if (init != null && built?.Function is SourceFunctionSymbol block)
+				block.Init = BuildBuiltins.Emit(init)?.Function as SourceFunctionSymbol;
+
+			if (built?.Function != null)
+			{
+				built.Function.Period = period;
+				built.Function.Phase = phase;
+			}
+
+			_blocks[mangled] = new Cached(name, described, built, region);
+			return built;
+		}
+
+		internal static void CheckInits(SymbolTable root, List<Message> messages)
+		{
+			HashSet<Symbol> called = new HashSet<Symbol>(root.Traverse()
+				.SelectMany(i => i.GetAll<SourceFunctionSymbol>())
+				.SelectMany(i => i.Tacs)
+				.OfType<CallTac>()
+				.Select(i => (Symbol)i.Function), ReferenceEqualityComparer.Instance);
+
+			messages.Trace($"Checked {Messages.Count(_blocks.Count, "block")} for an #init nothing runs");
+			foreach (Cached instance in _blocks.Values)
+			{
+				SourceFunctionSymbol block = instance.Func?.Function;
+				if (block?.Init == null || called.Contains(block.Init) || Compiler.Session.SolverRan.Contains(block.Init))
+					continue;
+
+				messages.Add(new Message(
+					$"Block '{block.Name}' declares #init, but nothing runs it. Make it a `#block` and hand " +
+					$"it to a `Solver::New`, which calls every one from `solver_init`, or start it where it is " +
+					$"created -- `#insert {{ ${{f.Init}}(); }}` names this instance's startup.",
+					instance.Region, MessageType.Error));
+			}
+		}
+
+		private static void RunEscapes(Ast.Function template, Ast.Function clone,
+			Dictionary<string, Ast.Literal> env, string mangled)
+		{
+			List<Ast.Parameter> parameters = [.. template.Parameters
+				.Where(p => p.Directive == Ast.ParamDirective.Param)
+				.Select(p => new Ast.Parameter { TypeName = p.TypeName, Name = p.Name, Region = p.Region })];
+			object[] values = [.. parameters.Select(p => env[p.Name].Boxed)];
+
+			List<Ast.Statement> written = clone.Body;
+			clone.Body = new List<Ast.Statement>();
+
+			Ast.Function outer = Env.Builder;
+			Env.Builder = clone;
+			try
+			{
+				int escape = 0;
+				foreach (Ast.Statement statement in written)
+				{
+					if (!Frontend.Specializer.IsEscape(statement))
+					{
+						clone.Body.Add(statement);
+						continue;
+					}
+
+					BuildBuiltins.Invoke(Escape(statement, $"{mangled}__esc{escape++}", parameters), values);
+				}
+			}
+			finally
+			{
+				Env.Builder = outer;
+			}
+		}
+
+		private static Ast.Function Escape(Ast.Statement escape, string name, List<Ast.Parameter> parameters)
+		{
+			return new Ast.Function
+			{
+				IsBuild = true,
+				Name = name,
+				ReturnType = new Ast.TypeName { Name = "void" },
+				TypeParameters = new List<string>(),
+				Parameters = parameters,
+				Body = [.. ((Ast.RunExpr)((Ast.Exec)escape).Expression).Statements],
+				Region = escape.Region,
+			};
+		}
+	}
+}

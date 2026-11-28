@@ -1,0 +1,66 @@
+// `const` on a build collection reaches what it holds, so the surface left is everything but Add.
+#build T total<T>(const List<T> xs)
+{
+	T sum = 0:T;
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		sum = sum + xs[i];
+	}
+	return sum;
+}
+
+#build str report(const Map<str, i32> ages)
+{
+	str r = "";
+	for (const str k in ages.Keys)
+	{
+		r = r + k + "=" + to_str(ages[k]) + " ";
+	}
+	return r + "len=" + to_str(ages.Length) + " has_x=" + to_str(ages.Has("x"));
+}
+
+#build Map<str, List<str>> SeedGroups()
+{
+	Map<str, List<str>> groups = Map::New<str, List<str>>();
+	List<str> seed = List::New<str>();
+	seed.Add("apple");
+	seed.Add("pear");
+	groups["fruit"] = seed;
+	return groups;
+}
+
+#build str probe()
+{
+	List<i32> xs = List::New<i32>();
+	xs.Add(1);
+	xs.Add(2);
+	xs.Add(3);
+
+	// A writable collection binds to a const name and passes to a const parameter; the reverse is refused.
+	const List<i32> ro = xs;
+	i32[] frozen = ro.ToArray();
+
+	Map<str, i32> ages = Map::New<str, i32>();
+	ages["ann"] = 30;
+	ages["bob"] = 25;
+
+	// It is a handle, not a copy, so the writable name still governs what the const one reads.
+	xs.Add(4);
+
+	// A collection read out of a const one is const in turn, and says so by taking a const name.
+	const Map<str, List<str>> groups = SeedGroups();
+	const List<str> bucket = groups["fruit"];
+
+	return "sum=" + to_str(total<i32>(xs))
+		+ " ro=" + to_str(ro.Length)
+		+ " frozen=" + to_str(frozen[2])
+		+ " contains=" + to_str(ro.Contains(2))
+		+ " nested=" + bucket[1] + "/" + to_str(bucket.Length)
+		+ " | " + report(ages);
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

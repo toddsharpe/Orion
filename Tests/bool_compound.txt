@@ -1,0 +1,17 @@
+eval a
+ok=true
+eval b
+ok=false
+eval c
+ok=false
+eval d
+any=false
+eval e
+any=true
+eval f
+any=true
+x=false
+and=false
+or=true
+m=206
+allEven=true anyBig=true

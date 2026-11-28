@@ -1,0 +1,25 @@
+// Hex integer literals: 0x-prefixed, upper or lower case, negatable, usable with a type suffix and
+// anywhere a decimal literal is. The value is what matters -- the generated C++/Python prints it in
+// decimal, so hex is purely a source-level convenience.
+
+i32 main()
+{
+	WriteLine($"0xFFF     = {0xFFF}");
+	WriteLine($"0x0       = {0x0}");
+	WriteLine($"0xff      = {0xff}");
+	WriteLine($"0xDEADBEE = {0xDEADBEE}");
+	WriteLine($"-0x10     = {-0x10}");
+
+	// Mixed with decimal in arithmetic.
+	i32 mask = 0xF0;
+	i32 bits = mask + 15;
+	WriteLine($"0xF0 + 15 = {bits}");
+
+	// With an explicit type suffix, and inside an array literal.
+	u16 full = 0xFFFF:u16;
+	u16[] counts = [0x078, 0x800, 0xFFF]:u16;
+	WriteLine($"0xFFFF:u16 = {full}");
+	WriteLine($"counts     = {counts[0]} {counts[1]} {counts[2]}");
+
+	return 0;
+}

@@ -1,0 +1,37 @@
+// Build::Enum gives its enum the `<Name>_str` Desugar writes for a source one, so `to_str` works on it.
+
+i32 main()
+{
+	#run
+	{
+		Span<str> lines = File::ReadAll("Configs/enum_colors.txt");
+		Build::Enum("Color", List::FromArray<str>(lines));
+
+		// One line per member: its name as text, then the same member back through the companion.
+		Code body = Code::Empty();
+		for (const str member in Enum::Members(Type::Parse("Color")))
+		{
+			body += #code { WriteLine(${member} + " -> " + to_str(${Enum::Value("Color", member)})); };
+		}
+
+		#insert { ${body} }
+
+		// And through a variable, so the call is a real one rather than a literal the optimizer folds.
+		#insert
+		{
+			Color held = Color::Gree;
+			WriteLine("held " + to_str(held));
+			held = Color::Yellow;
+			WriteLine("held " + to_str(held));
+		}
+
+		// Interpolation reaches the same companion, since $"..." lowers to the stringify per hole.
+		#insert
+		{
+			Color last = Color::Red;
+			WriteLine($"last {last}");
+		}
+	}
+
+	return 0;
+}

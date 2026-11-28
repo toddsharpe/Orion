@@ -1,0 +1,15 @@
+eval a
+a=false
+eval c
+eval d
+b=false
+eval e
+c=true
+eval g
+eval h
+d=true
+i=2
+guarded
+n=2
+eval i
+p=3

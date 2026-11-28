@@ -1,0 +1,31 @@
+=== Orion demo_claude_3 ===
+[ scalar+pipeline pass ]
+  after scalar/pipeline checksum = 6085
+[ reducer pass ]
+  after reducers checksum = 15135
+[ recursive pass ]
+  after recursive checksum = 17538
+[ classify pass ]
+  grade rank total = 131
+[ struct processors ]
+  acc sum total = 14880
+[ string builders ]
+  total formatted length = 659
+[ core checks ]
+  factorial(6) = 720
+  fib(15) = 610
+  gcd(1071, 462) = 21
+  primes <= 100 = 25
+[ bytecode VM ]
+  ((2+3)*4)-5 = 15
+[ higher-order ]
+  fold sum of data = 80
+  odd count in data = 12
+[ struct arrays ]
+  sum |v|^2 = 50
+[ floats + typed literals ]
+  f64 weight sum = 4.0
+  f32 half + half = 1.0
+  i64 literal = 9000000000
+  final checksum = 17538
+=== done ===

@@ -1,0 +1,11 @@
+// A parameter has no initializer to infer from, so it must name a view or a length.
+i32 sum(i32[] xs)
+{
+	return xs[0];
+}
+
+i32 main()
+{
+	i32[] a = [1, 2]:i32;
+	return sum(a);
+}

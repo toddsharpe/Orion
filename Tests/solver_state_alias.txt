@@ -1,0 +1,9 @@
+clk_now (time): 5100
+cnt_total (time): 1
+dwell_held (time): 3000000000
+clk_now (time): 5200
+cnt_total (time): 2
+dwell_held (time): 3000000000
+clk_now (time): 5300
+cnt_total (time): 3
+dwell_held (time): 3000000000

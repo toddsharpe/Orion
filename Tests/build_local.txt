@@ -1,0 +1,10 @@
+start
+total = 6
+name = sensor3
+width = 7
+tick 0 of sensor3
+tick 1 of sensor3
+tick 2 of sensor3
+tick 3 of sensor3
+tick 4 of sensor3
+tick 5 of sensor3

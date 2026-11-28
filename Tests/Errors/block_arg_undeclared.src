@@ -1,0 +1,15 @@
+// An argument the template declares no #param for is an error where it is written, even in a recipe no Solver takes: a Solver reads only the #params, so it would build the default.
+void Counter(#param str name, #param i32 step = 1, #state i32 n, #output i32 out @ "out")
+{
+	n = n + step;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Block up = #block Counter(name = "up", stpe = 5);
+	}
+	return 0;
+}

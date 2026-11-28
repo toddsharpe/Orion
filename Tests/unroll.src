@@ -1,0 +1,63 @@
+// Unrolling is a build-time fold: a `#build` function returns Code, and each concatenation is one more
+// copy at the insert site. Repeating a fragment verbatim is the easy case; the useful one gives every
+// copy its own constant, which is exactly what a runtime loop cannot do.
+
+//The same fragment, n times. The fragment is re-materialized per copy, so it shares no nodes.
+#build Code repeat(Code c, i32 n)
+{
+	Code out = Code::Empty();
+	for (i32 i = 0; i < n; i++)
+	{
+		out += c;
+	}
+
+	return out;
+}
+
+#build List<f64> taps()
+{
+	return [0.5, 1.5, 2.5, 3.5]:List<f64>;
+}
+
+//One copy per tap, each carrying its own coefficient and index as literals: nothing counts at runtime.
+#build Code dot()
+{
+	Code out = Code::Empty();
+	i32 at = 0;
+	for (const f64 k in taps())
+	{
+		out += #code { acc = acc + ${k} * sample[${at}]; };
+		at = at + 1;
+	}
+
+	return out;
+}
+
+i32 main()
+{
+	// A fragment written once and emitted three times; it declares nothing, so repeating it is safe.
+	i32 hits = 0;
+	#run
+	{
+		Code bump = #code { hits = hits + 1; };
+		#insert repeat(bump, 3);
+	}
+	WriteLine("hits = " + to_str(hits));
+
+	// The unrolled dot product. Each line holds a different literal, filled when its copy was built.
+	f64[4] sample = [2.0, 4.0, 6.0, 8.0]:f64;
+	f64 acc = 0.0;
+	#run { #insert dot(); }
+	WriteLine("acc = " + to_str(acc));
+
+	// The same arithmetic as a runtime loop, to show the unrolled form agrees with it.
+	f64 loop = 0.0;
+	const f64[4] coeffs = [0.5, 1.5, 2.5, 3.5]:f64;
+	for (i32 i = 0; i < 4; i++)
+	{
+		loop = loop + coeffs[i] * sample[i];
+	}
+	WriteLine("loop = " + to_str(loop));
+
+	return 0;
+}

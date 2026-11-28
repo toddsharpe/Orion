@@ -1,0 +1,12 @@
+#build void test()
+{
+	WriteArgs(${test="test", scale=4});
+}
+
+i32 main()
+{
+	#run test();
+	WriteLine(#run args_str(${test="test", scale=4}));
+
+	return 0;
+}

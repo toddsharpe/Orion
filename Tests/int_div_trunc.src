@@ -1,0 +1,36 @@
+//Integer `/` and `%` truncate toward zero on every backend, as C's do, a negative operand included.
+const i32 FileQ = -7 / 2;
+const i32 FileR = -7 % 2;
+
+i8 div8(i8 a, i8 b) { return a / b; }
+i8 mod8(i8 a, i8 b) { return a % b; }
+i16 div16(i16 a, i16 b) { return a / b; }
+i16 mod16(i16 a, i16 b) { return a % b; }
+i32 div32(i32 a, i32 b) { return a / b; }
+i32 mod32(i32 a, i32 b) { return a % b; }
+i64 div64(i64 a, i64 b) { return a / b; }
+i64 mod64(i64 a, i64 b) { return a % b; }
+u32 divu(u32 a, u32 b) { return a / b; }
+u32 modu(u32 a, u32 b) { return a % b; }
+
+str both32(i32 a, i32 b)
+{
+	return $"{a}/{b}={div32(a, b)} {a}%{b}={mod32(a, b)}";
+}
+
+i32 main()
+{
+	WriteLine("i32 " + both32(-7, 2) + " " + both32(7, -2) + " " + both32(-7, -2) + " " + both32(7, 2));
+	WriteLine($"i8 {div8(-7:i8, 2:i8)} {mod8(-7:i8, 2:i8)} {div8(7:i8, -2:i8)} {mod8(7:i8, -2:i8)}");
+	WriteLine($"i16 {div16(-7:i16, 2:i16)} {mod16(-7:i16, 2:i16)} {div16(7:i16, -2:i16)} {mod16(7:i16, -2:i16)}");
+	WriteLine($"i64 {div64(-9000000000:i64, 7:i64)} {mod64(-9000000000:i64, 7:i64)} {div64(9000000000:i64, -7:i64)} {mod64(9000000000:i64, -7:i64)}");
+	WriteLine($"u32 {divu(7:u32, 2:u32)} {modu(7:u32, 2:u32)}");
+
+	//Literal operands fold in the optimizer, a file-scope constant in the binder, and a #run in MSIL.
+	WriteLine($"folded {-7 / 2} {-7 % 2} {7 / -2} {7 % -2}");
+	WriteLine($"file {FileQ} {FileR}");
+	i32 built = #run div32(-7, 2);
+	i32 builtMod = #run mod32(-7, 2);
+	WriteLine($"build {built} {builtMod}");
+	return 0;
+}

@@ -1,0 +1,7 @@
+count: u16 is 2 bytes
+level: f64 is 8 bytes
+armed: bool is 1 bytes
+frame = 11 bytes
+first vs last -> mixed
+f64 channels -> 1
+parsed i64 -> 8 bytes

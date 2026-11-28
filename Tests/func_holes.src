@@ -1,0 +1,27 @@
+// A build-time function handle can name the callee of a generated call: `${h}(...)` in a fragment,
+// or `{h}` in a template, both of which lower to the specialized function's own name.
+i32 add_custom(#param str name, #param i32 b, i32 a)
+{
+	return a + b;
+}
+
+i32 main()
+{
+	i32 v = 0;
+	#run
+	{
+		Function five = #create add_custom(name = "add_five", b = 5);
+		Function ten = #create add_custom(name = "add_ten", b = 10);
+
+		//The handle IS the callee, so the generated call cannot name a function that was never built.
+		#insert { v = ${five}(1); }
+		#insert { v = ${ten}(v); }
+
+		//The same handle as text, for a template that builds the call by hand.
+		#insert $"v = {five}(v);";
+		#insert $"WriteLine(\"built {five} and {ten}\");";
+	}
+
+	WriteLine("v = " + to_str(v));
+	return 0;
+}

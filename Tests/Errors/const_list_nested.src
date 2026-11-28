@@ -1,0 +1,14 @@
+// const reaches what a collection HOLDS, so a bucket read out of a const map is const in turn.
+#build str probe()
+{
+	const Map<str, List<str>> groups = Map::New<str, List<str>>();
+	List<str> bucket = groups["k"];
+	bucket.Add("leaked");
+	return to_str(bucket.Length);
+}
+
+i32 main()
+{
+	WriteLine(#run probe());
+	return 0;
+}

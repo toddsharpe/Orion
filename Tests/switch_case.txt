@@ -1,0 +1,5 @@
+dir(South) = S
+dir(West) = W
+apply(0,3,4) = 7
+apply(2,3,4) = 12
+apply(9,3,4) = -1

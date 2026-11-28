@@ -1,0 +1,83 @@
+i32 count()
+{
+	return 5;
+}
+
+u8[4] make_array_u8()
+{
+	return [0, 1, 2, 3]:u8;
+}
+
+u16[4] make_array_u16()
+{
+	return [0, 1, 2, 3]:u16;
+}
+
+u32[4] make_array_u32()
+{
+	return [0, 1, 2, 3]:u32;
+}
+
+i32[4] make_array_i32()
+{
+	return [0, 1, 2, 3]:i32;
+}
+
+void print_u8(ConstSpan<u8> array)
+{
+	for (i32 i = 0; i < array.Length; i++)
+	{
+		u8 item = array[i];
+		WriteLine(to_str(item));
+	}
+}
+
+void print_u16(ConstSpan<u16> array)
+{
+	for (i32 i = 0; i < array.Length; i++)
+	{
+		u16 item = array[i];
+		WriteLine(to_str(item));
+	}
+}
+
+void print_u32(ConstSpan<u32> array)
+{
+	for (i32 i = 0; i < array.Length; i++)
+	{
+		u32 item = array[i];
+		WriteLine(to_str(item));
+	}
+}
+
+void print_i32(ConstSpan<i32> array)
+{
+	for (i32 i = 0; i < array.Length; i++)
+	{
+		i32 item = array[i];
+		WriteLine(to_str(item));
+	}
+}
+
+void test_u8()
+{
+	u8[4] array_u8 = make_array_u8();
+	print_u8(array_u8);
+}
+
+i32 main()
+{
+	#run test_u8();
+	test_u8();
+
+	u16[] array_u16 = #run make_array_u16();
+	print_u16(array_u16);
+
+	u32[] array_u32 = #run make_array_u32();
+	print_u32(array_u32);
+
+	i32[] array_i32 = #run make_array_i32();
+	print_i32(array_i32);
+
+	return 0;
+}

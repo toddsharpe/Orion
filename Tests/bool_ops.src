@@ -1,0 +1,36 @@
+bool in_range(i32 x, i32 lo, i32 hi)
+{
+	return (x >= lo) && (x <= hi);
+}
+void test()
+{
+	i32 a = 5;
+	i32 b = 12;
+	bool both = (a > 0) && (b > 0);
+	bool either = (a > 100) || (b > 10);
+	bool none = !(a > 100);
+	WriteLine("both=" + to_str(both));
+	WriteLine("either=" + to_str(either));
+	WriteLine("not=" + to_str(none));
+	i32 c = 0;
+	i32[] xs = [2, 15, 7, 22, 9, 30]:i32;
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		if (in_range(xs[i], 5, 20) && !(xs[i] == 7))
+		{
+			c += 1;
+		}
+	}
+	WriteLine("count=" + to_str(c));
+	bool t = true;
+	bool f = false;
+	WriteLine("t&&f=" + to_str(t && f));
+	WriteLine("t||f=" + to_str(t || f));
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

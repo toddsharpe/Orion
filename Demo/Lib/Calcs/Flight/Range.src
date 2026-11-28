@@ -1,0 +1,132 @@
+// Downrange distance from the pad, flat-earth: curvature is under the GPS error at this scale.
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/Types.src"
+
+// Displacement north and east, separate because a bearing comes from the components; `MetersPerDeg` makes degrees a distance.
+f64<m> Range_North(const f64<deg> latitude, const f64<deg> padLatitude)
+{
+	return (latitude - padLatitude) * MetersPerDeg;
+}
+
+// `longitudeScale` is the cosine PadLocation captured, so it shortens the answer without changing what it is.
+f64<m> Range_East(const f64<deg> longitude, const f64<deg> padLongitude, const f64 longitudeScale)
+{
+	return (longitude - padLongitude) * MetersPerDeg * longitudeScale;
+}
+
+// One tick, horizontal metres; `padScale` is the cosine PadLocation captured, 1.0 overstating east-west.
+void Range(
+	#param str name,
+	#input bool enabled @ $"{name}_enabled",
+	#input bool valid @ "Gps.Loc.Valid",
+	#input f64<deg> latitude @ "Gps.Loc.Lat",
+	#input f64<deg> longitude @ "Gps.Loc.Lng",
+	#input bool updated @ "Gps.Updated",
+	#input f64<deg> padLatitude @ "Pad.Lat",
+	#input f64<deg> padLongitude @ "Pad.Lng",
+	#input f64 padScale @ "Pad.LngScale",
+	#output f32<m> horizontal @ "Range.HorizDist"
+)
+{
+	// Not dispatched: the net holds, and the range is measured from a pad that stopped moving.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	// A stale or invalid fix leaves the last good range standing rather than writing a wrong one.
+	if (valid == false || updated == false)
+	{
+		return;
+	}
+
+	// Pythagoras over two distances: `sqrt` erases the measure, so the cast is where the hypotenuse becomes one again.
+	const f64<m> north = Range_North(latitude, padLatitude);
+	const f64<m> east = Range_East(longitude, padLongitude, padScale);
+	horizontal = cast<f32<m>>(sqrt<f64>(north * north + east * east));
+}
+
+// ---- self-test ----
+
+#build bool Range_SelfTest()
+{
+	const f64<deg> lat = 32.9905:f64<deg>;
+	const f64<deg> lng = -106.9750:f64<deg>;
+	const f64 scale = 0.8388;   // cos(32.99 degrees)
+
+	Instance range = Function::Start(#create Range(name = "range_selftest"));
+	#assert(Instance::Get<f32>(range, "horizontal") == 0.0:f32, "Range: a cold start is nowhere");
+
+	// At the pad, the range is zero.
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat, longitude = lng, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(approx(cast<f64>(Instance::Get<f32>(range, "horizontal")), 0.0, 0.001),
+		"Range: the pad is zero metres from the pad");
+
+	// A degree of latitude is about 111 km, wherever you are, and it is all northward.
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat + 1.0:f64<deg>, longitude = lng, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(approx(cast<f64>(Instance::Get<f32>(range, "horizontal")), 111320.0, 1.0),
+		"Range: a degree of latitude is 111 km");
+	#assert(approx(Range_North(lat + 1.0:f64<deg>, lat), 111320.0, 1.0), "Range: and it is all northward");
+	#assert(approx(Range_East(lng, lng, scale), 0.0, 0.001), "Range: with nothing eastward");
+
+	// A degree of longitude is shorter, by exactly the scale.
+	#assert(approx(Range_East(lng + 1.0:f64<deg>, lng, scale), 111320.0 * scale, 1.0),
+		"Range: a degree of longitude is scaled by the cosine");
+	#assert(Range_East(lng + 1.0:f64<deg>, lng, scale) < Range_North(lat + 1.0:f64<deg>, lat),
+		"Range: and so is shorter than a degree of latitude");
+
+	// The scale matters: ignoring it overstates east-west distance, which is the bug it exists to avoid.
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat, longitude = lng + 1.0:f64<deg>, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	const f32 scaled = Instance::Get<f32>(range, "horizontal");
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat, longitude = lng + 1.0:f64<deg>, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = 1.0});
+	#assert(Instance::Get<f32>(range, "horizontal") > scaled, "Range: an unscaled longitude reads too far");
+
+	// Direction is carried, and sign is meaningful: south and west are negative.
+	#assert(Range_North(lat - 0.01:f64<deg>, lat) < 0.0:f64<m>, "Range: going south is negative north");
+	#assert(Range_East(lng - 0.01:f64<deg>, lng, scale) < 0.0:f64<m>, "Range: going west is negative east");
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat - 0.01:f64<deg>, longitude = lng - 0.01:f64<deg>, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(Instance::Get<f32>(range, "horizontal") > 0.0:f32,
+		"Range: distance is a magnitude, so it stays positive");
+
+	// Pythagoras: equal north and east components are the hypotenuse apart.
+	const f64<deg> tenth = 0.001:f64<deg>;
+	const f64<m> north = Range_North(lat + tenth, lat);
+	const f64<m> east = Range_East(lng + tenth / scale, lng, scale);
+	#assert(approx(cast<f64>(north), cast<f64>(east), 0.1), "Range: the test built equal components");
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat + tenth, longitude = lng + tenth / scale, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(approx(cast<f64>(Instance::Get<f32>(range, "horizontal")), cast<f64>(north) * sqrt<f64>(2.0), 0.1),
+		"Range: equal components make a 45 degree hypotenuse");
+
+	// A realistic flight: a kilometre downrange reads as a kilometre.
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat + 0.008983:f64<deg>, longitude = lng, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(approx(cast<f64>(Instance::Get<f32>(range, "horizontal")), 1000.0, 1.0),
+		"Range: a kilometre reads as a kilometre");
+
+	// A stale or bad fix holds the last good range, so a dropout does not read as a return to the pad.
+	Function::Tick(range, ${enabled = true, valid = true, latitude = lat + 1.0:f64<deg>, longitude = lng, updated = false,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(approx(cast<f64>(Instance::Get<f32>(range, "horizontal")), 1000.0, 1.0),
+		"Range: a stale fix holds the last good range");
+	Function::Tick(range, ${enabled = true, valid = false, latitude = lat, longitude = lng, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(approx(cast<f64>(Instance::Get<f32>(range, "horizontal")), 1000.0, 1.0),
+		"Range: and so does an invalid one, rather than reading as back at the pad");
+
+	// Disabled: the net holds too. A good, fresh fix a degree away leaves the last range standing.
+	Function::Tick(range, ${enabled = false, valid = true, latitude = lat + 1.0:f64<deg>, longitude = lng, updated = true,
+		padLatitude = lat, padLongitude = lng, padScale = scale});
+	#assert(approx(cast<f64>(Instance::Get<f32>(range, "horizontal")), 1000.0, 1.0),
+		"Range: a disabled tick holds the last range");
+
+	return true;
+}
+
+#test Range_SelfTest "Downrange distance"

@@ -1,0 +1,112 @@
+// What each axis reads when still: attitude is the INTEGRAL of rate, so a small offset compounds.
+#using "Lib/Math.src"
+#using "Lib/units.src"
+#using "Lib/Calcs/Flight/RollingAvg.src"
+
+// The gyro wants more history than the barometer, so its window is its own rather than a shared one.
+const i32 GyroWindow = 100;
+
+struct GyroBiasState
+{
+	RollingAvg<GyroWindow> x;
+	RollingAvg<GyroWindow> y;
+	RollingAvg<GyroWindow> z;
+}
+
+// One tick; `updated` gates it, since a window of one repeated sample measures nothing.
+void GyroBias(
+	#param str name,
+	#state GyroBiasState bias,
+	#input bool enabled @ $"{name}_enabled",
+	#input f32<deg/s> gyroX @ "Imu.GyroX",
+	#input f32<deg/s> gyroY @ "Imu.GyroY",
+	#input f32<deg/s> gyroZ @ "Imu.GyroZ",
+	#input bool updated @ "Imu.Updated",
+	#output f32<deg/s> biasX @ "Imu.GyroBiasX",
+	#output f32<deg/s> biasY @ "Imu.GyroBiasY",
+	#output f32<deg/s> biasZ @ "Imu.GyroBiasZ",
+	#output bool calibrated @ "Imu.GyroCalibrated"
+)
+{
+	// Not dispatched: all three windows and all four nets hold; a bias measured in flight measures the flight.
+	if (enabled == false)
+	{
+		return;
+	}
+
+	if (updated)
+	{
+		RollingAvg_Add<GyroWindow>(bias.x, gyroX);
+		RollingAvg_Add<GyroWindow>(bias.y, gyroY);
+		RollingAvg_Add<GyroWindow>(bias.z, gyroZ);
+	}
+
+	// A bias is a rate, subtracted from one; the window is bare f32 storage, so each measure is restated on the way out.
+	biasX = cast<f32<deg/s>>(RollingAvg_Value<GyroWindow>(bias.x));
+	biasY = cast<f32<deg/s>>(RollingAvg_Value<GyroWindow>(bias.y));
+	biasZ = cast<f32<deg/s>>(RollingAvg_Value<GyroWindow>(bias.z));
+
+	// Every axis, not any: the three fill together, and a partial answer would be used as a whole one.
+	calibrated = RollingAvg_Ready<GyroWindow>(bias.x) && RollingAvg_Ready<GyroWindow>(bias.y) && RollingAvg_Ready<GyroWindow>(bias.z);
+}
+
+// ---- self-test ----
+
+#build bool GyroBias_SelfTest()
+{
+	Instance gyro = Function::Start(#create GyroBias(name = "gyrobias_selftest"));
+	const i32 window = RollingAvg_Capacity<GyroWindow>(Instance::Get<GyroBiasState>(gyro, "bias").x);
+
+	Function::Tick(gyro, ${enabled = true, gyroX = 0.0:f32, gyroY = 0.0:f32, gyroZ = 0.0:f32, updated = false});
+	#assert(Instance::Get<bool>(gyro, "calibrated") == false, "GyroBias: a cold start is not calibrated");
+	#assert(approx(cast<f64>(Instance::Get<f32>(gyro, "biasX")), 0.0, 0.000001), "GyroBias: and has no offset yet");
+
+	// A stale IMU calibrates nothing.
+	for (i32 i = 0; i < 1000; i++)
+	{
+		Function::Tick(gyro, ${enabled = true, gyroX = 0.5:f32, gyroY = 0.5:f32, gyroZ = 0.5:f32, updated = false});
+	}
+	#assert(Instance::Get<bool>(gyro, "calibrated") == false, "GyroBias: an un-updated IMU must not calibrate");
+	#assert(Instance::Get<GyroBiasState>(gyro, "bias").x.count == 0, "GyroBias: and must put nothing in the window");
+
+	// Three different offsets, so an axis mix-up cannot pass.
+	for (i32 i = 0; i < window - 1; i++)
+	{
+		Function::Tick(gyro, ${enabled = true, gyroX = 0.5:f32, gyroY = -0.25:f32, gyroZ = 1.5:f32, updated = true});
+	}
+	#assert(Instance::Get<bool>(gyro, "calibrated") == false, "GyroBias: one short of a window is not calibrated");
+
+	Function::Tick(gyro, ${enabled = true, gyroX = 0.5:f32, gyroY = -0.25:f32, gyroZ = 1.5:f32, updated = true});
+	#assert(Instance::Get<bool>(gyro, "calibrated"), "GyroBias: a full window on every axis is calibrated");
+	#assert(approx(cast<f64>(Instance::Get<f32>(gyro, "biasX")), 0.5, 0.0001), "GyroBias: X must carry X's offset");
+	#assert(approx(cast<f64>(Instance::Get<f32>(gyro, "biasY")), -0.25, 0.0001), "GyroBias: Y must carry Y's offset");
+	#assert(approx(cast<f64>(Instance::Get<f32>(gyro, "biasZ")), 1.5, 0.0001), "GyroBias: Z must carry Z's offset");
+
+	// Subtracting the bias is the point: a still gyro reads its own offset, and corrected that is zero.
+	#assert(approx(cast<f64>(0.5:f32 - Instance::Get<f32>(gyro, "biasX")), 0.0, 0.0001),
+		"GyroBias: a still axis minus its bias is zero rate");
+
+	// The average is of whatever it is given, which is why `calibrated` gates arming and not just the maths.
+	Instance turning = Function::Start(#create GyroBias(name = "gyrobias_turning"));
+	for (i32 i = 0; i < window; i++)
+	{
+		Function::Tick(turning, ${enabled = true, gyroX = 90.0:f32, gyroY = 0.0:f32, gyroZ = 0.0:f32, updated = true});
+	}
+	#assert(approx(cast<f64>(Instance::Get<f32>(turning, "biasX")), 90.0, 0.0001),
+		"GyroBias: calibrating while turning measures the turn");
+
+	// Disabled: nothing moves, on any axis.
+	Instance held = Function::Start(#create GyroBias(name = "gyrobias_held"));
+	for (i32 i = 0; i < 10; i++)
+	{
+		Function::Tick(held, ${enabled = true, gyroX = 0.5:f32, gyroY = -0.25:f32, gyroZ = 1.5:f32, updated = true});
+	}
+	const f32 heldX = Instance::Get<f32>(held, "biasX");
+	Function::Tick(held, ${enabled = false, gyroX = 90.0:f32, gyroY = 90.0:f32, gyroZ = 90.0:f32, updated = true});
+	#assert(Instance::Get<GyroBiasState>(held, "bias").x.count == 10, "GyroBias: a disabled tick adds nothing to the window");
+	#assert(Instance::Get<f32>(held, "biasX") == heldX, "GyroBias: and leaves the offset exactly as it was");
+
+	return true;
+}
+
+#test GyroBias_SelfTest "Gyro bias"

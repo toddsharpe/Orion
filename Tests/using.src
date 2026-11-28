@@ -1,0 +1,20 @@
+#using "Lib/Math.src"
+
+void test()
+{
+	i32 sum = sum_to(5);
+	i32 c = clamp<i32>(sum, 5, 10);
+	WriteLine($"Sum: {sum}, Clamp: {c}");
+
+	// Exact and inexact, so the rounding branch is covered both ways.
+	i32 whole = div_round_up<i32>(16, 8);
+	i32 part = div_round_up<i32>(17, 8);
+	WriteLine($"DivRoundUp: {whole}, {part}");
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

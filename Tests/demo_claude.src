@@ -1,0 +1,252 @@
+// The helpers this needs from Math.src, spelled here so the test stands alone.
+T max<T>(const T a, const T b)
+{
+	if (a > b)
+	{
+		return a;
+	}
+	return b;
+}
+
+T sum_all<T>(ConstSpan<T> xs)
+{
+	T total = xs[0];
+	for (i32 i = 1; i < xs.Length; i++)
+	{
+		total = total + xs[i];
+	}
+	return total;
+}
+
+/*
+ * Orion showcase: a telemetry analytics pipeline.
+ *
+ * Exercises most of the language in one program:
+ *   - structs, enums and arrays
+ *   - first-class functions (Action<T>, Func<...>) and lambdas
+ *   - higher-order stages: in-place map, fused map/filter/reduce, foreach
+ *   - compile-time metaprogramming: #run, #insert, Build::AddBody, args literals
+ *   - a compile-time generated #state-ful function driven at runtime to fill an array
+ *
+ * Also deliberately uses patterns that used to break the compiler (now fixed):
+ *   - in-place array element assignment (arr[i] = <computed>)
+ *   - several `for (i32 i ...)` loops in one function
+ *   - several lambdas sharing the same parameter name
+ *   - a large enough method to overflow short-form IL branches
+ */
+
+enum Level
+{
+	Low,
+	Medium,
+	High
+}
+
+struct Stats
+{
+	i32 Count;
+	i32 Sum;
+	i32 Max;
+}
+
+/*
+ * Higher-order pipeline stages (runtime).
+ */
+void map_inplace<T>(Span<T> values, Func<T, T> f)
+{
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		T current = values[i];
+		values[i] = f(current);
+	}
+}
+
+//Fused map + filter + reduce in one pass (a large body: two indirect calls in the loop).
+T map_reduce<T>(ConstSpan<T> values, Func<T, T> map, Func<T, bool> keep)
+{
+	T sum = 0;
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		T mapped = map(values[i]);
+		if (keep(mapped))
+		{
+			sum = sum + mapped;
+		}
+	}
+	return sum;
+}
+
+void each<T>(ConstSpan<T> values, Action<T> action)
+{
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		T current = values[i];
+		action(current);
+	}
+}
+
+Stats summarize(ConstSpan<i32> values)
+{
+	Stats s = Stats{ Count=0, Sum=0, Max=0 };
+	for (i32 i = 0; i < values.Length; i++)
+	{
+		i32 current = values[i];
+		s.Count = s.Count + 1;
+		s.Sum = s.Sum + current;
+		s.Max = max<i32>(current, s.Max);
+	}
+	return s;
+}
+
+Level classify(i32 v)
+{
+	if (v < 25)
+	{
+		return Level::Low;
+	}
+	else if (v < 60)
+	{
+		return Level::Medium;
+	}
+	else
+	{
+		return Level::High;
+	}
+}
+
+str level_name(Level l)
+{
+	if (l == Level::Low)
+	{
+		return "Low";
+	}
+	else if (l == Level::Medium)
+	{
+		return "Medium";
+	}
+	else
+	{
+		return "High";
+	}
+}
+
+// A #build escape body: the `#state` stays a LOCAL, so main can drive this with no solver wiring.
+void Ramp(#param str name, #input bool reset, #output i32 value)
+{
+	#run
+	{
+		#insert {
+			#state i32 n = 0;
+			if (reset)
+			{
+				n = 0;
+			}
+			else
+			{
+				n = n + 10;
+			}
+			value = n + 5;
+		}
+	}
+}
+
+i32 main()
+{
+	/*
+	 * Compile-time: stamp build metadata into the transpiled output.
+	 */
+	#run
+	{
+		str stamp = Time::Now();
+		WriteArgs(${ demo="telemetry", stage="analytics", built=stamp });
+	}
+
+	/*
+	 * Compile-time: synthesize a #state-ful ramp generator (yields 5, 15, 25, ...).
+	 */
+	#run
+	{
+		Function ramp = #create Ramp(name = "ramp");
+		WriteLine($"Generated source: {ramp.Name}");
+	}
+
+	/*
+	 * Runtime: drive the generated stage to fill the data set. The injected body
+	 * writes each sample into an array element (arr[i] = <computed>).
+	 */
+	i32[] readings = [0, 0, 0, 0, 0, 0, 0, 0]:i32;
+	bool reset = true;
+	#run Build::AddBody("
+	{
+		for (i32 i = 0; i < readings.Length; i++)
+		{
+			i32 sample = 0;
+			ramp(reset, sample);
+			readings[i] = sample;
+			reset = false;
+		}
+	}");
+
+	WriteLine("--- Raw readings ---");
+	Action<i32> show = [](i32 v)
+	{
+		WriteLine($"  reading = {v}");
+	};
+	each<i32>(readings, show);
+
+	/*
+	 * In-place map: apply a +10 calibration to every reading.
+	 */
+	Func<i32, i32> calibrate = [](i32 v)
+	{
+		return v + 10;
+	}:i32;
+	map_inplace<i32>(readings, calibrate);
+
+	/*
+	 * Classify each calibrated reading (first `for i` loop in main).
+	 */
+	WriteLine("--- Calibrated + classified ---");
+	for (i32 i = 0; i < readings.Length; i++)
+	{
+		i32 value = readings[i];
+		Level lvl = classify(value);
+		WriteLine($"  {value} -> {level_name(lvl)}");
+	}
+
+	/*
+	 * Fused map/filter/reduce: sum the "High" calibrated readings.
+	 */
+	Func<i32, i32> ident = [](i32 v)
+	{
+		return v;
+	}:i32;
+	Func<i32, bool> is_high = [](i32 v)
+	{
+		return v >= 60;
+	}:bool;
+	i32 high_sum = map_reduce<i32>(readings, ident, is_high);
+	WriteLine($"Sum of High readings: {high_sum}");
+
+	/*
+	 * Aggregate into a Stats struct (second `for i` loop lives inside summarize).
+	 */
+	Stats stats = summarize(readings);
+	WriteLine("--- Summary ---");
+	WriteLine($"Count: {stats.Count}");
+	WriteLine($"Sum:   {stats.Sum}");
+	WriteLine($"Max:   {stats.Max}");
+
+	/*
+	 * Floating point: a calibration curve in f64, reduced with the generic sum.
+	 * (f32 sensor gains via typed literals; bare floats are f64.)
+	 */
+	WriteLine("--- Calibration (floats) ---");
+	f64[] gains = [0.5, 1.25, 2.0, 0.25]:f64;
+	f64 total = sum_all<f64>(gains);
+	WriteLine($"total gain = {total}");
+	f32 trim = 0.5:f32;
+	WriteLine($"f32 trim applied twice = {trim + trim}");
+
+	return 0;
+}

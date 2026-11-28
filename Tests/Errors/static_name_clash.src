@@ -1,0 +1,26 @@
+// A `#state` local is named `{function}_{local}` once lifted, so two of them can land on one global.
+// Two instances of one block reach this the same way: `#create Counter(name = "a_b")` with a `#state
+// acc` collides with `#create Counter(name = "a")` holding a `#state b_acc`.
+void f_x(#output i32 o)
+{
+	#state i32 y = 0;
+	y = y + 1;
+	o = y;
+}
+
+void f(#output i32 o)
+{
+	#state i32 x_y = 100;
+	x_y = x_y + 1;
+	o = x_y;
+}
+
+i32 main()
+{
+	i32 a = 0;
+	i32 b = 0;
+	f_x(a);
+	f(b);
+	WriteLine("a = " + to_str(a) + ", b = " + to_str(b));
+	return 0;
+}

@@ -1,0 +1,44 @@
+// `.With` and `.WithSchedule` copy a recipe with arguments or a schedule replaced, the rest and its name kept; the original is unchanged.
+#using "Lib/types.src"
+
+// 10 ms a cycle.
+const time Step = 10000000;
+
+void Clock(#param str name, #state time t = 0, #output time now @ "cycle_time")
+{
+	now = t;
+	t = t + Step;
+}
+
+void Counter(#param str name, #param i32 step, #param str label = "n", #state i32 n, #input time now @ "cycle_time")
+{
+	n = n + step;
+	WriteLine("  " + name + " " + label + " = " + to_str(n) + " at " + to_str(cast<i64>(now)));
+}
+
+i32 main()
+{
+	#run
+	{
+		Block up = #block Counter(name = "up", step = 1);
+		Block faster = up.With(${ step = 10, label = "count" });
+		Block slower = faster.WithSchedule(${ period = 2:time * Step });
+		#assert(slower.Name == "up" && slower.Param<i32>("step") == 10, "a copy keeps its name and takes the new argument");
+		#assert(up.Param<i32>("step") == 1 && up.Param<str>("label") == "n", "and the recipe it was copied from is unchanged");
+
+		Solver solver = Solver::New([ #block Clock(name = "clock"), slower ]:Block);
+		Solver::Solve(solver);
+
+		#insert Solver::Struct(solver);
+		#insert { if (solver_init(state) == false) { return -1; } }
+		#insert {
+			for (i32 c = 0; c < 4; c++)
+			{
+				WriteLine("cycle " + to_str(c));
+				solver_cycle(state);
+			}
+		}
+	}
+
+	return 0;
+}

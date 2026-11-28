@@ -1,0 +1,40 @@
+// An array extent may name a file-scope constant, so a shape is edited in one place.
+const i32 Window = 4;
+
+struct Buf
+{
+	f32[Window] window;
+}
+
+// The parameter and the return restate nothing: the constant is the one spelling of the shape.
+f32 total(f32[Window] xs)
+{
+	f32 sum = 0.0:f32;
+	for (i32 i = 0; i < Window; i++)
+	{
+		sum = sum + xs[i];
+	}
+	return sum;
+}
+
+f32[Window] filled()
+{
+	f32[Window] built;
+	for (i32 i = 0; i < Window; i++)
+	{
+		built[i] = cast<f32>(i + 1);
+	}
+	return built;
+}
+
+i32 main()
+{
+	Buf b = Buf{ window = f32[Window] };
+	b.window[Window - 1] = 2.5:f32;
+	WriteLine("field = " + to_str(b.window[Window - 1]));
+
+	f32[Window] xs = filled();
+	WriteLine("total = " + to_str(total(xs)));
+
+	return 0;
+}

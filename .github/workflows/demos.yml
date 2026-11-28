@@ -1,0 +1,277 @@
+# The demos, kept apart from the compiler's own CI: this builds what Demo/ ships, on both platforms,
+# and says nothing about whether the compiler is correct. main.yml is the one to look at for that.
+#
+# The gap it closes is a real one. Demos/Linux/telemetry_demo.src rotted through several commits
+# without anything noticing, because nothing built it -- a demo is source that nothing else #uses, so
+# the golden corpus never reaches it.
+#
+# Three things are checked, in the order they get harder:
+#
+#   transpile   every Demo/Apps/*.src, which needs only the .NET SDK
+#   link        against the platform layer, which is what catches an ABI that drifted
+#   run         bounded, and for one of them read the frames back off the wire
+#
+# The Linux job matters most: Demo/Platforms/Linux.cpp has no other build anywhere, so this is the
+# only thing that compiles it.
+
+name: Demos
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  Windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v6
+
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.13'
+
+    - name: Build Orion
+      run: dotnet build .\Src\Orion\Orion.csproj
+
+    # Transpile and link every program, so a demo that stopped compiling cannot go unnoticed. The list
+    # is the directory rather than a list kept here: a demo added tomorrow is covered tomorrow.
+    - name: Build every demo
+      shell: pwsh
+      run: |
+        $failed = @()
+        foreach ($src in Get-ChildItem .\Demo\Apps\*.src) {
+          $name = $src.BaseName
+          Write-Host "::group::$name"
+          & .\Demo\build.ps1 $name -Cycles 300
+          if ($LASTEXITCODE -ne 0) { $failed += $name }
+          Write-Host "::endgroup::"
+        }
+        if ($failed.Count -gt 0) { throw "demos failed to build: $($failed -join ', ')" }
+
+    # Every demo's transcript, against Demo/Tests. C++ only here: the Python and JavaScript a backend
+    # emits does not vary by host, so the Linux job checks those three-way and this one checks that
+    # MSVC agrees with the golden the other two also match.
+    #
+    # `-Deterministic` is what makes this comparable at all. Without it a stamp is the wall clock, so
+    # two runs seconds apart differ in every line; with it cycle n is exactly n periods from zero, which
+    # is what Platform.js and Platform.py do already. `orion:` lines are the platform's own chatter and
+    # differ between the three on purpose, so they are dropped rather than pinned.
+    - name: Run counter
+      shell: pwsh
+      run: |
+        $out = & .\Demo\build\counter.exe
+        $out
+        if ($LASTEXITCODE -ne 0) { throw "counter exited $LASTEXITCODE" }
+        if (-not ($out -match 'stopped after 300 cycles')) { throw "counter did not run its 300 cycles" }
+
+    # The whole path: a program publishes to a multicast group and decode.py reads the frames back,
+    # reconstructing every field from the schema they carry. This is the only check that proves the
+    # channel machinery end to end rather than merely that it links.
+    - name: Telemetry round trip
+      shell: pwsh
+      run: |
+        # A runner has several adapters, and the sender's egress and the listener's join are two
+        # independent OS choices; naming one interface is what stops them landing on different ones.
+        # Not Get-NetIPConfiguration: it folds adapter, route and address into one object and throws outright on a runner whose adapters will not fold, which is the cmdlet failing rather than anything here.
+        $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
+          Sort-Object -Property RouteMetric | Select-Object -First 1
+        $ip = if ($null -ne $route) {
+          (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -ne '127.0.0.1' } | Select-Object -First 1).IPAddress
+        }
+        if (-not $ip) { throw "no adapter with a default route, so no interface to pin multicast to" }
+        $env:ORION_MULTICAST_IF = $ip
+        Write-Host "multicast interface: $ip"
+
+        $decode = Start-Process python -ArgumentList '.\Demo\decode.py','--frames','1' `
+          -RedirectStandardOutput decode.txt -RedirectStandardError decode.err -PassThru -NoNewWindow
+
+        # Wait for the join rather than guessing at it: decode.py prints this AFTER IP_ADD_MEMBERSHIP.
+        $ready = (Get-Date).AddSeconds(30)
+        while ((Get-Date) -lt $ready -and -not (Select-String -Path decode.txt -Pattern 'listening on' -Quiet -ErrorAction SilentlyContinue)) {
+          Start-Sleep -Milliseconds 100
+        }
+        if (-not (Select-String -Path decode.txt -Pattern 'listening on' -Quiet -ErrorAction SilentlyContinue)) {
+          Get-Content decode.err -ErrorAction SilentlyContinue
+          throw "decode.py never reported it was listening"
+        }
+
+        & .\Demo\build\demo.exe | Out-Null
+        $decode.WaitForExit(60000) | Out-Null
+        Get-Content decode.txt
+        Get-Content decode.err -ErrorAction SilentlyContinue
+        if (-not (Select-String -Path decode.txt -Pattern 'matches' -Quiet)) {
+          throw "decode.py did not read a frame whose schema hash matched"
+        }
+
+    # LAST, deliberately. This rebuilds every demo with `-Cycles 200 -Deterministic`, replacing the
+    # 300-cycle binaries the steps above run. Placed earlier it clobbers them, and `Run counter`
+    # then fails looking for "stopped after 300 cycles" -- and the telemetry round trip would be
+    # reading from a build that does not hold the rate at all, since deterministic mode never sleeps.
+    - name: Verify every demo against Demo/Tests
+      shell: pwsh
+      run: |
+        $failed = @()
+        foreach ($src in Get-ChildItem .\Demo\Apps\*.src) {
+          $name = $src.BaseName
+          $golden = ".\Demo\Tests\$name.txt"
+          if (-not (Test-Path $golden)) { $failed += "$name (no golden)"; continue }
+
+          # `<name>.cycles` beside the golden where 200 is the wrong length; rocket flies at 100 Hz.
+          $cyclesFile = ".\Demo\Tests\$name.cycles"
+          $cycles = if (Test-Path $cyclesFile) { [int](Get-Content $cyclesFile).Trim() } else { 200 }
+
+          & .\Demo\build.ps1 $name -Cycles $cycles -Deterministic | Out-Null
+          $got = & ".\Demo\build\$name.exe" | Where-Object { $_ -notmatch '^orion:' }
+          $want = Get-Content $golden
+
+          if (Compare-Object $want $got) {
+            Write-Host "::group::$name differs"
+            Compare-Object $want $got | Select-Object -First 20 | Format-Table -AutoSize | Out-String | Write-Host
+            Write-Host "::endgroup::"
+            $failed += $name
+          }
+        }
+        if ($failed.Count -gt 0) { throw "demos did not match Demo/Tests: $($failed -join ', ')" }
+
+    # A bounded run, so a program that builds but cannot start is still a failure. `counter` declares no
+    # channel, which makes it the one demo that proves the executive alone.
+    #
+    # 300 cycles is three seconds at 100 Hz. The number is set by the round trip below rather than by
+    # this step: decode.py needs one frame per schema fragment before it can read anything, 13 of them
+    # today, and a bound near that would start failing the day a device is added to the config.
+
+  Linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v6
+
+    - uses: actions/setup-python@v7
+      with:
+        python-version: '3.13'
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 20
+
+    - name: Build Orion
+      run: dotnet build ./Src/Orion/Orion.csproj
+
+    - name: Build every demo
+      run: |
+        chmod +x ./Demo/build.sh
+        failed=""
+        for src in ./Demo/Apps/*.src; do
+          name=$(basename "$src" .src)
+          echo "::group::$name"
+          ./Demo/build.sh "$name" --cycles 300 || failed="$failed $name"
+          echo "::endgroup::"
+        done
+        if [ -n "$failed" ]; then echo "demos failed to build:$failed" >&2; exit 1; fi
+
+    - name: Run counter
+      run: |
+        out=$(./Demo/build/counter)
+        echo "$out"
+        echo "$out" | grep -q "stopped after 300 cycles"
+
+    # Every demo's transcript on all THREE backends, against one Demo/Tests golden. This is the check
+    # that says the backends agree: the same Orion source, compiled three ways and driven by three
+    # different platforms, has to print the same thing.
+    #
+    # Nothing else builds Platform.js or Platform.py, which is the rot this workflow exists to catch --
+    # and the failure would be invisible, since a page that loads a library and calls none of it just
+    # prints nothing. `orion:` lines are each platform's own chatter and are dropped; the frame lines
+    # are not, and pinning those bytes is what covers the telemetry packing on every backend.
+    - name: Telemetry round trip
+      run: |
+        # The route pins multicast to loopback, so both ends land on the same interface either way;
+        # ORION_MULTICAST_IF says so outright, which is what the Windows job has to do explicitly.
+        sudo ip route add 239.0.0.0/8 dev lo || true
+        export ORION_MULTICAST_IF=127.0.0.1
+
+        python ./Demo/decode.py --frames 1 > decode.txt 2>decode.err &
+        decoder=$!
+
+        # Wait for the join rather than guessing at it: decode.py prints this AFTER IP_ADD_MEMBERSHIP.
+        for _ in $(seq 300); do grep -q "listening on" decode.txt 2>/dev/null && break; sleep 0.1; done
+        grep -q "listening on" decode.txt || { cat decode.err; echo "decode.py never reported it was listening"; exit 1; }
+
+        ./Demo/build/demo > /dev/null
+        wait $decoder || true
+        cat decode.txt
+        cat decode.err || true
+        grep -q "matches" decode.txt
+
+    # LAST, deliberately. This rebuilds every demo with `-Cycles 200 -Deterministic`, replacing the
+    # 300-cycle binaries the steps above run. Placed earlier it clobbers them, and `Run counter`
+    # then fails looking for "stopped after 300 cycles" -- and the telemetry round trip would be
+    # reading from a build that does not hold the rate at all, since deterministic mode never sleeps.
+    - name: Verify every demo on all three backends
+      run: |
+        set -u
+        mkdir -p /tmp/pyrun
+        cp Runtimes/Python/Orion.py Runtimes/Python/Orion_platform.py Demo/Platforms/Platform.py /tmp/pyrun/
+        chmod +x ./Demo/build.sh
+        failed=""
+
+        for src in ./Demo/Apps/*.src; do
+          name=$(basename "$src" .src)
+          golden="Demo/Tests/$name.txt"
+          echo "::group::$name"
+
+          if [ ! -f "$golden" ]; then echo "no golden"; failed="$failed $name(golden)"; echo "::endgroup::"; continue; fi
+
+          # A runtime `main` (no `#build`) means the program drives itself; build.sh reads the same fact.
+          if grep -qE '^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]+main[ \t]*\(' "$src"; then standalone=1; else standalone=0; fi
+
+          # C++, through the native platform unless the program owns main.
+          # `<name>.cycles` beside the golden where 200 is the wrong length; rocket flies at 100 Hz.
+          cycles=200
+          [ -f "Demo/Tests/$name.cycles" ] && cycles=$(tr -d '[:space:]' < "Demo/Tests/$name.cycles")
+
+          ./Demo/build.sh "$name" --cycles "$cycles" --deterministic > /dev/null
+          "./Demo/build/$name" | grep -v '^orion:' > "/tmp/$name.cpp.out" || true
+
+          # Python via Platform.py, but a standalone module is RUN: importing never reaches its __main__.
+          dotnet ./Src/Orion/bin/Debug/net9.0/Orion.dll compile "$src" -o "/tmp/pyrun/$name.py" -l python > /dev/null
+          if [ "$standalone" = 1 ]; then
+            (cd /tmp/pyrun && python "$name.py") | grep -v '^orion:' > "/tmp/$name.py.out" || true
+          else
+            (cd /tmp/pyrun && python -c "import $name, Platform; Platform.drive($name, $cycles)")           | grep -v '^orion:' > "/tmp/$name.py.out" || true
+          fi
+
+          # JavaScript, through Platform.js, concatenated in the order the Run tab uses.
+          dotnet ./Src/Orion/bin/Debug/net9.0/Orion.dll compile "$src" -o "/tmp/$name.js" -l javascript > /dev/null
+          echo "globalThis.ORION_CYCLES = $cycles;" > "/tmp/$name.run.js"
+          cat Runtimes/JavaScript/Orion.js Runtimes/JavaScript/Orion_platform.js               "/tmp/$name.js" Demo/Platforms/Platform.js >> "/tmp/$name.run.js"
+          node "/tmp/$name.run.js" | grep -v '^orion:' > "/tmp/$name.js.out" || true
+
+          # `diff | head` reports head's exit status, which is always 0, so the diff has to be taken first.
+          for backend in cpp py js; do
+            if ! diff -u "$golden" "/tmp/$name.$backend.out" > "/tmp/$name.$backend.diff"; then
+              head -30 "/tmp/$name.$backend.diff"
+              failed="$failed $name($backend)"
+            fi
+          done
+          echo "::endgroup::"
+        done
+
+        if [ -n "$failed" ]; then echo "demos did not match Demo/Tests:$failed" >&2; exit 1; fi
+
+    # Multicast on a hosted runner is not guaranteed a route, so this asks the kernel for one on
+    # loopback before relying on it. If the frames do not arrive the step fails loudly rather than
+    # passing quietly -- a round trip that silently checks nothing is worse than not running it.

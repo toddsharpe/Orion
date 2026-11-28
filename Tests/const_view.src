@@ -1,0 +1,36 @@
+// The reading side of the const-view rule: `ConstSpan<T>` freezes the buffer, so viewing one is fine.
+i32 sum(ConstSpan<i32> xs)
+{
+	i32 total = 0;
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		total = total + xs[i];
+	}
+	return total;
+}
+
+i32 main()
+{
+	const i32[4] a = [1, 2, 3, 4]:i32;
+
+	// A const buffer views as read-only, directly and through a call.
+	ConstSpan<i32> view = a;
+	WriteLine("view = " + to_str(sum(view)));
+	WriteLine("direct = " + to_str(sum(a)));
+
+	// A slice of a const buffer is read-only too, so it reaches a ConstSpan and nothing else.
+	ConstSpan<i32> part = span_slice<i32>(a, 1:u32, 2:u32);
+	WriteLine("part = " + to_str(sum(part)));
+
+	// A slice of a mutable buffer still aliases it, which is the whole point of a view.
+	i32[4] m = [1, 2, 3, 4]:i32;
+	Span<i32> mut = span_slice<i32>(m, 1:u32, 2:u32);
+	mut[0] = 9;
+	WriteLine("aliased = " + to_str(m[1]));
+
+	// `const Span<T>` froze the handle, not the buffer, so writing through it is a write it allows.
+	const Span<i32> handle = m;
+	handle[0] = 5;
+	WriteLine("handle = " + to_str(m[0]));
+	return 0;
+}

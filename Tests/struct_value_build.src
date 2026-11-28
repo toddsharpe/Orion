@@ -1,0 +1,44 @@
+// The same value semantics at build time. The build-time engine defines struct types as classes, so
+// the copy is explicit rather than free -- without it a #build generator aliases where the C++ it
+// generates copies, and the two disagree. See Docs/Language.md.
+struct S { i32 x; i32 y; }
+struct Pair { S a; S b; }
+
+#build void mutate(S s)
+{
+	s.x = 99;
+}
+
+#build str check()
+{
+	S a = S{ x = 1, y = 2 };
+
+	S b = a;
+	b.x = 99;
+	str out = "assign a=" + to_str(a.x) + " b=" + to_str(b.x);
+
+	mutate(a);
+	out = out + " | param a=" + to_str(a.x);
+
+	S acc = S{ x = 0, y = 0 };
+	for (i32 i = 0; i < 4; i++) { acc.x = acc.x + i; }
+	out = out + " | local acc=" + to_str(acc.x);
+
+	// A list holds the value as it was at Add, not a handle on the variable.
+	List<S> xs = List::New<S>();
+	xs.Add(a);
+	a.x = 5;
+	out = out + " | list e0=" + to_str(xs[0].x) + " a=" + to_str(a.x);
+
+	Pair p = Pair{ a = a, b = a };
+	Pair q = p;
+	q.a.x = 42;
+	out = out + " | nested p=" + to_str(p.a.x) + " q=" + to_str(q.a.x);
+	return out;
+}
+
+i32 main()
+{
+	WriteLine(#run check());
+	return 0;
+}

@@ -1,0 +1,23 @@
+// The measures the demos share: a measure rides in a type, is erased before codegen, and checks the frame.
+
+// ---- length, time and what they compose into ----
+#measure m;
+#measure s;
+
+// ---- angle ----
+
+// No `rad` on purpose: a radian is a ratio, so `DegToRad` is `1/deg` and Orientation's integration stays dimensionless.
+#measure deg;
+#measure rev;
+
+// ---- what a sensor reads ----
+
+// Pascals, not hectopascals: the recordings in Sim/Rocket are absolute pressure, 101325 at sea level.
+#measure Pa;
+#measure degC;
+#measure g;
+#measure uT;
+
+// ---- what a converter reads, before and after calibration ----
+#measure counts;
+#measure V;

@@ -1,0 +1,25 @@
+void run()
+{
+	Func<bool, i32> is_even = [](bool b)
+	{
+		if (b)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}:i32;
+
+	i32 b = is_even(true);
+	WriteLine("Func: " + to_str(b));
+}
+
+i32 main()
+{
+	#run run();
+	run();
+
+	return 0;
+}

@@ -1,0 +1,5 @@
+// A file-scope `#run` is hoisted into the entry, so a file with no `main` has nowhere to put it.
+#run
+{
+	#assert(true, "never reached");
+}

@@ -1,0 +1,26 @@
+// Escapes in string literals. The parser decodes \" \\ \n \r \t into real characters, so a backend
+// that pastes the value between quotes emits invalid code -- both must re-escape on the way out.
+
+// Folded at build time: this literal reaches the backend from build execution, not from the parser.
+#build str built()
+{
+	return "built: \"q\" \\ t\tend";
+}
+
+void test()
+{
+	WriteLine("quote: \"hi\"");
+	WriteLine("backslash: C:\\path\\to");
+	WriteLine("tab: a\tb");
+	WriteLine("newline: a\nb");
+}
+
+i32 main()
+{
+	test();
+
+	str folded = #run built();
+	WriteLine(folded);
+
+	return 0;
+}

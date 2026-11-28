@@ -1,0 +1,378 @@
+﻿using Orion.Diagnostics;
+using Orion.Graphs;
+using Orion.IR;
+using Orion.Symbols;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
+using System;
+
+namespace Orion.BuildTime
+{
+	internal static class Executor
+	{
+		internal static void Run(CallGraph.Node entry, IEnumerable<CallGraph.Node> exports, List<Message> messages)
+		{
+			HashSet<SourceFunctionSymbol> done = new HashSet<SourceFunctionSymbol>();
+
+			//A `#build main` IS build code -- invoked once, whole body run now, no runtime entry left to emit; scanning it would correctly find no work and leave the program silently unbuilt.
+			if (entry.Value is SourceFunctionSymbol build && build.IsBuild)
+			{
+				Env.Context = new Env.CallContext(build, build.Tacs.First, messages);
+
+				if (build.Info == null)
+					messages.Add(new Message($"`#build {build.Name}` was never emitted, so it cannot run.", Env.Region, MessageType.Error));
+				else
+					Invoke(build.Info, messages);
+			}
+			else
+			{
+				foreach (SourceFunctionSymbol function in entry.BreadthFirst().OfType<SourceFunctionSymbol>().ToList())
+				{
+					done.Add(function);
+					if (!RunFunction(function, messages))
+						break;
+				}
+			}
+
+			//Every `#export` too: a function the platform calls from outside is reached by nothing here, under either kind of entry, yet its build calls must run and fold like any other's.
+			foreach (CallGraph.Node export in exports)
+			{
+				foreach (SourceFunctionSymbol function in export.BreadthFirst().OfType<SourceFunctionSymbol>().ToList())
+				{
+					if (!done.Add(function))
+						continue;
+					if (!RunFunction(function, messages))
+						return;
+				}
+			}
+		}
+
+		//Run one build method, turning the three ways it can fail into messages; a `#run` region and a `#build` entry report a failed assertion the same way.
+		private static bool Invoke(MethodInfo method, List<Message> messages)
+		{
+			return Env.Running(() =>
+			{
+				method.Invoke(null, null);
+				return true;
+			}, ex =>
+			{
+				Classify(ex, null, messages);
+				return false;
+			});
+		}
+
+		//One message per failure, none for a stop already reported; `subject` is the `Function::` caller's prefix, null for the executor's own wording.
+		internal static void Classify(Exception ex, string subject, List<Message> messages)
+		{
+			if (ex is TargetInvocationException && Wraps<BuildStoppedException>(ex))
+				return;
+
+			bool asserted = ex is TargetInvocationException && Wraps<AssertFailedException>(ex);
+			string text;
+			if (asserted && subject == null)
+				text = "Build Exception: Assertion failed.";
+			else if (asserted)
+				text = $"{subject} failed an assertion.";
+			else if (subject == null)
+				text = $"Build Exception: Unhandled exception {ex}.";
+			else
+				text = $"{subject} threw {ex.InnerException?.Message ?? ex.Message}.";
+
+			messages.Add(new Message(text, Env.Region, MessageType.Error) { Origin = Env.Callsite });
+		}
+
+		//Execute, and splice away, every build call in one function. False means it gave up part way.
+		internal static bool RunFunction(SourceFunctionSymbol function, List<Message> messages)
+		{
+			//Results of already-executed build calls, keyed by symbol identity, so a later build call can consume an earlier one's value (a #config then its freeze).
+			Dictionary<DataSymbol, LiteralSymbol> produced = new Dictionary<DataSymbol, LiteralSymbol>(ReferenceEqualityComparer.Instance);
+
+			//An args-expr (`${a = 1}`) is a prologue of per-field assigns; a build call outside a region needs the value now, so accumulate fields here and drop the prologue once consumed.
+			Dictionary<DataSymbol, ArgsBag> bags = new Dictionary<DataSymbol, ArgsBag>(ReferenceEqualityComparer.Instance);
+
+			//Linear scan for build execution sites
+			LinkedListNode<Tac> current = function.Tacs.First;
+			while (current != null)
+			{
+				Env.Context = new Env.CallContext(function, current, messages);
+
+				switch (current.Value)
+				{
+					//Field of an args temp: record the value and remember the node.
+					case AssignTac assign when assign.Result is FieldDataSymbol field
+						&& field.Instance.Type is ArgsTypeSymbol
+						&& (assign.Operand1 is LiteralSymbol || produced.ContainsKey(assign.Operand1)):
+					{
+						//FieldDataSymbol.Name is qualified ("_temp_T1.count"); the args key is the bare field.
+						string prefix = field.Instance.Name + ".";
+						string key = field.Name.StartsWith(prefix) ? field.Name.Substring(prefix.Length) : field.Name;
+
+						ArgsBag bag = Bag(bags, field.Instance);
+						bag.Values[key] = assign.Operand1 is LiteralSymbol lit ? lit.Value : produced[assign.Operand1].Value;
+						bag.Nodes.Add(current);
+						current = current.Next;
+					}
+					break;
+
+					//The args temp itself, once assembled.
+					case DataTac data when data.Symbol is NamedDataSymbol temp && temp.Type is ArgsTypeSymbol:
+					{
+						Bag(bags, temp).Nodes.Add(current);
+						current = current.Next;
+					}
+					break;
+
+					//A `#test`'s hoisted `#run`, lifted to a call of its own: it answers for itself, and the next test runs whatever it said, where any other build call that fails stops the function.
+					case CallTac call when call.IsBuild && Hoisted(call) is DeclaredTest test:
+					{
+						RunTest(test, ((SourceFunctionSymbol)call.Function).Info, function, current, messages);
+						LinkedListNode<Tac> after = current.Next;
+						function.Tacs.Remove(current);
+						current = after;
+					}
+					break;
+
+					case CallTac call when call.IsBuild:
+					{
+						MethodInfo func = call.Function switch
+						{
+							BuiltinFunctionSymbol b => b.Backing,
+							SourceFunctionSymbol s => s.Info,
+							_ => throw new NotImplementedException()
+						};
+
+						List<object> args = new List<object>();
+						List<ArgsBag> consumed = new List<ArgsBag>();
+						foreach (DataSymbol argument in call.Arguments)
+						{
+							if (argument is LiteralSymbol lit)
+								args.Add(lit.Value);
+							else if (produced.TryGetValue(argument, out LiteralSymbol earlier))
+								args.Add(earlier.Value);
+							else if (bags.TryGetValue(argument, out ArgsBag bag))
+							{
+								args.Add(bag.Values);
+								consumed.Add(bag);
+							}
+							//A `#build` cell, or a field of one: an earlier region already ran, so the value is live in the build assembly's static.
+							else if (TryCell(argument, produced, out object cell))
+								args.Add(cell);
+							else
+							{
+								//Trace, not Error: this fires scanning a #build function's body, whose calls run as compiled MSIL via #run rather than TAC-by-TAC here.
+								messages.Add(new Message($"Unable to execute build call {call.Function.Name} from {function.Name}. " +
+									$"'{argument}' is not a literal, an earlier build result or an args bag.", Env.Region, MessageType.Trace));
+								return false;
+							}
+						}
+
+						bool ran = true;
+						object value = Env.Running(() => Call(func, args), ex =>
+						{
+							Classify(ex, null, messages);
+							ran = false;
+							return null;
+						});
+						if (!ran)
+							return false;
+
+						//A builtin that reported answers null on a non-void signature, so the shape check only holds on a clean run.
+						Trace.Assert(messages.HasError() || value != null == !Language.IsVoid(call.Function.ReturnType));
+						if (value != null)
+						{
+							int dim = value is Array array ? array.Length : 1;
+
+							//An array result is a value of its own length: a build List only has one once it has run.
+							TypeSymbol resultType = call.Function.ReturnType is BufferTypeSymbol buffer
+								? new ArrayTypeSymbol(buffer.Element, dim)
+								: call.Function.ReturnType;
+
+							//Add literal to table
+							if (!function.Table.TryGet(value, resultType, out LiteralSymbol literal))
+							{
+								literal = new LiteralSymbol(value, resultType) with { Dimension = dim };
+								function.Table.Add(literal);
+							}
+
+							produced[call.Result] = literal;
+							Tac replace = new AssignTac(call.Result, literal);
+							function.Tacs.AddAfter(current, replace);
+						}
+						LinkedListNode<Tac> after = current.Next;
+						function.Tacs.Remove(current);
+						current = after;
+
+						//The args prologue existed only to feed this call; it is build-only, so drop it.
+						foreach (ArgsBag bag in consumed)
+						{
+							foreach (LinkedListNode<Tac> node in bag.Nodes)
+								function.Tacs.Remove(node);
+							bag.Nodes.Clear();
+						}
+
+						string argsString = string.Join(", ", args.Select(Text));
+						messages.Add(new Message($"Executed build call {call.Function.Name} from {function.Name}", Env.Region, MessageType.Trace));
+						messages.Add(new Message($"{call.Function.Name}({argsString}) -> \"{value}\"", Env.Region, MessageType.Trace));
+					}
+					break;
+
+					case IndirectCallTac tac when tac.IsBuild:
+						messages.Add(new Message($"{function.Name}: a build call through a function value is not supported; call it by name.", tac.Region ?? Env.Region, MessageType.Error));
+						return false;
+
+					case BuildMarkTac mark when mark.Op == MarkOp.Start:
+					{
+						if (!Invoke(mark.Created.Info, messages))
+							return false;
+
+						//Remove all tacs in region
+						while (current.Value is not BuildMarkTac nextBuild || nextBuild.Op != MarkOp.End)
+						{
+							LinkedListNode<Tac> next = current.Next;
+							function.Tacs.Remove(current);
+							current = next;
+						}
+						LinkedListNode<Tac> after = current.Next;
+						function.Tacs.Remove(current);
+						current = after;
+					}
+					break;
+
+					default:
+						current = current.Next;
+						break;
+				}
+			}
+			return true;
+		}
+
+		//The test whose `#run` this call is: on a test run, the lifted region a `#test` line was hoisted as, which takes no arguments and stands at that line.
+		private static DeclaredTest Hoisted(CallTac call) =>
+			Compiler.Session.Testing && call.Function is SourceFunctionSymbol && call.Arguments.Count == 0 && call.Result == null
+				? Compiler.Session.Declared.FirstOrDefault(i => i.At(call.Region))
+				: null;
+
+		//One test's region on a message list of its own, merged after: tests share one program, and a build step that stops on an error must stop on this test's, never on one an earlier test failed with.
+		private static void RunTest(DeclaredTest test, MethodInfo method, SourceFunctionSymbol function, LinkedListNode<Tac> callsite, List<Message> messages)
+		{
+			List<Message> own = new List<Message>();
+			Env.Context = new Env.CallContext(function, callsite, own);
+			test.Ran = true;
+
+			//A stop is silent because its reason was reported; one with no reason here would read as passing.
+			if (!Invoke(method, own) && !own.HasError())
+				own.Add(new Message($"#test {test.Name} stopped before it finished, and nothing said why.", callsite.Value.Region, MessageType.Error) { Origin = callsite.Value.Region });
+
+			messages.AddRange(own);
+			Env.Context = new Env.CallContext(function, callsite, messages);
+		}
+
+		//The value behind a `#build` cell or a path rooted at one; reading the static lets a call outside any region take a cell an earlier region filled.
+		private static bool TryCell(DataSymbol symbol, Dictionary<DataSymbol, LiteralSymbol> produced, out object value)
+		{
+			value = null;
+
+			switch (symbol)
+			{
+				case LiteralSymbol lit:
+					value = lit.Value;
+					return true;
+
+				//Readable only once the cell's generation is sealed; null means skip, not guess.
+				case BuildGlobalSymbol global:
+				{
+					if (global.Info == null)
+						return false;
+
+					value = global.Info.GetValue(null);
+					return true;
+				}
+
+				case FieldDataSymbol field when field.Hosted != null:
+				{
+					if (!Resolve(field.Instance, produced, out object instance) || instance == null)
+						return false;
+
+					value = field.Hosted.GetValue(instance);
+					return true;
+				}
+
+				case ArrayElementSymbol element:
+				{
+					if (!Resolve(element.Array, produced, out object array) || array is not Array indexable)
+						return false;
+					if (!Resolve(element.Operand, produced, out object index))
+						return false;
+
+					//A build-time index can be anything the source computed; out of range is "not a cell", not a crash.
+					try
+					{
+						value = indexable.GetValue(Convert.ToInt32(index));
+					}
+					catch (Exception e) when (e is OverflowException or FormatException or InvalidCastException or IndexOutOfRangeException or ArgumentOutOfRangeException)
+					{
+						return false;
+					}
+					return true;
+				}
+
+				default:
+					return false;
+			}
+		}
+
+		//A path step: already-produced literals count too, so `d.hash[i]` resolves with a build-time `i`.
+		private static bool Resolve(DataSymbol symbol, Dictionary<DataSymbol, LiteralSymbol> produced, out object value)
+		{
+			if (produced.TryGetValue(symbol, out LiteralSymbol literal))
+			{
+				value = literal.Value;
+				return true;
+			}
+
+			return TryCell(symbol, produced, out value);
+		}
+
+		//An args-expr under construction: the field values so far, plus the TAC nodes that built them.
+		private sealed class ArgsBag
+		{
+			internal readonly Dictionary<string, object> Values = new Dictionary<string, object>();
+			internal readonly List<LinkedListNode<Tac>> Nodes = new List<LinkedListNode<Tac>>();
+		}
+
+		private static ArgsBag Bag(Dictionary<DataSymbol, ArgsBag> bags, DataSymbol instance)
+		{
+			if (!bags.TryGetValue(instance, out ArgsBag bag))
+			{
+				bag = new ArgsBag();
+				bags[instance] = bag;
+			}
+			return bag;
+		}
+
+		//A projected method takes its receiver as the first argument, which reflection wants as the target.
+		internal static object Call(MethodInfo method, List<object> args)
+		{
+			if (method.IsStatic)
+				return method.Invoke(null, args.Count == 0 ? null : args.ToArray());
+
+			return method.Invoke(args[0], args.Count == 1 ? null : args.Skip(1).ToArray());
+		}
+
+		//An exception inside a generator wraps once per reflection hop, so unwrap the chain.
+		private static bool Wraps<T>(Exception ex) where T : Exception
+		{
+			for (Exception at = ex.InnerException; at != null; at = at.InnerException)
+				if (at is T)
+					return true;
+			return false;
+		}
+
+		private static string Text(object value)
+		{
+			return value is Array a ? "[" + string.Join(",", a.Cast<object>()) + "]" : value.ToString();
+		}
+	}
+}

@@ -1,0 +1,9 @@
+i32 main()
+{
+	u8[5] buf;
+	pack_str(buf, 0:u32, "Orion");
+
+	WriteLine("First: " + to_str(cast<i32>(buf[0])));
+	WriteLine("Last: " + to_str(cast<i32>(buf[4])));
+	return 0;
+}

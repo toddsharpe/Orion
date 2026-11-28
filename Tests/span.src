@@ -1,0 +1,62 @@
+// `Span<T>` is the view: it shares the caller's storage, and `ConstSpan<T>` may only be read.
+
+void bump(Span<u8> buf)
+{
+	buf[0] = buf[0] + 1:u8;
+}
+
+u8 first(ConstSpan<u8> buf)
+{
+	return buf[0];
+}
+
+// A sized array converts to a view implicitly, so a value can always be passed where one is wanted.
+u8 sum4(ConstSpan<u8> buf)
+{
+	u8 total = 0:u8;
+	for (const u8 v in buf)
+	{
+		total = total + v;
+	}
+	return total;
+}
+
+// A view of a struct element works the same way -- the element type is not restricted to primitives.
+struct Point
+{
+	i32 x;
+	i32 y;
+}
+
+i32 total_x(ConstSpan<Point> ps)
+{
+	i32 total = 0;
+	for (const Point p in ps)
+	{
+		total += p.x;
+	}
+	return total;
+}
+
+// A generic over a view monomorphizes to a view of the concrete element.
+T head<T>(ConstSpan<T> xs)
+{
+	return xs[0];
+}
+
+i32 main()
+{
+	u8[4] b;
+	bump(b);
+	bump(b);
+	b[1] = 3:u8;
+	WriteLine("first=" + to_str(first(b)) + " sum=" + to_str(sum4(b)));
+	WriteLine("caller sees " + to_str(b[0]));
+
+	Point[] ps = [Point{x = 4, y = 0}, Point{x = 7, y = 0}]:Point;
+	WriteLine("total_x=" + to_str(total_x(ps)));
+
+	i32[] xs = [10, 20, 30]:i32;
+	WriteLine("head=" + to_str(head<i32>(xs)) + " " + to_str(head<u8>(b)));
+	return 0;
+}

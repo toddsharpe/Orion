@@ -1,0 +1,24 @@
+enum E { A, B, C }
+
+void probe(E e)
+{
+	switch (e)
+	{
+		case E::A:
+		{
+		}
+		case E::B:
+		{
+			WriteLine("got B");
+		}
+	}
+}
+
+i32 main()
+{
+	probe(E::A);
+	probe(E::B);
+	probe(E::C);
+	WriteLine("done");
+	return 0;
+}

@@ -1,0 +1,9 @@
+// An array is in the same position as a struct: no operators, so this is rejected where it is written.
+i32 main()
+{
+	f64[] a = [1.0, 2.0]:f64;
+	f64[] b = [10.0, 20.0]:f64;
+	f64[2] c = a + b;
+	WriteLine(to_str(c[0]));
+	return 0;
+}

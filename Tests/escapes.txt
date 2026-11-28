@@ -1,0 +1,6 @@
+quote: "hi"
+backslash: C:\path\to
+tab: a	b
+newline: a
+b
+built: "q" \ t	end

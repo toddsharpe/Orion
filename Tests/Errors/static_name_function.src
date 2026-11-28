@@ -1,0 +1,20 @@
+// The lifted name shares one namespace with the functions, so it can collide with one of those too.
+i32 f_x_y()
+{
+	return 5;
+}
+
+void f_x(#output i32 o)
+{
+	#state i32 y = 0;
+	y = y + 1;
+	o = y;
+}
+
+i32 main()
+{
+	i32 a = 0;
+	f_x(a);
+	WriteLine("a = " + to_str(a + f_x_y()));
+	return 0;
+}

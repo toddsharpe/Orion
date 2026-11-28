@@ -1,0 +1,29 @@
+#build i32 FrameSize(i32 channels)
+{
+	return 8 + channels * 4;
+}
+
+//A runtime buffer whose extent only the build knows: empty brackets take it from the build result.
+i32 main()
+{
+	#build const i32 total = FrameSize(3);
+
+	u8[] frame = #run Array::Zeroed<u8>(total);
+
+	//Written by ordinary runtime code, so it really is a runtime buffer and not a spliced constant.
+	for (i32 i = 0; i < 4; i++)
+	{
+		frame[i] = cast<u8>(i + 1);
+	}
+
+	//...and by build-time code, at an offset the build computed.
+	#run
+	{
+		#insert { frame[${total - 1}] = 9:u8; }
+	}
+
+	WriteLine("len = " + to_str(frame.Length));
+	WriteLine("head = " + to_str(frame[0]) + "," + to_str(frame[3]));
+	WriteLine("tail = " + to_str(frame[frame.Length - 1]));
+	return 0;
+}

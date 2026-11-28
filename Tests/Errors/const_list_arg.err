@@ -1,0 +1,1 @@
+passes constant ro to non-constant parameter xs

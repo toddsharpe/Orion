@@ -1,0 +1,51 @@
+enum State
+{
+	Init,
+	Running,
+	Stopped
+}
+
+str Display(State s)
+{
+	if (s == State::Init)
+	{
+		return "Init";
+	}
+	else
+	{
+		return "Not";
+	}
+}
+
+i32 Convert(State s)
+{
+	if (s == State::Init)
+	{
+		return 1;
+	}
+	else
+	{
+		return 2;
+	}
+}
+
+i32 main()
+{
+	#run
+	{
+		str s = #run Display(State::Init);
+		WriteLine(s);
+	}
+
+	#run
+	{
+		i32 i = #run Convert(State::Init);
+		WriteLine(to_str(i));
+	}
+
+	State state = State::Init;
+	str s_rt = Display(state);
+	WriteLine(s_rt);
+
+	return 0;
+}

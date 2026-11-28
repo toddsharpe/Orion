@@ -1,0 +1,8 @@
+// A `#using` names its file from the source root, so a path climbing out of the tree names one the
+// root cannot spell. Refused outright rather than resolved relative to whoever happens to include it.
+#using "../Lib/Math.src"
+
+i32 main()
+{
+	return 0;
+}

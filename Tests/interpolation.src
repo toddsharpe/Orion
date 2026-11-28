@@ -1,0 +1,43 @@
+// String interpolation: $"...{expr}..." desugars to "..." + <type>_str(expr) + ...
+// with the right conversion picked per hole type. Replaces the
+// "x=" + to_str(v) + " y=" + to_str(w) boilerplate.
+
+struct Point { i32 X; i32 Y; }
+
+i32 dist2(Point p)
+{
+	return (p.X * p.X) + (p.Y * p.Y);
+}
+
+void test()
+{
+	i32 a = 7;
+	i32 b = 35;
+	WriteLine($"a={a} b={b} sum={a + b}");
+
+	bool ok = a < b;
+	WriteLine($"ok={ok} name={"orion"}");
+
+	Point p = Point{X=3, Y=4};
+	WriteLine($"point ({p.X}, {p.Y}) dist2={dist2(p)}");
+
+	i64 big = 5000000000:i64;
+	WriteLine($"big={big}");
+
+	i32[] xs = [10, 20, 30]:i32;
+	for (i32 i = 0; i < xs.Length; i++)
+	{
+		WriteLine($"xs[{i}] = {xs[i]}");
+	}
+
+	// No holes and only-hole forms.
+	WriteLine($"plain text");
+	WriteLine($"{a}");
+}
+
+i32 main()
+{
+	#run test();
+	test();
+	return 0;
+}

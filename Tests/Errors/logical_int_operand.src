@@ -1,0 +1,11 @@
+// `&&` is a test, not arithmetic: on integers there is no truthiness to fall back on.
+i32 main()
+{
+	i32 a = 1;
+	i32 b = 0;
+	if (a && b)
+	{
+		return 1;
+	}
+	return 0;
+}

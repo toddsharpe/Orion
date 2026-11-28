@@ -1,0 +1,8 @@
+// #init is a solver block's startup, and only the solver runs one.
+i32 helper()
+{
+	#init { return true; }
+	return 0;
+}
+
+i32 main() { return helper(); }

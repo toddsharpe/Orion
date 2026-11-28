@@ -1,0 +1,16 @@
+// A name two blocks share does not say which one an edit means.
+void Counter(#param str name, #param i32 step, #state i32 n, #output i32 out @ $"{name}_out")
+{
+	n = n + step;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		const List<Block> app = [ #block Counter(name = "a", step = 1), #block Counter(name = "a", step = 2) ]:List<Block>;
+		const Block a = app.Find("a");
+	}
+	return 0;
+}

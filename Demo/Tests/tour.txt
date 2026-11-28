@@ -1,0 +1,22 @@
+Type.Name  = u16
+Type.Size  = 2
+Type_str   = u16
+Type::Parse = f64 / 8 bytes
+u16==u16   = yes, u16==f64 = no
+packed u16 = 4660
+packed f64 = 1.5
+label = 10
+unrolled acc = 19
+banner     = --- build ---
+interp     = 3..8, span 5
+text       = 42
+comprehen  = 20,40, of 2
+map        = u16 is 2 bytes
+phase      = Busy
+holes      = true
+handle     = by3 gave 21
+--- rep: 2 statements ---
+  count (i32) = 7
+  level (f64) = 2.5
+startup    = true, fd 9, opened 9
+buildcall  = 40, started at 7 then 8

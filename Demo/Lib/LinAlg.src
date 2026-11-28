@@ -1,0 +1,344 @@
+// Linear algebra over f64 and rectangular f64[R,C] arrays; Vec.src has the same over structs.
+#using "Lib/Math.src"
+
+// ---- vectors of any length ----
+
+// Euclidean length. dot() is in Math.src and works for any T.
+f64 vlength(ConstSpan<f64> v)
+{
+	return sqrt<f64>(dot<f64>(v, v));
+}
+
+f64 vdistance(ConstSpan<f64> a, ConstSpan<f64> b)
+{
+	f64 total = 0.0;
+	for (i32 i = 0; i < a.Length; i++)
+	{
+		const f64 d = a[i] - b[i];
+		total = total + d * d;
+	}
+	return sqrt<f64>(total);
+}
+
+// In place: an unsized parameter is a view, so the caller's buffer is what gets written.
+void vscale(Span<f64> v, const f64 by)
+{
+	for (i32 i = 0; i < v.Length; i++)
+	{
+		v[i] = v[i] * by;
+	}
+}
+
+// A zero vector has no direction, so it is left alone rather than turned into NaN.
+void vnormalize(Span<f64> v)
+{
+	const f64 len = vlength(v);
+	if (len == 0.0)
+	{
+		return;
+	}
+	vscale(v, 1.0 / len);
+}
+
+void vadd(Span<f64> out, ConstSpan<f64> a, ConstSpan<f64> b)
+{
+	for (i32 i = 0; i < out.Length; i++)
+	{
+		out[i] = a[i] + b[i];
+	}
+}
+
+void vsub(Span<f64> out, ConstSpan<f64> a, ConstSpan<f64> b)
+{
+	for (i32 i = 0; i < out.Length; i++)
+	{
+		out[i] = a[i] - b[i];
+	}
+}
+
+// ---- 3-vectors ----
+
+// The cross product is only defined at three dimensions, so it is written at that size.
+f64[3] cross3(ConstSpan<f64> a, ConstSpan<f64> b)
+{
+	f64[3] out;
+	out[0] = a[1] * b[2] - a[2] * b[1];
+	out[1] = a[2] * b[0] - a[0] * b[2];
+	out[2] = a[0] * b[1] - a[1] * b[0];
+	return out;
+}
+
+// Reflect d about the unit normal n: d - 2 (d . n) n.
+f64[3] reflect3(ConstSpan<f64> d, ConstSpan<f64> n)
+{
+	const f64 k = 2.0 * dot<f64>(d, n);
+	f64[3] out;
+	for (i32 i = 0; i < 3; i++)
+	{
+		out[i] = d[i] - k * n[i];
+	}
+	return out;
+}
+
+// ---- matrices ----
+
+f64[3,3] identity3()
+{
+	f64[3,3] m;
+	for (i32 i = 0; i < 3; i++)
+	{
+		m[i,i] = 1.0;
+	}
+	return m;
+}
+
+f64[3,3] transpose3(const f64[3,3] m)
+{
+	f64[3,3] out;
+	for (i32 r = 0; r < 3; r++)
+	{
+		for (i32 c = 0; c < 3; c++)
+		{
+			out[c,r] = m[r,c];
+		}
+	}
+	return out;
+}
+
+// The ordinary row-by-column product.
+f64[3,3] matmul3(const f64[3,3] a, const f64[3,3] b)
+{
+	f64[3,3] out;
+	for (i32 r = 0; r < 3; r++)
+	{
+		for (i32 c = 0; c < 3; c++)
+		{
+			f64 total = 0.0;
+			for (i32 k = 0; k < 3; k++)
+			{
+				total = total + a[r,k] * b[k,c];
+			}
+			out[r,c] = total;
+		}
+	}
+	return out;
+}
+
+// A 3x3 applied to a 3-vector.
+f64[3] matvec3(const f64[3,3] m, ConstSpan<f64> v)
+{
+	f64[3] out;
+	for (i32 r = 0; r < 3; r++)
+	{
+		f64 total = 0.0;
+		for (i32 c = 0; c < 3; c++)
+		{
+			total = total + m[r,c] * v[c];
+		}
+		out[r] = total;
+	}
+	return out;
+}
+
+f64 det2(const f64[2,2] m)
+{
+	return m[0,0] * m[1,1] - m[0,1] * m[1,0];
+}
+
+// Cofactor expansion along the first row.
+f64 det3(const f64[3,3] m)
+{
+	const f64 a = m[0,0] * (m[1,1] * m[2,2] - m[1,2] * m[2,1]);
+	const f64 b = m[0,1] * (m[1,0] * m[2,2] - m[1,2] * m[2,0]);
+	const f64 c = m[0,2] * (m[1,0] * m[2,1] - m[1,1] * m[2,0]);
+	return a - b + c;
+}
+
+// The sum down the diagonal.
+f64 trace3(const f64[3,3] m)
+{
+	return m[0,0] + m[1,1] + m[2,2];
+}
+
+// The inverse via the adjugate; a singular matrix comes back as all zeros, so check det3 first.
+f64[3,3] inverse3(const f64[3,3] m)
+{
+	f64[3,3] out;
+	const f64 d = det3(m);
+	if (d == 0.0)
+	{
+		return out;
+	}
+
+	const f64 inv = 1.0 / d;
+	out[0,0] = (m[1,1] * m[2,2] - m[1,2] * m[2,1]) * inv;
+	out[0,1] = (m[0,2] * m[2,1] - m[0,1] * m[2,2]) * inv;
+	out[0,2] = (m[0,1] * m[1,2] - m[0,2] * m[1,1]) * inv;
+	out[1,0] = (m[1,2] * m[2,0] - m[1,0] * m[2,2]) * inv;
+	out[1,1] = (m[0,0] * m[2,2] - m[0,2] * m[2,0]) * inv;
+	out[1,2] = (m[0,2] * m[1,0] - m[0,0] * m[1,2]) * inv;
+	out[2,0] = (m[1,0] * m[2,1] - m[1,1] * m[2,0]) * inv;
+	out[2,1] = (m[0,1] * m[2,0] - m[0,0] * m[2,1]) * inv;
+	out[2,2] = (m[0,0] * m[1,1] - m[0,1] * m[1,0]) * inv;
+	return out;
+}
+
+// ---- quaternions: f64[4] in (x, y, z, w) order, w last, as graphics usually writes them ----
+
+f64[4] quat_identity()
+{
+	f64[4] q;
+	q[3] = 1.0;
+	return q;
+}
+
+// Hamilton product: the rotation b followed by the rotation a.
+f64[4] quat_mul(ConstSpan<f64> a, ConstSpan<f64> b)
+{
+	f64[4] out;
+	out[0] = a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1];
+	out[1] = a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0];
+	out[2] = a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3];
+	out[3] = a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2];
+	return out;
+}
+
+// The inverse rotation, for a unit quaternion: negate the vector part.
+f64[4] quat_conjugate(ConstSpan<f64> q)
+{
+	f64[4] out;
+	out[0] = 0.0 - q[0];
+	out[1] = 0.0 - q[1];
+	out[2] = 0.0 - q[2];
+	out[3] = q[3];
+	return out;
+}
+
+// A rotation of `angle` radians about a unit axis.
+f64[4] quat_from_axis(ConstSpan<f64> axis, const f64 angle)
+{
+	const f64 half = angle * 0.5;
+	const f64 s = sin<f64>(half);
+	f64[4] out;
+	out[0] = axis[0] * s;
+	out[1] = axis[1] * s;
+	out[2] = axis[2] * s;
+	out[3] = cos<f64>(half);
+	return out;
+}
+
+// Apply a unit quaternion to a 3-vector: v + 2w(q x v) + 2(q x (q x v)), which avoids building a matrix.
+f64[3] quat_rotate(ConstSpan<f64> q, ConstSpan<f64> v)
+{
+	f64[] u = [q[0], q[1], q[2]]:f64;
+	f64[3] uv = cross3(u, v);
+	f64[3] uuv = cross3(u, uv);
+
+	f64[3] out;
+	for (i32 i = 0; i < 3; i++)
+	{
+		out[i] = v[i] + 2.0 * (q[3] * uv[i] + uuv[i]);
+	}
+	return out;
+}
+
+// ---- self-test ----------------------------------------------------------------------------
+// Exact in binary floating point by construction, except `vdistance`, which goes through a square root.
+#build bool LinAlg_SelfTest()
+{
+	// --- vectors ---
+	f64[] a = [3.0, 4.0, 0.0]:f64;
+	#assert(vlength(a) == 5.0, "vlength of the 3-4-5 triangle");
+
+	f64[] b = [0.0, 0.0, 2.0]:f64;
+	#assert(fabs<f64>(vdistance(a, b) - 5.385164807134504) <= 0.000001, "vdistance");
+
+	// vadd writes through an unsized parameter, which is a view on every backend.
+	f64[3] sum;
+	vadd(sum, a, b);
+	#assert(sum[0] == 3.0 && sum[1] == 4.0 && sum[2] == 2.0, "vadd writes through its view");
+
+	//A tolerance: `vnormalize` scales by the RECIPROCAL, so 3.0 * (1.0/5.0) is an ulp off 3.0 / 5.0.
+	f64[] unit = [3.0, 4.0, 0.0]:f64;
+	vnormalize(unit);
+	#assert(fabs<f64>(unit[0] - 0.6) <= 0.000001, "vnormalize scales to a unit vector");
+	#assert(fabs<f64>(unit[1] - 0.8) <= 0.000001, "vnormalize scales to a unit vector");
+	#assert(fabs<f64>(vlength(unit) - 1.0) <= 0.000001, "a normalized vector has length one");
+
+	// A zero vector has no direction and is left alone rather than made NaN.
+	f64[3] zero;
+	vnormalize(zero);
+	#assert(zero[0] == 0.0 && !is_nan<f64>(zero[0]), "vnormalize leaves a zero vector alone");
+
+	// x cross y is z, the orientation check.
+	f64[] x = [1.0, 0.0, 0.0]:f64;
+	f64[] y = [0.0, 1.0, 0.0]:f64;
+	f64[3] c = cross3(x, y);
+	#assert(c[0] == 0.0 && c[1] == 0.0 && c[2] == 1.0, "x cross y is z");
+
+	// Reflecting a downward ray off a floor sends it upward.
+	f64[] d = [1.0, -1.0, 0.0]:f64;
+	f64[] n = [0.0, 1.0, 0.0]:f64;
+	f64[3] r = reflect3(d, n);
+	#assert(r[0] == 1.0 && r[1] == 1.0 && r[2] == 0.0, "reflect3 turns a downward ray upward");
+
+	// --- matrices ---
+	f64[,] m = [2.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 8.0]:f64[3,3];
+	#assert(det3(m) == 64.0, "det3 of a diagonal matrix is the product");
+	#assert(trace3(m) == 14.0, "trace3 is the sum of the diagonal");
+
+	f64[3,3] id = identity3();
+	#assert(det3(id) == 1.0 && trace3(id) == 3.0, "the identity has determinant one and trace three");
+
+	// m * identity is m.
+	f64[3,3] prod = matmul3(m, id);
+	#assert(prod[0,0] == 2.0 && prod[1,1] == 4.0 && prod[2,2] == 8.0, "m times the identity is m");
+
+	// Transposing swaps the off-diagonal entries.
+	f64[,] t = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]:f64[3,3];
+	f64[3,3] tt = transpose3(t);
+	#assert(tt[0,1] == 4.0 && tt[1,0] == 2.0 && tt[2,0] == 3.0, "transpose3 swaps the off-diagonal");
+
+	// A diagonal matrix scales each component.
+	f64[] v = [1.0, 1.0, 1.0]:f64;
+	f64[3] mv = matvec3(m, v);
+	#assert(mv[0] == 2.0 && mv[1] == 4.0 && mv[2] == 8.0, "matvec3 scales each component");
+
+	// m * inverse(m) is the identity.
+	f64[3,3] minv = inverse3(m);
+	f64[3,3] check = matmul3(m, minv);
+	#assert(check[0,0] == 1.0 && check[1,1] == 1.0 && check[2,2] == 1.0, "m times its inverse is the identity");
+	#assert(check[0,1] == 0.0, "m times its inverse is zero off the diagonal");
+
+	// A singular matrix has determinant zero and inverts to all zeros.
+	f64[,] singular = [1.0, 2.0, 3.0, 2.0, 4.0, 6.0, 1.0, 1.0, 1.0]:f64[3,3];
+	f64[3,3] sinv = inverse3(singular);
+	#assert(det3(singular) == 0.0, "a singular matrix has determinant zero");
+	#assert(sinv[0,0] == 0.0 && sinv[2,2] == 0.0, "a singular matrix inverts to all zeros");
+
+	#assert(det2([3.0, 0.0, 0.0, 5.0]:f64[2,2]) == 15.0, "det2");
+
+	// --- quaternions: a tolerance, these coming through sin/cos, which a host may round differently ---
+	f64[] zaxis = [0.0, 0.0, 1.0]:f64;
+	f64[4] rot = quat_from_axis(zaxis, PI * 0.5);
+	f64[] xaxis = [1.0, 0.0, 0.0]:f64;
+
+	// A quarter turn about +z takes +x to +y.
+	f64[3] turned = quat_rotate(rot, xaxis);
+	#assert(approx(turned[0], 0.0, 1e-9) && approx(turned[1], 1.0, 1e-9) && approx(turned[2], 0.0, 1e-9),
+		"a quarter turn about z takes x to y");
+
+	// Rotating then un-rotating is the identity.
+	f64[3] back = quat_rotate(quat_conjugate(rot), turned);
+	#assert(approx(back[0], 1.0, 1e-9) && approx(back[1], 0.0, 1e-9) && approx(back[2], 0.0, 1e-9),
+		"the conjugate undoes the rotation");
+
+	// The identity quaternion changes nothing; `qid`, not `id`, the 3x3 identity having that name.
+	f64[4] qid = quat_identity();
+	f64[3] same = quat_rotate(quat_mul(qid, qid), xaxis);
+	#assert(same[0] == 1.0 && same[1] == 0.0 && same[2] == 0.0, "composing identity quaternions changes nothing");
+
+	return true;
+}
+
+#test LinAlg_SelfTest "LinAlg vectors and 3x3 matrices"

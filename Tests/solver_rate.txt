@@ -1,0 +1,22 @@
+cycle 0
+  fast at 0
+  also at 0
+  third at 0
+cycle 1
+  fast at 10000000
+  also at 10000000
+  offset at 10000000
+cycle 2
+  fast at 20000000
+  also at 20000000
+cycle 3
+  fast at 30000000
+  also at 30000000
+  third at 30000000
+cycle 4
+  fast at 40000000
+  also at 40000000
+  offset at 40000000
+cycle 5
+  fast at 50000000
+  also at 50000000

@@ -1,0 +1,15 @@
+// `#create` refuses an argument its template does not declare, as `#block` does.
+void Counter(#param str name, #param i32 step = 1, #state i32 n, #output i32 out @ "out")
+{
+	n = n + step;
+	out = n;
+}
+
+i32 main()
+{
+	#run
+	{
+		Function up = #create Counter(name = "up", stride = 5);
+	}
+	return 0;
+}

@@ -1,0 +1,27 @@
+// A block that declares #init but reaches no solver: nothing would ever run its startup.
+void Opener(#param str name, #state i32 fd, #output i32 handle)
+{
+	#init
+	{
+		fd = 7;
+		return true;
+	}
+
+	fd = fd + 1;
+	handle = fd;
+}
+
+i32 main()
+{
+	i32 fd = 0;
+	i32 handle = 0;
+
+	#run
+	{
+		Function op = #create Opener(name = "op");
+		#insert { ${op}(fd, handle); }
+	}
+
+	WriteLine("handle = " + to_str(handle));
+	return 0;
+}

@@ -1,0 +1,15 @@
+// A struct field may hold a view, but only of storage that outlives the store.
+struct Holder
+{
+	Span<i32> xs;
+}
+
+i32 main()
+{
+	i32[4] local;
+	local[0] = 1;
+
+	Holder h = Holder{ xs = span_slice<i32>(local, 0:u32, 2:u32) };
+
+	return h.xs[0];
+}

@@ -1,0 +1,32 @@
+//A parameter, local or loop variable named like a file-scope constant hides it, as any nearer name does.
+const i32 a = 7;
+const i32 n = 4;
+
+i32 param(i32 a)
+{
+	return a + 1;
+}
+
+i32 local()
+{
+	i32 a = 2;
+	a = a * 5;
+	return a;
+}
+
+//The loop's n ends with the loop, so the n after it is the constant again.
+i32 loop()
+{
+	i32 sum = a;
+	for (i32 n = 0; n < 3; n++)
+	{
+		sum = sum + n;
+	}
+	return sum + n;
+}
+
+i32 main()
+{
+	WriteLine(to_str(param(2)) + " " + to_str(local()) + " " + to_str(loop()) + " " + to_str(a));
+	return 0;
+}
