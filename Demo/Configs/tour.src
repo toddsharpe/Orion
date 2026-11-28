@@ -1,0 +1,13 @@
+//The channel list tour.src pulls in with `#src`: run during the compile, frozen into the program as an array.
+#using "Lib/types.src"
+
+// Channels named by index, each in counts, so the caller sees a runtime shape with no Type in it.
+#build List<Channel> tour_channels(i32 count)
+{
+	List<Channel> out = List::New<Channel>();
+	for (i32 k = 0; k < count; k++)
+	{
+		out.Add(Channel{ name = $"ch{k}", units = "counts" });
+	}
+	return out;
+}
